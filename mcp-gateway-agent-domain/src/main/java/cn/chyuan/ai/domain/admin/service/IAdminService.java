@@ -1,0 +1,49 @@
+package cn.chyuan.ai.domain.admin.service;
+
+import cn.chyuan.ai.domain.admin.model.entity.GatewayConfigEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayConfigPageEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayConfigQueryEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayProtocolConfigEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayProtocolPageEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayProtocolQueryEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayToolConfigEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayToolPageEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayToolQueryEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayAuthConfigEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayAuthPageEntity;
+import cn.chyuan.ai.domain.admin.model.entity.GatewayAuthQueryEntity;
+
+import java.util.List;
+
+/**
+ * @author xiaofuge bugstack.cn @小傅哥
+ * 2026/3/26
+ */
+public interface IAdminService {
+
+    List<GatewayConfigEntity> queryGatewayConfigList();
+
+    GatewayConfigPageEntity queryGatewayConfigPage(GatewayConfigQueryEntity queryEntity);
+
+    List<GatewayToolConfigEntity> queryGatewayToolList();
+
+    GatewayToolPageEntity queryGatewayToolPage(GatewayToolQueryEntity queryEntity);
+
+    List<GatewayToolConfigEntity> queryGatewayToolListByGatewayId(String gatewayId);
+
+    List<GatewayProtocolConfigEntity> queryGatewayProtocolList();
+
+    GatewayProtocolPageEntity queryGatewayProtocolPage(GatewayProtocolQueryEntity queryEntity);
+
+    List<GatewayProtocolConfigEntity> queryGatewayProtocolListByGatewayId(String gatewayId);
+
+    List<GatewayAuthConfigEntity> queryGatewayAuthList();
+
+    GatewayAuthPageEntity queryGatewayAuthPage(GatewayAuthQueryEntity queryEntity);
+
+    /**
+     * 根据网关ID查询该网关下的认证配置列表
+     */
+    List<GatewayAuthConfigEntity> queryGatewayAuthListByGatewayId(String gatewayId);
+
+}

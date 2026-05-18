@@ -7,8 +7,8 @@ import java.util.List;
 /**
  * 协议配置
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/30 20:24
+ * @author chyuan
+ *         2026/1/30 20:24
  */
 @Getter
 @Builder

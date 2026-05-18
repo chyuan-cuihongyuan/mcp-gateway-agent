@@ -1,7 +1,7 @@
 package cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.factory;
 
 import cn.chyuan.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.TooMcpCreateService;
+import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.LocalToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.SSEToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.StdioToolMcpCreateService;
@@ -10,7 +10,7 @@ import cn.chyuan.ai.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 @Slf4j
 @Service
@@ -25,7 +25,7 @@ public class DefaultMcpClientFactory {
     @Resource
     private StdioToolMcpCreateService stdioToolMcpCreateService;
 
-    public TooMcpCreateService getTooMcpCreateService(AiAgentConfigTableVO.Module.ChatModel.ToolMcp toolMcp) {
+    public ToolMcpCreateService getToolMcpCreateService(AiAgentConfigTableVO.Module.ChatModel.ToolMcp toolMcp) {
         if (null != toolMcp.getLocal()) return localToolMcpCreateService;
         if (null != toolMcp.getSse()) return sseToolMcpCreateService;
         if (null != toolMcp.getStdio()) return stdioToolMcpCreateService;

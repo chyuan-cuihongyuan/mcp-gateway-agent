@@ -10,17 +10,17 @@ ai:
             agent-desc: 单一智能体
           module:
             ai-api:
-              base-url: https://apis.itedus.cn
-              api-key: sk-REDACTED
+              base-url: ${LLM_BASE_URL:https://apis.itedus.cn}
+              api-key: ${LLM_API_KEY:changeme}
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:
-              model: gpt-4.1
+              model: ${LLM_MODEL:gpt-4.1}
               tool-mcp-list:
                 - sse:
                     name: baidu-search
                     base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
-                    sse-endpoint: sse?api_key=bce-v3/ALTAK-WjK8NIh3txZo7rXXEjhri/e2f09d53de961bcaf2609b76c7c7a7e6d0f05da3
+                    sse-endpoint: sse?api_key=${BAIDU_MCP_API_KEY:changeme}
                     request-timeout: 500000
                 - local:
                     name: myToolCallbackProvider

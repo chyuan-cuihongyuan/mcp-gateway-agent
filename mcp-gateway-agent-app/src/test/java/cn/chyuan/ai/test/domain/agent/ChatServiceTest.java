@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.MimeTypeUtils;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.List;
 
@@ -28,7 +28,7 @@ public class ChatServiceTest {
 
     @Test
     public void test_handleMessage_01() {
-        List<String> message = chatService.handleMessage("100003", "xiaofuge", "你具备哪些skill技能");
+        List<String> message = chatService.handleMessage("100003", "xiaofuge", "你具备哪些skill技�?);
         log.info("测试结果:{}", JSON.toJSONString(message));
     }
 
@@ -43,7 +43,7 @@ public class ChatServiceTest {
                 .agentId(agentId)
                 .userId(userId)
                 .sessionId(sessionId)
-                .texts(List.of(new ChatCommandEntity.Content.Text("请识别这个图片。告诉我它是什么动物，并用一句话描述。")))
+                .texts(List.of(new ChatCommandEntity.Content.Text("请识别这个图片。告诉我它是什么动物，并用一句话描述�?)))
                 .files(List.of())
                 .inlineDatas(List.of(new ChatCommandEntity.Content.InlineData(imageResource.getContentAsByteArray(), MimeTypeUtils.IMAGE_PNG_VALUE)))
                 .build();

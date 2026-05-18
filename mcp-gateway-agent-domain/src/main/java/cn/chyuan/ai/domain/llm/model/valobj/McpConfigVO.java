@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 /**
  * mcp 配置值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 07:18
+ * @author chyuan
+ *         2026/4/8 07:18
  */
 @Getter
 @Builder

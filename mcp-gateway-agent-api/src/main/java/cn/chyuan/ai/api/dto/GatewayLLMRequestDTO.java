@@ -1,5 +1,6 @@
 package cn.chyuan.ai.api.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,8 +9,8 @@ import lombok.NoArgsConstructor;
 /**
  * 大模型请求测试
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 08:40
+ * @author chyuan
+ *         2026/4/8 08:40
  */
 @Data
 @Builder
@@ -20,11 +21,13 @@ public class GatewayLLMRequestDTO {
     /**
      * 网关ID
      */
+    @NotBlank(message = "网关ID不能为空")
     private String gatewayId;
 
     /**
      * 认证Key
      */
+    @NotBlank(message = "认证Key不能为空")
     private String authApiKey;
 
     /**

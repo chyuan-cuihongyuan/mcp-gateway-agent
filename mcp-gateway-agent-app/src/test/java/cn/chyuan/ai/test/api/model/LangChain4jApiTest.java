@@ -7,10 +7,11 @@ import lombok.extern.slf4j.Slf4j;
  * LangChain4j
  * <p>
  * 文档：<a href="https://docs.langchain4j.info/">langchain4j</a>
- * 案例：<a href="https://github.com/langchain4j/langchain4j-examples">langchain4j-examples</a>
+ * 案例：<a href=
+ * "https://github.com/langchain4j/langchain4j-examples">langchain4j-examples</a>
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/14 09:20
+ * @author chyuan
+ *         2025/12/14 09:20
  */
 @Slf4j
 public class LangChain4jApiTest {

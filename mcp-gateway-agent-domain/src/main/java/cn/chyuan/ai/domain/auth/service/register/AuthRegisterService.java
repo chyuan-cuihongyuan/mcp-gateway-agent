@@ -15,8 +15,8 @@ import java.util.UUID;
 /**
  * 认证服务注册
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/13 08:35
+ * @author chyuan
+ *         2026/3/13 08:35
  */
 @Slf4j
 @Service

@@ -5,8 +5,8 @@ import reactor.core.publisher.Flux;
 
 /**
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/13 09:07
+ * @author chyuan
+ *         2025/12/13 09:07
  */
 public interface IMcpSessionService {
 

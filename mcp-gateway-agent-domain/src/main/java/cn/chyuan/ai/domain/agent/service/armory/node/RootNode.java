@@ -8,12 +8,12 @@ import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
- * 根节点
+ * 根节�?
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/17 08:16
  */
 @Slf4j
@@ -26,13 +26,13 @@ public class RootNode extends AbstractArmorySupport {
     @Override
     protected AiAgentRegisterVO doApply(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
 
-        // 路由到下一个节点
+        // 路由到下一个节�?
         return router(requestParameter, dynamicContext);
     }
 
     @Override
     public StrategyHandler<ArmoryCommandEntity, DefaultArmoryFactory.DynamicContext, AiAgentRegisterVO> get(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
-        // 配置了下一个节点
+        // 配置了下一个节�?
         return aiApiNode;
     }
 

@@ -20,8 +20,8 @@ import java.util.Map;
 /**
  * 协议解析服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/3 07:30
+ * @author chyuan
+ *         2026/3/3 07:30
  */
 @Slf4j
 @Service
@@ -35,7 +35,8 @@ public class ProtocolAnalysis implements IProtocolAnalysis {
 
     @Override
     public List<HTTPProtocolVO> doAnalysis(AnalysisCommandEntity commandEntity) {
-        log.info("协议解析请求 endpoints:{} openApiJson:{}", JSON.toJSONString(commandEntity.getEndpoints()), commandEntity.getOpenApiJson());
+        log.info("协议解析请求 endpoints:{} openApiJson:{}", JSON.toJSONString(commandEntity.getEndpoints()),
+                commandEntity.getOpenApiJson());
 
         List<HTTPProtocolVO> list = new ArrayList<>();
         try {
@@ -45,11 +46,13 @@ public class ProtocolAnalysis implements IProtocolAnalysis {
             JSONObject schemas = root.getJSONObject("components").getJSONObject("schemas");
 
             List<String> endpoints = commandEntity.getEndpoints();
-            if (null == endpoints || endpoints.isEmpty()) return list;
+            if (null == endpoints || endpoints.isEmpty())
+                return list;
 
             for (String endpoint : endpoints) {
                 JSONObject pathItem = paths.getJSONObject(endpoint);
-                if (pathItem == null) continue;
+                if (pathItem == null)
+                    continue;
 
                 String method = detectMethod(pathItem);
                 JSONObject operation = pathItem.getJSONObject(method);
@@ -57,15 +60,18 @@ public class ProtocolAnalysis implements IProtocolAnalysis {
                 HTTPProtocolVO vo = new HTTPProtocolVO();
                 vo.setHttpUrl(baseUrl + endpoint);
                 vo.setHttpMethod(method);
-                vo.setHttpHeaders(JSON.toJSONString(new HashMap<>() {{
-                    put("Content-Type", "application/json");
-                }}));
+                vo.setHttpHeaders(JSON.toJSONString(new HashMap<>() {
+                    {
+                        put("Content-Type", "application/json");
+                    }
+                }));
                 vo.setTimeout(30000);
 
                 List<HTTPProtocolVO.ProtocolMapping> mappings = new ArrayList<>();
 
                 // 枚举策略动作处理
-                AnalysisTypeEnum.SwaggerAnalysisAction analysisAction = AnalysisTypeEnum.SwaggerAnalysisAction.get(operation);
+                AnalysisTypeEnum.SwaggerAnalysisAction analysisAction = AnalysisTypeEnum.SwaggerAnalysisAction
+                        .get(operation);
                 IProtocolAnalysisStrategy strategy = protocolAnalysisStrategyMap.get(analysisAction.getCode());
                 strategy.doAnalysis(operation, schemas, mappings);
 
@@ -74,17 +80,22 @@ public class ProtocolAnalysis implements IProtocolAnalysis {
             }
 
         } catch (Exception e) {
-            log.error("协议解析失败 endpoints:{} openApiJson:{}", JSON.toJSONString(commandEntity.getEndpoints()), commandEntity.getOpenApiJson(), e);
+            log.error("协议解析失败 endpoints:{} openApiJson:{}", JSON.toJSONString(commandEntity.getEndpoints()),
+                    commandEntity.getOpenApiJson(), e);
         }
 
         return list;
     }
 
     private String detectMethod(JSONObject pathItem) {
-        if (pathItem.containsKey("post")) return "post";
-        if (pathItem.containsKey("get")) return "get";
-        if (pathItem.containsKey("put")) return "put";
-        if (pathItem.containsKey("delete")) return "delete";
+        if (pathItem.containsKey("post"))
+            return "post";
+        if (pathItem.containsKey("get"))
+            return "get";
+        if (pathItem.containsKey("put"))
+            return "put";
+        if (pathItem.containsKey("delete"))
+            return "delete";
         return "post";
     }
 

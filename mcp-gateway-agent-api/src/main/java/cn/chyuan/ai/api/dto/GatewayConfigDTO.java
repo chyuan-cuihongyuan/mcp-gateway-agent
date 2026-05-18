@@ -10,8 +10,8 @@ import java.io.Serializable;
 /**
  * 网关配置信息 DTO
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/26
+ * @author chyuan
+ *         2026/3/26
  */
 @Data
 @Builder

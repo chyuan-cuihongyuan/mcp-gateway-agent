@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 大模型服务接口；用于网关服务测试
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 06:49
+ * @author chyuan
+ *         2026/4/8 06:49
  */
 public interface ILLMService {
 

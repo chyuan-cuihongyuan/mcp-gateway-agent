@@ -1,7 +1,7 @@
 package cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl;
 
 import cn.chyuan.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.TooMcpCreateService;
+import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -18,7 +18,7 @@ import java.time.Duration;
 
 @Slf4j
 @Service
-public class StdioToolMcpCreateService implements TooMcpCreateService {
+public class StdioToolMcpCreateService implements ToolMcpCreateService {
 
     @Override
     public ToolCallback[] buildToolCallback(AiAgentConfigTableVO.Module.ChatModel.ToolMcp toolMcp) {

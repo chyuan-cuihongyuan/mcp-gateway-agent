@@ -8,27 +8,27 @@ import lombok.Getter;
 /**
  * 协议状态枚举
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/13 08:40
+ * @author chyuan
+ *         2026/3/13 08:40
  */
 @Getter
 @AllArgsConstructor
 public enum ProtocolStatusEnum {
 
-    ENABLE(1,"启用"),
-    DISABLE(0,"禁用")
+    ENABLE(1, "启用"),
+    DISABLE(0, "禁用")
 
     ;
 
     private Integer code;
     private String info;
 
-    public static ProtocolStatusEnum getByCode(Integer code){
-        if(null == code){
+    public static ProtocolStatusEnum getByCode(Integer code) {
+        if (null == code) {
             return null;
         }
         for (ProtocolStatusEnum anEnum : ProtocolStatusEnum.values()) {
-            if(anEnum.getCode().equals(code)){
+            if (anEnum.getCode().equals(code)) {
                 return anEnum;
             }
         }

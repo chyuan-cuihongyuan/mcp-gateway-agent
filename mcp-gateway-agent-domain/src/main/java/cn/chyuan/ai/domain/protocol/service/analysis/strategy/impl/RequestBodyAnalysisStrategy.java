@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * requestBody 解析策略
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author chyuan
  */
 @Slf4j
 @Component("requestBodyAnalysis")
@@ -20,13 +20,16 @@ import java.util.List;
 public class RequestBodyAnalysisStrategy extends AbstractProtocolAnalysisStrategy {
 
     @Override
-    public void doAnalysis(JSONObject operation, JSONObject definitions, List<HTTPProtocolVO.ProtocolMapping> mappings) {
+    public void doAnalysis(JSONObject operation, JSONObject definitions,
+            List<HTTPProtocolVO.ProtocolMapping> mappings) {
         JSONObject requestBody = operation.getJSONObject("requestBody");
-        if (requestBody == null) return;
+        if (requestBody == null)
+            return;
 
         JSONObject content = requestBody.getJSONObject("content");
         JSONObject appJson = content.getJSONObject("application/json");
-        if (appJson == null) return;
+        if (appJson == null)
+            return;
 
         JSONObject schema = appJson.getJSONObject("schema");
         String ref = schema.getString("$ref");
@@ -49,7 +52,8 @@ public class RequestBodyAnalysisStrategy extends AbstractProtocolAnalysisStrateg
 
             mappings.add(rootMapping);
 
-            parseProperties(rootName, reqSchema.getJSONObject("properties"), reqSchema.getJSONArray("required"), definitions, mappings);
+            parseProperties(rootName, reqSchema.getJSONObject("properties"), reqSchema.getJSONArray("required"),
+                    definitions, mappings);
         }
     }
 

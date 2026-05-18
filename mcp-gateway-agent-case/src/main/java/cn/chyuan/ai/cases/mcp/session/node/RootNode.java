@@ -8,12 +8,12 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
- * 根节点
+ * 根节�?
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/13 09:10
  */
 @Slf4j

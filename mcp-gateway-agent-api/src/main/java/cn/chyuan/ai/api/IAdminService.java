@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 运营配置管理服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/24 08:00
+ * @author chyuan
+ *         2026/3/24 08:00
  */
 public interface IAdminService {
 

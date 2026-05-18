@@ -12,12 +12,12 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * 鉴权核验
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/13 09:22
  */
 @Slf4j

@@ -8,12 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * 会话消息处理
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2026/2/20 07:37
  */
 @Slf4j

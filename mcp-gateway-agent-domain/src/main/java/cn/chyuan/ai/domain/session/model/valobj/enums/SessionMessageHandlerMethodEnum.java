@@ -7,8 +7,8 @@ import lombok.Getter;
 /**
  * 请求方法枚举策略
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/20 09:00
+ * @author chyuan
+ *         2025/12/20 09:00
  */
 @Getter
 @AllArgsConstructor

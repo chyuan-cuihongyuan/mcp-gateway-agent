@@ -6,8 +6,8 @@ import org.springframework.ai.tool.ToolCallback;
 /**
  * 工具 skills 构建服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/6 08:03
+ * @author chyuan
+ *         2026/2/6 08:03
  */
 public interface ToolSkillsCreateService {
 

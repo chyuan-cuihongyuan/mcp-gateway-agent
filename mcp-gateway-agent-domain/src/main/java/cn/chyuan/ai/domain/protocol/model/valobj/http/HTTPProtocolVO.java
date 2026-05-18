@@ -7,8 +7,8 @@ import java.util.List;
 /**
  * HTTP 协议对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/27 08:00
+ * @author chyuan
+ *         2026/2/27 08:00
  */
 @Data
 public class HTTPProtocolVO {

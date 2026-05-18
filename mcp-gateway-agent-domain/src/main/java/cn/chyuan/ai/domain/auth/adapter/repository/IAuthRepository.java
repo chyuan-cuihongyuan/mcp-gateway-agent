@@ -7,8 +7,8 @@ import cn.chyuan.ai.domain.auth.model.valobj.enums.AuthStatusEnum;
 /**
  * 鉴权仓储服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:57
+ * @author chyuan
+ *         2026/2/22 10:57
  */
 public interface IAuthRepository {
 

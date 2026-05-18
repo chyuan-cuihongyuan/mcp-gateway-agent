@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 /**
  * 大模型应答结果
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 08:53
+ * @author chyuan
+ *         2026/4/8 08:53
  */
 @Data
 @Builder

@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * 会话管理服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/2 07:53
+ * @author chyuan
+ *         2025/12/2 07:53
  */
 @Slf4j
 @Service
@@ -36,7 +36,7 @@ public class SessionManagementService implements ISessionManagementService {
     private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor();
 
     /**
-     * 活跃回话存储器，key->sessionId，ConcurrentHashMap 确保线程安全
+     * 活跃会话存储器，key->sessionId，ConcurrentHashMap 确保线程安全
      */
     private final Map<String, SessionConfigVO> activeSessions = new ConcurrentHashMap<>();
 
@@ -77,7 +77,8 @@ public class SessionManagementService implements ISessionManagementService {
     public void removeSession(String sessionId) {
         log.info("删除会话配置 sessionId:{}", sessionId);
         SessionConfigVO sessionConfigVO = activeSessions.remove(sessionId);
-        if (null == sessionConfigVO) return;
+        if (null == sessionConfigVO)
+            return;
 
         sessionConfigVO.markInactive();
 

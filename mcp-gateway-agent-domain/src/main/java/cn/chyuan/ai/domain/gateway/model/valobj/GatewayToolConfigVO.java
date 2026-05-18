@@ -5,8 +5,8 @@ import lombok.*;
 /**
  * 网关工具配置值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 08:07
+ * @author chyuan
+ *         2026/3/21 08:07
  */
 @Getter
 @Builder

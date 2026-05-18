@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 /**
  * 网关配置值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 08:06
+ * @author chyuan
+ *         2026/3/21 08:06
  */
 @Getter
 @Builder

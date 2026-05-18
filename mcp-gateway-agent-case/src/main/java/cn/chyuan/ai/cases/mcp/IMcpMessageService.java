@@ -5,8 +5,8 @@ import org.springframework.http.ResponseEntity;
 
 /**
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/13 09:08
+ * @author chyuan
+ *         2025/12/13 09:08
  */
 public interface IMcpMessageService {
 

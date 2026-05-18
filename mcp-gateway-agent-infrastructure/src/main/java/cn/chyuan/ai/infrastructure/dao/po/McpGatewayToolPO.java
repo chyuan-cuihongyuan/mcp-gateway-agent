@@ -11,8 +11,8 @@ import java.util.Date;
 /**
  * MCP网关工具表
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/1 17:24
+ * @author chyuan
+ *         2026/2/1 17:24
  */
 @Data
 @Builder

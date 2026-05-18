@@ -16,8 +16,8 @@ import cn.chyuan.ai.domain.admin.model.entity.GatewayAuthQueryEntity;
 import java.util.List;
 
 /**
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/26
+ * @author chyuan
+ *         2026/3/26
  */
 public interface IAdminService {
 

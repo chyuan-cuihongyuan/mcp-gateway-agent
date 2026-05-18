@@ -8,31 +8,34 @@ import org.springframework.ai.openai.api.OpenAiApi;
 
 /**
  * Spring AI Test
- * 文档：<a href="https://docs.spring.io/spring-ai/reference/1.0/api/advisors.html">spring ai</a>
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/14 09:15
+ * 文档：<a href=
+ * "https://docs.spring.io/spring-ai/reference/1.0/api/advisors.html">spring
+ * ai</a>
+ * 
+ * @author chyuan
+ *         2025/12/14 09:15
  */
 @Slf4j
 public class SpringAiApiTest {
 
-    public static void main(String[] args) {
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl("https://apis.itedus.cn/")
-                .apiKey("sk-REDACTED")
-                .completionsPath("v1/chat/completions")
-                .embeddingsPath("v1/embeddings")
-                .build();
+        public static void main(String[] args) {
+                OpenAiApi openAiApi = OpenAiApi.builder()
+                                .baseUrl("https://apis.itedus.cn/")
+                                .apiKey("sk-REDACTED")
+                                .completionsPath("v1/chat/completions")
+                                .embeddingsPath("v1/embeddings")
+                                .build();
 
-        ChatModel chatModel = OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder()
-                        .model("gpt-4.1")
-                        .build())
-                .build();
+                ChatModel chatModel = OpenAiChatModel.builder()
+                                .openAiApi(openAiApi)
+                                .defaultOptions(OpenAiChatOptions.builder()
+                                                .model("gpt-4.1")
+                                                .build())
+                                .build();
 
-        String call = chatModel.call("hi 你好哇!");
+                String call = chatModel.call("hi 你好哇!");
 
-        log.info("测试结果:{}", call);
-    }
+                log.info("测试结果:{}", call);
+        }
 
 }

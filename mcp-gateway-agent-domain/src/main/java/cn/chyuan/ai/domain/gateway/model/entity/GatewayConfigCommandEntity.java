@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 /**
  * 网关配置实体
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 08:05
+ * @author chyuan
+ *         2026/3/21 08:05
  */
 @Data
 @Builder
@@ -21,7 +21,8 @@ public class GatewayConfigCommandEntity {
 
     private GatewayConfigVO gatewayConfigVO;
 
-    public static GatewayConfigCommandEntity buildUpdateGatewayAuthStatusVO(String gatewayId, GatewayEnum.GatewayAuthStatusEnum auth) {
+    public static GatewayConfigCommandEntity buildUpdateGatewayAuthStatusVO(String gatewayId,
+            GatewayEnum.GatewayAuthStatusEnum auth) {
         return GatewayConfigCommandEntity.builder()
                 .gatewayConfigVO(GatewayConfigVO.builder()
                         .gatewayId(gatewayId)

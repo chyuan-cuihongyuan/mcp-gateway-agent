@@ -11,8 +11,8 @@ import java.util.List;
 /**
  * 解析命令实体
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/3 07:31
+ * @author chyuan
+ *         2026/3/3 07:31
  */
 @Data
 @Builder

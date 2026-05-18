@@ -60,6 +60,7 @@
         SELECT id, gateway_id, gateway_name, gateway_desc, version, auth, status, create_time, update_time
         FROM mcp_gateway
         ORDER BY id DESC
+        LIMIT 1000
     </select>
 
     <select id="queryMcpGatewayByGatewayId" parameterType="java.lang.String" resultMap="McpGatewayMap">

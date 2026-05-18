@@ -20,20 +20,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 大模型服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 07:03
+ * @author chyuan
+ *         2026/4/8 07:03
  */
 @Slf4j
 @Service
 public class LLMService implements ILLMService {
 
-    private final Map<String, ChatModel> chatModelMap = new HashMap<>();
+    private final Map<String, ChatModel> chatModelMap = new ConcurrentHashMap<>();
 
     @Resource
     private OpenAiApi openAiApi;
@@ -43,7 +43,8 @@ public class LLMService implements ILLMService {
 
     @Override
     public void buildChatModel(BuildChatModelCommandEntity commandEntity) {
-        log.info("构建对话模型 gatewayId:{} mcp:{}", commandEntity.getGatewayId(), JSON.toJSONString(commandEntity.getMcpConfigVO()));
+        log.info("构建对话模型 gatewayId:{} mcp:{}", commandEntity.getGatewayId(),
+                JSON.toJSONString(commandEntity.getMcpConfigVO()));
 
         // mcp 配置
         McpConfigVO mcpConfigVO = commandEntity.getMcpConfigVO();

@@ -11,12 +11,12 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * MCP 会话服务工厂
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/13 09:09
  */
 @Service

@@ -5,25 +5,28 @@ import cn.chyuan.ai.domain.session.model.valobj.SessionConfigVO;
 /**
  * 会话管理服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/2 07:51
+ * @author chyuan
+ *         2025/12/2 07:51
  */
 public interface ISessionManagementService {
 
     /**
-     * 创建回话
+     * 创建会话
+     * 
      * @return 会话配置
      */
     SessionConfigVO createSession(String gatewayId, String apiKey);
 
     /**
-     * 删除回话
+     * 删除会话
+     * 
      * @param sessionId 会话ID
      */
     void removeSession(String sessionId);
 
     /**
      * 获取会话
+     * 
      * @param sessionId 会话ID
      * @return 会话配置
      */

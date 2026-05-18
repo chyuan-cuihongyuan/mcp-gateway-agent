@@ -15,8 +15,9 @@ import java.util.List;
 
 /**
  * Spring AI 补丁
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/9 08:17
+ * 
+ * @author chyuan
+ *         2026/1/9 08:17
  */
 public class MyMessageConverter extends MessageConverter {
 
@@ -37,8 +38,8 @@ public class MyMessageConverter extends MessageConverter {
                         try {
                             MimeType mimeType = MimeType.valueOf(blob.mimeType().get());
                             // Create Media object from inline data using ByteArrayResource
-                            org.springframework.core.io.ByteArrayResource resource =
-                                    new org.springframework.core.io.ByteArrayResource(blob.data().get());
+                            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(
+                                    blob.data().get());
                             mediaList.add(new Media(mimeType, resource));
                         } catch (Exception e) {
                             // Log warning but continue processing other parts

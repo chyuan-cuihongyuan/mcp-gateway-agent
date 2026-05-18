@@ -8,8 +8,8 @@ import reactor.core.publisher.Mono;
 /**
  * MCP 网关服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/13 08:53
+ * @author chyuan
+ *         2025/12/13 08:53
  */
 public interface IMcpGatewayService {
 

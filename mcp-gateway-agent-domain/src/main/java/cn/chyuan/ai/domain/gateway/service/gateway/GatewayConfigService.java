@@ -10,8 +10,8 @@ import org.springframework.stereotype.Service;
 /**
  * 网关配置服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 08:01
+ * @author chyuan
+ *         2026/3/21 08:01
  */
 @Slf4j
 @Service

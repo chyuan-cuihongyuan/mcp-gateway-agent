@@ -16,7 +16,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
@@ -24,17 +23,17 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 /**
  * MCP 网关服务接口管理
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/13 08:54
  */
 @Slf4j
 @RestController
-@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
+@CrossOrigin(origins = {"${cors.allowed-origins:http://localhost:3000}"}, allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 @RequestMapping("/")
 public class McpGatewayController implements IMcpGatewayService {
 
@@ -45,7 +44,7 @@ public class McpGatewayController implements IMcpGatewayService {
     private IMcpMessageService mcpMessageService;
 
     /**
-     * 处理 sse 连接，创建会话
+     * 处理 sse 连接，创建会�?
      * <br/>
      * <a href="http://localhost:8777/api-gateway/gateway_001/mcp/sse">http://localhost:8777/api-gateway/gateway_001/mcp/sse</a>
      * <br/>
@@ -82,7 +81,7 @@ public class McpGatewayController implements IMcpGatewayService {
     }
 
     /**
-     * 处理 sse 消息，响应会话
+     * 处理 sse 消息，响应会�?
      *
      * @param gatewayId   网关ID
      * @param sessionId   会话ID

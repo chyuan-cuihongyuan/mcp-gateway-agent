@@ -63,6 +63,7 @@
         SELECT id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
         FROM mcp_protocol_http
         ORDER BY id DESC
+        LIMIT 1000
     </select>
 
     <select id="queryMcpProtocolHttpByProtocolId" parameterType="java.lang.Long" resultMap="McpProtocolRegistryMap">

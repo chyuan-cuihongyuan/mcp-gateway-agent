@@ -1,18 +1,18 @@
 package cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl;
 
 import cn.chyuan.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.TooMcpCreateService;
+import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 @Slf4j
 @Service
-public class LocalToolMcpCreateService  implements TooMcpCreateService {
+public class LocalToolMcpCreateService  implements ToolMcpCreateService {
 
     @Resource
     protected ApplicationContext applicationContext;

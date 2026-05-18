@@ -7,23 +7,25 @@ import cn.chyuan.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
 import cn.chyuan.ai.domain.agent.service.IChatService;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.types.exception.AppException;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/20 08:23
+ * @author chyuan
+ *         2026/1/20 08:23
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = {
+        "${cors.allowed-origins:http://localhost:3000}" }, allowCredentials = "true", allowedHeaders = "*")
 public class AgentServiceController implements IAgentService {
 
     @Resource
@@ -68,7 +70,7 @@ public class AgentServiceController implements IAgentService {
 
     @RequestMapping(value = "create_session", method = RequestMethod.POST)
     @Override
-    public Response<CreateSessionResponseDTO> createSession(@RequestBody CreateSessionRequestDTO requestDTO) {
+    public Response<CreateSessionResponseDTO> createSession(@Valid @RequestBody CreateSessionRequestDTO requestDTO) {
         try {
             log.info("创建会话 agentId:{} userId:{}", requestDTO.getAgentId(), requestDTO.getUserId());
             String sessionId = chatService.createSession(requestDTO.getAgentId(), requestDTO.getUserId());
@@ -82,7 +84,7 @@ public class AgentServiceController implements IAgentService {
                     .data(responseDTO)
                     .build();
         } catch (AppException e) {
-            log.error("查询智能体配置列表异常", e);
+            log.error("创建会话异常", e);
             return Response.<CreateSessionResponseDTO>builder()
                     .code(e.getCode())
                     .info(e.getInfo())
@@ -97,7 +99,8 @@ public class AgentServiceController implements IAgentService {
     }
 
     @RequestMapping(value = "create_session", method = RequestMethod.GET)
-    public Response<CreateSessionResponseDTO> createSession(@RequestParam("agentId") String agentId, @RequestParam("userId") String userId) {
+    public Response<CreateSessionResponseDTO> createSession(@RequestParam("agentId") String agentId,
+            @RequestParam("userId") String userId) {
         CreateSessionRequestDTO requestDTO = new CreateSessionRequestDTO();
         requestDTO.setAgentId(agentId);
         requestDTO.setUserId(userId);
@@ -106,7 +109,7 @@ public class AgentServiceController implements IAgentService {
 
     @RequestMapping(value = "chat", method = RequestMethod.POST)
     @Override
-    public Response<ChatResponseDTO> chat(@RequestBody ChatRequestDTO requestDTO) {
+    public Response<ChatResponseDTO> chat(@Valid @RequestBody ChatRequestDTO requestDTO) {
         try {
             log.info("智能体对话 agentId:{} userId:{}", requestDTO.getAgentId(), requestDTO.getUserId());
             String sessionId = requestDTO.getSessionId();
@@ -114,7 +117,8 @@ public class AgentServiceController implements IAgentService {
                 sessionId = chatService.createSession(requestDTO.getAgentId(), requestDTO.getUserId());
             }
 
-            List<String> messages = chatService.handleMessage(requestDTO.getAgentId(), requestDTO.getUserId(), sessionId, requestDTO.getMessage());
+            List<String> messages = chatService.handleMessage(requestDTO.getAgentId(), requestDTO.getUserId(),
+                    sessionId, requestDTO.getMessage());
 
             ChatResponseDTO responseDTO = new ChatResponseDTO();
             responseDTO.setContent(String.join("\n", messages));
@@ -131,7 +135,7 @@ public class AgentServiceController implements IAgentService {
                     .info(e.getInfo())
                     .build();
         } catch (Exception e) {
-            log.error("智能体对话败 agentId:{} userId:{}", requestDTO.getAgentId(), requestDTO.getUserId(), e);
+            log.error("智能体对话失败 agentId:{} userId:{}", requestDTO.getAgentId(), requestDTO.getUserId(), e);
             return Response.<ChatResponseDTO>builder()
                     .code(ResponseCode.UN_ERROR.getCode())
                     .info(ResponseCode.UN_ERROR.getInfo())
@@ -141,11 +145,14 @@ public class AgentServiceController implements IAgentService {
 
     @RequestMapping(value = "chat_stream", method = RequestMethod.POST)
     @Override
-    public ResponseBodyEmitter chatStream(@RequestBody ChatRequestDTO requestDTO) {
+    public ResponseBodyEmitter chatStream(@Valid @RequestBody ChatRequestDTO requestDTO) {
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(3 * 60 * 1000L);
         try {
-            log.info("流式对话 agentId:{} userId:{} sessionId:{} message:{}", requestDTO.getAgentId(), requestDTO.getUserId(), requestDTO.getSessionId(), requestDTO.getMessage());
-            chatService.handleMessageStream(requestDTO.getAgentId(), requestDTO.getUserId(), requestDTO.getSessionId(), requestDTO.getMessage())
+            log.info("流式对话 agentId:{} userId:{} sessionId:{} message:{}", requestDTO.getAgentId(),
+                    requestDTO.getUserId(), requestDTO.getSessionId(), requestDTO.getMessage());
+            chatService
+                    .handleMessageStream(requestDTO.getAgentId(), requestDTO.getUserId(), requestDTO.getSessionId(),
+                            requestDTO.getMessage())
                     .subscribe(
                             event -> {
                                 try {
@@ -156,8 +163,7 @@ public class AgentServiceController implements IAgentService {
                                 }
                             },
                             emitter::completeWithError,
-                            emitter::complete
-                    );
+                            emitter::complete);
         } catch (Exception e) {
             log.error("流式对话失败", e);
             emitter.completeWithError(e);

@@ -5,10 +5,10 @@ import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import java.io.IOException;
 
 /**
- * 回话端口
+ * 会话端口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/30 20:55
+ * @author chyuan
+ *         2026/1/30 20:55
  */
 public interface ISessionPort {
 

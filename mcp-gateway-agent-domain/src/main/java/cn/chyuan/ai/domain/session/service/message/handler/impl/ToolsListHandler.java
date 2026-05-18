@@ -17,8 +17,8 @@ import java.util.Map;
 /**
  * 返回服务器支持的工具列表
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/20 11:29
+ * @author chyuan
+ *         2025/12/20 11:29
  */
 @Slf4j
 @Service("toolsListHandler")
@@ -37,8 +37,7 @@ public class ToolsListHandler implements IRequestHandler {
         List<McpSchemaVO.Tool> tools = buildTools(mcpToolConfigVOS);
 
         return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), Map.of(
-                "tools", tools
-        ), null);
+                "tools", tools), null);
     }
 
     private List<McpSchemaVO.Tool> buildTools(List<McpToolConfigVO> toolConfigs) {
@@ -46,7 +45,8 @@ public class ToolsListHandler implements IRequestHandler {
 
         for (McpToolConfigVO toolConfigVO : toolConfigs) {
             McpToolProtocolConfigVO mcpToolProtocolConfigVO = toolConfigVO.getMcpToolProtocolConfigVO();
-            List<McpToolProtocolConfigVO.ProtocolMapping> configs = mcpToolProtocolConfigVO.getRequestProtocolMappings();
+            List<McpToolProtocolConfigVO.ProtocolMapping> configs = mcpToolProtocolConfigVO
+                    .getRequestProtocolMappings();
 
             // 排序
             configs.sort((o1, o2) -> {
@@ -96,8 +96,7 @@ public class ToolsListHandler implements IRequestHandler {
                     required.isEmpty() ? null : required,
                     false,
                     null,
-                    null
-            );
+                    null);
 
             // 工具描述
             tools.add(new McpSchemaVO.Tool(toolConfigVO.getToolName(), toolConfigVO.getToolDescription(), inputSchema));
@@ -106,7 +105,8 @@ public class ToolsListHandler implements IRequestHandler {
         return tools;
     }
 
-    private Map<String, Object> buildProperty(McpToolProtocolConfigVO.ProtocolMapping current, Map<String, List<McpToolProtocolConfigVO.ProtocolMapping>> childrenMap) {
+    private Map<String, Object> buildProperty(McpToolProtocolConfigVO.ProtocolMapping current,
+            Map<String, List<McpToolProtocolConfigVO.ProtocolMapping>> childrenMap) {
         Map<String, Object> property = new HashMap<>();
         property.put("type", current.getMcpType());
         if (current.getMcpDesc() != null) {

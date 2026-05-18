@@ -5,8 +5,8 @@ import cn.chyuan.ai.domain.auth.model.entity.RateLimitCommandEntity;
 /**
  * 调用限制服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:17
+ * @author chyuan
+ *         2026/2/22 10:17
  */
 public interface IAuthRateLimitService {
 

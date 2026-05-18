@@ -6,8 +6,8 @@ import lombok.Getter;
 /**
  * 网关枚举；共用枚举抽取。
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 09:30
+ * @author chyuan
+ *         2026/3/21 09:30
  */
 public enum GatewayEnum {
 
@@ -30,7 +30,8 @@ public enum GatewayEnum {
         }
 
         public static GatewayStatus get(Integer code) {
-            if (code == null) return null;
+            if (code == null)
+                return null;
             for (GatewayStatus val : values()) {
                 if (val.code.equals(code)) {
                     return val;
@@ -43,8 +44,8 @@ public enum GatewayEnum {
     @Getter
     public enum GatewayAuthStatusEnum {
 
-        ENABLE(1,"启用"),
-        DISABLE(0,"禁用")
+        ENABLE(1, "启用"),
+        DISABLE(0, "禁用")
 
         ;
 
@@ -56,12 +57,12 @@ public enum GatewayEnum {
             this.info = info;
         }
 
-        public static GatewayAuthStatusEnum getByCode(Integer code){
-            if(null == code){
+        public static GatewayAuthStatusEnum getByCode(Integer code) {
+            if (null == code) {
                 return null;
             }
             for (GatewayAuthStatusEnum anEnum : GatewayAuthStatusEnum.values()) {
-                if(anEnum.code.equals(code)){
+                if (anEnum.code.equals(code)) {
                     return anEnum;
                 }
             }

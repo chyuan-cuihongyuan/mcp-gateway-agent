@@ -9,12 +9,14 @@ import java.util.List;
 /**
  * 协议解析策略抽象类
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author chyuan
  */
 public abstract class AbstractProtocolAnalysisStrategy implements IProtocolAnalysisStrategy {
 
-    protected void parseProperties(String parentMcpPath, JSONObject properties, JSONArray requiredList, JSONObject definitions, List<HTTPProtocolVO.ProtocolMapping> mappings) {
-        if (properties == null) return;
+    protected void parseProperties(String parentMcpPath, JSONObject properties, JSONArray requiredList,
+            JSONObject definitions, List<HTTPProtocolVO.ProtocolMapping> mappings) {
+        if (properties == null)
+            return;
 
         int sortOrder = 1;
 
@@ -33,8 +35,10 @@ public abstract class AbstractProtocolAnalysisStrategy implements IProtocolAnaly
                 String ref = prop.getString("$ref");
                 String refName = ref.substring(ref.lastIndexOf('/') + 1);
                 effectiveSchema = definitions.getJSONObject(refName);
-                if (type == null) type = effectiveSchema.getString("type");
-                if (description == null) description = effectiveSchema.getString("description");
+                if (type == null)
+                    type = effectiveSchema.getString("type");
+                if (description == null)
+                    description = effectiveSchema.getString("description");
             }
 
             HTTPProtocolVO.ProtocolMapping mapping = HTTPProtocolVO.ProtocolMapping.builder()
@@ -51,13 +55,15 @@ public abstract class AbstractProtocolAnalysisStrategy implements IProtocolAnaly
 
             // 如果存在下一个引用对象，则嵌套循环继续寻找
             if (effectiveSchema.containsKey("properties")) {
-                parseProperties(currentMcpPath, effectiveSchema.getJSONObject("properties"), effectiveSchema.getJSONArray("required"), definitions, mappings);
+                parseProperties(currentMcpPath, effectiveSchema.getJSONObject("properties"),
+                        effectiveSchema.getJSONArray("required"), definitions, mappings);
             }
         }
     }
 
     protected String convertType(String type) {
-        if (type == null) return "string";
+        if (type == null)
+            return "string";
         return switch (type.toLowerCase()) {
             case "string", "char", "date", "datetime" -> "string";
             case "integer", "int", "long", "double", "float", "number" -> "number";
@@ -68,7 +74,8 @@ public abstract class AbstractProtocolAnalysisStrategy implements IProtocolAnaly
     }
 
     protected String toLowerCamel(String name) {
-        if (name == null || name.isEmpty()) return name;
+        if (name == null || name.isEmpty())
+            return name;
         char[] cs = name.toCharArray();
         cs[0] = java.lang.Character.toLowerCase(cs[0]);
         return new String(cs);

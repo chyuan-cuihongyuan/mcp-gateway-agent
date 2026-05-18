@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * parameters 解析策略
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author chyuan
  */
 @Slf4j
 @Component("parametersAnalysis")
@@ -21,14 +21,17 @@ import java.util.List;
 public class ParametersAnalysisStrategy extends AbstractProtocolAnalysisStrategy {
 
     @Override
-    public void doAnalysis(JSONObject operation, JSONObject definitions, List<HTTPProtocolVO.ProtocolMapping> mappings) {
+    public void doAnalysis(JSONObject operation, JSONObject definitions,
+            List<HTTPProtocolVO.ProtocolMapping> mappings) {
         JSONArray parameters = operation.getJSONArray("parameters");
-        if (parameters == null) return;
+        if (parameters == null)
+            return;
 
         for (int i = 0; i < parameters.size(); i++) {
             JSONObject param = parameters.getJSONObject(i);
             String in = param.getString("in");
-            if (!"query".equals(in) && !"path".equals(in)) continue;
+            if (!"query".equals(in) && !"path".equals(in))
+                continue;
 
             String name = param.getString("name");
             boolean required = param.getBooleanValue("required");
@@ -42,8 +45,10 @@ public class ParametersAnalysisStrategy extends AbstractProtocolAnalysisStrategy
                 String refName = ref.substring(ref.lastIndexOf('/') + 1);
                 JSONObject reqSchema = definitions.getJSONObject(refName);
 
-                if (type == null) type = reqSchema.getString("type");
-                if (description == null) description = reqSchema.getString("description");
+                if (type == null)
+                    type = reqSchema.getString("type");
+                if (description == null)
+                    description = reqSchema.getString("description");
 
                 HTTPProtocolVO.ProtocolMapping rootMapping = HTTPProtocolVO.ProtocolMapping.builder()
                         .mappingType("request")
@@ -58,7 +63,8 @@ public class ParametersAnalysisStrategy extends AbstractProtocolAnalysisStrategy
 
                 mappings.add(rootMapping);
 
-                parseProperties(name, reqSchema.getJSONObject("properties"), reqSchema.getJSONArray("required"), definitions, mappings);
+                parseProperties(name, reqSchema.getJSONObject("properties"), reqSchema.getJSONArray("required"),
+                        definitions, mappings);
             } else {
                 HTTPProtocolVO.ProtocolMapping mapping = HTTPProtocolVO.ProtocolMapping.builder()
                         .mappingType("request")

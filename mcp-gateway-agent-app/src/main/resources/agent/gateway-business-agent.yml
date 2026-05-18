@@ -1,0 +1,52 @@
+# 网关业务智能体配置 — MCP 网关对话理解与流程编排
+# 接收来自 MCP 客户端的请求，理解意图并调用业务 Skills 完成任务
+ai:
+  agent:
+    config:
+      tables:
+        gatewayBusinessAgent:
+          app-name: gatewayBusinessAgent
+          agent:
+            agent-id: "300001"
+            agent-name: 网关业务智能体
+            agent-desc: MCP 网关对话理解与流程编排智能体，负责理解用户意图并调用业务 Skills 完成任务
+          module:
+            ai-api:
+              base-url: ${LLM_BASE_URL:https://apis.itedus.cn}
+              api-key: ${LLM_API_KEY:changeme}
+              completions-path: v1/chat/completions
+              embeddings-path: v1/embeddings
+            chat-model:
+              model: ${LLM_MODEL:gpt-4.1}
+              tool-mcp-list: []
+              tool-skills-list:
+                - type: resource
+                  path: agent/skills
+            agents:
+              - name: businessAgent
+                react-mode: true
+                description: 网关业务智能体，理解用户意图并调用对应工具完成任务
+                instruction: |
+                  你是一个网关业务智能体，负责理解用户意图并调用对应的业务工具完成任务。
+                  
+                  【核心职责】
+                  1. 理解用户的自然语言请求
+                  2. 分析需要调用哪些业务工具
+                  3. 编排工具调用顺序
+                  4. 汇总结果并返回给用户
+                  
+                  【工作流程】
+                  1. 接收用户请求
+                  2. 分析意图，确定需要调用的工具
+                  3. 按顺序调用工具获取数据
+                  4. 整理结果，以友好的方式返回给用户
+                  
+                  【注意事项】
+                  - 如果用户的问题不需要调用工具，直接回答
+                  - 如果需要调用工具，先说明要做什么，再执行
+                  - 结果要简洁明了，避免冗余信息
+                output-key: business_response
+            runner:
+              agent-name: businessAgent
+              plugin-name-list:
+                - myLogPlugin

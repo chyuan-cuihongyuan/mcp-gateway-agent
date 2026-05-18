@@ -21,8 +21,9 @@ import java.util.Objects;
 
 /**
  * Spring AI 补丁
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/9 08:20
+ * 
+ * @author chyuan
+ *         2026/1/9 08:20
  */
 public class MySpringAI extends BaseLlm {
 
@@ -35,58 +36,46 @@ public class MySpringAI extends BaseLlm {
     public MySpringAI(ChatModel chatModel) {
         super(extractModelName(chatModel));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
-        this.streamingChatModel =
-                (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
+        this.streamingChatModel = (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
     }
 
     public MySpringAI(ChatModel chatModel, String modelName) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
-        this.streamingChatModel =
-                (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
+        this.streamingChatModel = (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
     }
 
     public MySpringAI(StreamingChatModel streamingChatModel) {
         super(extractModelName(streamingChatModel));
-        this.chatModel =
-                (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
-        this.streamingChatModel =
-                Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
+        this.chatModel = (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
+        this.streamingChatModel = Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
     }
 
     public MySpringAI(StreamingChatModel streamingChatModel, String modelName) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
-        this.chatModel =
-                (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
-        this.streamingChatModel =
-                Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
+        this.chatModel = (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
+        this.streamingChatModel = Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
     }
 
     public MySpringAI(ChatModel chatModel, StreamingChatModel streamingChatModel, String modelName) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
-        this.streamingChatModel =
-                Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
+        this.streamingChatModel = Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
     }
 
     public MySpringAI(
@@ -96,26 +85,22 @@ public class MySpringAI extends BaseLlm {
             SpringAIProperties.Observability observabilityConfig) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
-        this.streamingChatModel =
-                Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
+        this.streamingChatModel = Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(
-                        Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
+        this.observabilityHandler = new SpringAIObservabilityHandler(
+                Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
     }
 
     public MySpringAI(
             ChatModel chatModel, String modelName, SpringAIProperties.Observability observabilityConfig) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
-        this.streamingChatModel =
-                (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
+        this.streamingChatModel = (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(
-                        Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
+        this.observabilityHandler = new SpringAIObservabilityHandler(
+                Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
     }
 
     public MySpringAI(
@@ -123,15 +108,12 @@ public class MySpringAI extends BaseLlm {
             String modelName,
             SpringAIProperties.Observability observabilityConfig) {
         super(Objects.requireNonNull(modelName, "model name cannot be null"));
-        this.chatModel =
-                (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
-        this.streamingChatModel =
-                Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
+        this.chatModel = (streamingChatModel instanceof ChatModel) ? (ChatModel) streamingChatModel : null;
+        this.streamingChatModel = Objects.requireNonNull(streamingChatModel, "streamingChatModel cannot be null");
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
-        this.observabilityHandler =
-                new SpringAIObservabilityHandler(
-                        Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
+        this.observabilityHandler = new SpringAIObservabilityHandler(
+                Objects.requireNonNull(observabilityConfig, "observabilityConfig cannot be null"));
     }
 
     @Override
@@ -152,8 +134,7 @@ public class MySpringAI extends BaseLlm {
     }
 
     private Flowable<LlmResponse> generateContent(LlmRequest llmRequest) {
-        SpringAIObservabilityHandler.RequestContext context =
-                observabilityHandler.startRequest(model(), "chat");
+        SpringAIObservabilityHandler.RequestContext context = observabilityHandler.startRequest(model(), "chat");
 
         try {
             Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
@@ -180,8 +161,7 @@ public class MySpringAI extends BaseLlm {
     }
 
     private Flowable<LlmResponse> generateStreamingContent(LlmRequest llmRequest) {
-        SpringAIObservabilityHandler.RequestContext context =
-                observabilityHandler.startRequest(model(), "streaming");
+        SpringAIObservabilityHandler.RequestContext context = observabilityHandler.startRequest(model(), "streaming");
 
         return Flowable.create(
                 emitter -> {
@@ -195,8 +175,8 @@ public class MySpringAI extends BaseLlm {
                                 .doOnError(
                                         error -> {
                                             observabilityHandler.recordError(context, error);
-                                            SpringAIErrorMapper.MappedError mappedError =
-                                                    SpringAIErrorMapper.mapError(error);
+                                            SpringAIErrorMapper.MappedError mappedError = SpringAIErrorMapper
+                                                    .mapError(error);
                                             emitter.onError(
                                                     new RuntimeException(mappedError.getNormalizedMessage(), error));
                                         })
@@ -204,21 +184,21 @@ public class MySpringAI extends BaseLlm {
                                         chatResponse -> {
                                             try {
                                                 // Use enhanced streaming-aware conversion
-                                                LlmResponse llmResponse =
-                                                        messageConverter.toLlmResponse(chatResponse, true);
+                                                LlmResponse llmResponse = messageConverter.toLlmResponse(chatResponse,
+                                                        true);
                                                 emitter.onNext(llmResponse);
                                             } catch (Exception e) {
                                                 observabilityHandler.recordError(context, e);
-                                                SpringAIErrorMapper.MappedError mappedError =
-                                                        SpringAIErrorMapper.mapError(e);
+                                                SpringAIErrorMapper.MappedError mappedError = SpringAIErrorMapper
+                                                        .mapError(e);
                                                 emitter.onError(
                                                         new RuntimeException(mappedError.getNormalizedMessage(), e));
                                             }
                                         },
                                         error -> {
                                             observabilityHandler.recordError(context, error);
-                                            SpringAIErrorMapper.MappedError mappedError =
-                                                    SpringAIErrorMapper.mapError(error);
+                                            SpringAIErrorMapper.MappedError mappedError = SpringAIErrorMapper
+                                                    .mapError(error);
                                             emitter.onError(
                                                     new RuntimeException(mappedError.getNormalizedMessage(), error));
                                         },
@@ -302,5 +282,5 @@ public class MySpringAI extends BaseLlm {
         }
         return "";
     }
-    
+
 }

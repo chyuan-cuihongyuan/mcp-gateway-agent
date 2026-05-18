@@ -5,7 +5,7 @@ import lombok.Data;
 /**
  * 基础分页对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author chyuan
  */
 @Data
 public class BasePagePO {

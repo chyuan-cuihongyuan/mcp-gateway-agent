@@ -20,8 +20,8 @@ import java.util.List;
 /**
  * LLM 模型对话验证case
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 07:50
+ * @author chyuan
+ *         2026/4/8 07:50
  */
 @Slf4j
 @Service

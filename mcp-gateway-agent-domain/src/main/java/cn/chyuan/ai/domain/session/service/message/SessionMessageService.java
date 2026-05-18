@@ -18,8 +18,8 @@ import static cn.chyuan.ai.types.enums.ResponseCode.METHOD_NOT_FOUND;
 /**
  * 会话消息服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/20 08:50
+ * @author chyuan
+ *         2025/12/20 08:50
  */
 @Slf4j
 @Service
@@ -39,7 +39,8 @@ public class SessionMessageService implements ISessionMessageService {
             String method = request.method();
             log.info("开始处理请求，方法: {}", method);
 
-            SessionMessageHandlerMethodEnum sessionMessageHandlerMethodEnum = SessionMessageHandlerMethodEnum.getByMethod(method);
+            SessionMessageHandlerMethodEnum sessionMessageHandlerMethodEnum = SessionMessageHandlerMethodEnum
+                    .getByMethod(method);
             if (null == sessionMessageHandlerMethodEnum) {
                 throw new AppException(METHOD_NOT_FOUND.getCode(), METHOD_NOT_FOUND.getInfo());
             }

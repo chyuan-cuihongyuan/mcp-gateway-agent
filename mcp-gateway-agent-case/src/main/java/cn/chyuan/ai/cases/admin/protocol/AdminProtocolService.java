@@ -15,8 +15,8 @@ import java.util.List;
 /**
  * 协议配置管理
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/24 08:12
+ * @author chyuan
+ *         2026/3/24 08:12
  */
 @Slf4j
 @Service

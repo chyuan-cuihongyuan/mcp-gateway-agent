@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Configuration;
 /**
  * LLM 配置
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 08:04
+ * @author chyuan
+ *         2026/4/8 08:04
  */
 @Configuration
 public class LLMConfig {

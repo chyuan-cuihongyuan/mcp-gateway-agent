@@ -42,7 +42,7 @@ public class AppException extends RuntimeException {
 
     @Override
     public String toString() {
-        return "cn.chyuan.ai.x.api.types.exception.XApiException{" +
+        return "AppException{" +
                 "code='" + code + '\'' +
                 ", info='" + info + '\'' +
                 '}';

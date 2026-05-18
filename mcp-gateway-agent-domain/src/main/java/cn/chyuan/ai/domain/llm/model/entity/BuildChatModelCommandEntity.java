@@ -10,8 +10,9 @@ import java.util.List;
 
 /**
  * 构建对话模型命令
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/4/8 07:01
+ * 
+ * @author chyuan
+ *         2026/4/8 07:01
  */
 @Data
 @Builder

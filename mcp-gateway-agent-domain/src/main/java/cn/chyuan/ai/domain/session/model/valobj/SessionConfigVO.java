@@ -13,8 +13,8 @@ import java.time.temporal.ChronoUnit;
 /**
  * 会话配置值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/2 07:57
+ * @author chyuan
+ *         2025/12/2 07:57
  */
 @Getter
 @Builder

@@ -5,8 +5,8 @@ import cn.chyuan.ai.domain.protocol.model.entity.StorageCommandEntity;
 /**
  * 协议配置管理
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/24 08:10
+ * @author chyuan
+ *         2026/3/24 08:10
  */
 public interface IAdminProtocolService {
 
@@ -16,6 +16,7 @@ public interface IAdminProtocolService {
 
     void importGatewayProtocol(cn.chyuan.ai.domain.protocol.model.entity.AnalysisCommandEntity commandEntity);
 
-    java.util.List<cn.chyuan.ai.domain.protocol.model.valobj.http.HTTPProtocolVO> analysisProtocol(cn.chyuan.ai.domain.protocol.model.entity.AnalysisCommandEntity commandEntity);
+    java.util.List<cn.chyuan.ai.domain.protocol.model.valobj.http.HTTPProtocolVO> analysisProtocol(
+            cn.chyuan.ai.domain.protocol.model.entity.AnalysisCommandEntity commandEntity);
 
 }

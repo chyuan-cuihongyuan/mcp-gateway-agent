@@ -8,8 +8,8 @@ import java.util.Map;
 /**
  * Ai Agent 智能体配置表值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/11/29 10:54
+ * @author chyuan
+ *         2025/11/29 10:54
  */
 @Data
 public class AiAgentConfigTableVO {

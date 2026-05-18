@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * 协议解析策略接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author chyuan
  */
 public interface IProtocolAnalysisStrategy {
 

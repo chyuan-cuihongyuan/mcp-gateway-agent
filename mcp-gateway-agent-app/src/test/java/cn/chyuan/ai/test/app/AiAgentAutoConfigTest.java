@@ -17,7 +17,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.MimeTypeUtils;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +67,7 @@ public class AiAgentAutoConfigTest {
                 .createSession(appName, "xiaofuge")
                 .blockingGet();
 
-        Content userMsg = Content.fromParts(Part.fromText("你具备哪些能力"));
+        Content userMsg = Content.fromParts(Part.fromText("你具备哪些能�?));
         Flowable<Event> events = runner.runAsync("xiaofuge", session.id(), userMsg);
 
         List<String> outputs = new ArrayList<>();
@@ -88,7 +88,7 @@ public class AiAgentAutoConfigTest {
                 .blockingGet();
 
         Content userMsg = Content.fromParts(
-                Part.fromText("请描述这张图片的主要内容，并说明图中物品的可能用途。"),
+                Part.fromText("请描述这张图片的主要内容，并说明图中物品的可能用途�?),
                 Part.fromBytes(resource.getContentAsByteArray(), MimeTypeUtils.IMAGE_PNG_VALUE));
 
         Flowable<Event> events = runner.runAsync("xiaofuge", session.id(), userMsg);

@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 /**
  * 解析类型枚举
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/3 07:47
+ * @author chyuan
+ *         2026/3/3 07:47
  */
 @Getter
 public enum AnalysisTypeEnum {

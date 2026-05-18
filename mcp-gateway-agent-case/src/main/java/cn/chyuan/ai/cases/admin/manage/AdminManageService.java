@@ -25,8 +25,8 @@ import java.util.List;
 /**
  * 运营管理实现
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/26
+ * @author chyuan
+ *         2026/3/26
  */
 @Slf4j
 @Service

@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 /**
  * 处理消息命令实体对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/20 07:53
+ * @author chyuan
+ *         2026/2/20 07:53
  */
 @Data
 @Builder
@@ -32,7 +32,8 @@ public class HandleMessageCommandEntity {
         this.jsonrpcMessage = McpSchemaVO.deserializeJsonRpcMessage(messageBody);
     }
 
-    public HandleMessageCommandEntity(String gatewayId, String apiKey, String sessionId, String messageBody) throws Exception {
+    public HandleMessageCommandEntity(String gatewayId, String apiKey, String sessionId, String messageBody)
+            throws Exception {
         this.gatewayId = gatewayId;
         this.apiKey = apiKey;
         this.sessionId = sessionId;

@@ -11,8 +11,8 @@ import java.util.Date;
 /**
  * 注册命令实体
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:22
+ * @author chyuan
+ *         2026/2/22 10:22
  */
 @Data
 @Builder

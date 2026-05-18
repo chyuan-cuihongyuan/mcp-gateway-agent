@@ -7,8 +7,8 @@ import lombok.*;
 /**
  * 认证状态枚举
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 11:11
+ * @author chyuan
+ *         2026/2/22 11:11
  */
 public enum AuthStatusEnum {
 
@@ -28,7 +28,8 @@ public enum AuthStatusEnum {
         private String info;
 
         public static GatewayConfig get(Integer code) {
-            if (code == null) return null;
+            if (code == null)
+                return null;
             for (GatewayConfig val : values()) {
                 if (val.code.equals(code)) {
                     return val;
@@ -51,7 +52,8 @@ public enum AuthStatusEnum {
         private String info;
 
         public static AuthConfig get(Integer code) {
-            if (code == null) return null;
+            if (code == null)
+                return null;
             for (AuthConfig val : values()) {
                 if (val.code.equals(code)) {
                     return val;

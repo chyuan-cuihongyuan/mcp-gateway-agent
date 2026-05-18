@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * http 客户端调用配置
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/30 08:34
+ * @author chyuan
+ *         2026/1/30 08:34
  */
 @Configuration
 public class HTTPClientConfig {
@@ -22,11 +22,11 @@ public class HTTPClientConfig {
     @Bean
     public OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
-                .connectionPool(new ConnectionPool(10, 5, TimeUnit.MINUTES))
+                .connectionPool(new ConnectionPool(20, 5, TimeUnit.MINUTES))
                 .retryOnConnectionFailure(true)
-                .connectTimeout(100, TimeUnit.SECONDS)
-                .readTimeout(300, TimeUnit.SECONDS)
-                .writeTimeout(300, TimeUnit.SECONDS)
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
                 .build();
     }
 

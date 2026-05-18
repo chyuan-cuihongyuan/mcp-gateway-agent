@@ -16,14 +16,14 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 默认的装配工厂
+ * 默认的装配工�?
  *
- * @author xiaofuge bugstack.cn @小傅哥
+ * @author xiaofuge bugstack.cn @小傅�?
  * 2025/12/17 08:16
  */
 @Service
@@ -44,7 +44,7 @@ public class DefaultArmoryFactory {
     }
 
     /**
-     * 定义一个上下文对象，用于各个节点串联的时候，写入数据和使用数据
+     * 定义一个上下文对象，用于各个节点串联的时候，写入数据和使用数�?
      */
     @Data
     @Builder

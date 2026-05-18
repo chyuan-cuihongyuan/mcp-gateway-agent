@@ -9,8 +9,8 @@ import java.util.List;
 /**
  * 网关仓储服务接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 07:57
+ * @author chyuan
+ *         2026/3/21 07:57
  */
 public interface IGatewayRepository {
 

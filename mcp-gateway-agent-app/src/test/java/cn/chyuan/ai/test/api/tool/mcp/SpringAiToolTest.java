@@ -20,8 +20,8 @@ import java.time.Duration;
 /**
  * Spring Ai Tool
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/14 09:51
+ * @author chyuan
+ *         2025/12/14 09:51
  */
 @Slf4j
 public class SpringAiToolTest {
@@ -56,11 +56,14 @@ public class SpringAiToolTest {
     public static McpSyncClient sseMcpClient() {
 
         // 自己申请 api_key
-        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport.builder("http://appbuilder.baidu.com")
-                .sseEndpoint("/v2/ai_search/mcp/sse?api_key=bce-v3/ALTAK-JFZXXLpfxhAutDQvJ32Ei/4492c1879b8c2f0df4612ef5b4a52df1c1fba9f7")
+        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
+                .builder("http://appbuilder.baidu.com")
+                .sseEndpoint(
+                        "/v2/ai_search/mcp/sse?api_key=bce-v3/ALTAK-JFZXXLpfxhAutDQvJ32Ei/4492c1879b8c2f0df4612ef5b4a52df1c1fba9f7")
                 .build();
 
-        McpSyncClient mcpSyncClient = McpClient.sync(sseClientTransport).requestTimeout(Duration.ofMinutes(360)).build();
+        McpSyncClient mcpSyncClient = McpClient.sync(sseClientTransport).requestTimeout(Duration.ofMinutes(360))
+                .build();
         var init_sse = mcpSyncClient.initialize();
         log.info("Tool SSE MCP Initialized {}", init_sse);
 

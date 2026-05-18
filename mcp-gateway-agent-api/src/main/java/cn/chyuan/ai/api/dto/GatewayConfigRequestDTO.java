@@ -1,5 +1,7 @@
 package cn.chyuan.ai.api.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,8 +13,8 @@ import java.util.List;
 /**
  * 网关配置请求对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/24 08:04
+ * @author chyuan
+ *         2026/3/24 08:04
  */
 public class GatewayConfigRequestDTO {
 
@@ -22,8 +24,10 @@ public class GatewayConfigRequestDTO {
     @NoArgsConstructor
     public static class GatewayConfig {
         /** 网关唯一标识 */
+        @NotBlank(message = "网关ID不能为空")
         private String gatewayId;
         /** 网关名称 */
+        @NotBlank(message = "网关名称不能为空")
         private String gatewayName;
         /** 网关描述 */
         private String gatewayDesc;
@@ -50,14 +54,17 @@ public class GatewayConfigRequestDTO {
     @NoArgsConstructor
     public static class GatewayToolConfig {
         /** 所属网关ID */
+        @NotBlank(message = "网关ID不能为空")
         private String gatewayId;
         /** 工具ID */
         private Long toolId;
         /** MCP工具名称（如：JavaSDKMCPClient_getCompanyEmployee） */
+        @NotBlank(message = "工具名称不能为空")
         private String toolName;
         /** 工具类型：function/resource */
         private String toolType;
         /** 工具描述 */
+        @NotBlank(message = "工具描述不能为空")
         private String toolDescription;
         /** 工具版本 */
         private String toolVersion;
@@ -118,10 +125,13 @@ public class GatewayConfigRequestDTO {
     @NoArgsConstructor
     public static class GatewayAuth {
         /** 网关ID */
+        @NotBlank(message = "网关ID不能为空")
         private String gatewayId;
         /** 速率限制（次/小时） */
+        @NotNull(message = "速率限制不能为空")
         private Integer rateLimit;
         /** 过期时间 */
+        @NotNull(message = "过期时间不能为空")
         private Date expireTime;
     }
 

@@ -23,8 +23,8 @@ import static cn.chyuan.ai.types.enums.ResponseCode.DB_UPDATE_FAIL;
 /**
  * 网关仓储服务实现
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/21 13:10
+ * @author chyuan
+ *         2026/3/21 13:10
  */
 @Slf4j
 @Repository
@@ -45,8 +45,10 @@ public class GatewayRepository implements IGatewayRepository {
         mcpGatewayPO.setGatewayName(gatewayConfigVO.getGatewayName());
         mcpGatewayPO.setGatewayDesc(gatewayConfigVO.getGatewayDesc());
         mcpGatewayPO.setVersion(gatewayConfigVO.getVersion());
-        mcpGatewayPO.setAuth(null != gatewayConfigVO.getAuth() ? gatewayConfigVO.getAuth().getCode() : GatewayEnum.GatewayAuthStatusEnum.ENABLE.getCode());
-        mcpGatewayPO.setStatus(null != gatewayConfigVO.getStatus() ? gatewayConfigVO.getStatus().getCode() : GatewayEnum.GatewayStatus.NOT_VERIFIED.getCode());
+        mcpGatewayPO.setAuth(null != gatewayConfigVO.getAuth() ? gatewayConfigVO.getAuth().getCode()
+                : GatewayEnum.GatewayAuthStatusEnum.ENABLE.getCode());
+        mcpGatewayPO.setStatus(null != gatewayConfigVO.getStatus() ? gatewayConfigVO.getStatus().getCode()
+                : GatewayEnum.GatewayStatus.NOT_VERIFIED.getCode());
         mcpGatewayDao.insert(mcpGatewayPO);
     }
 

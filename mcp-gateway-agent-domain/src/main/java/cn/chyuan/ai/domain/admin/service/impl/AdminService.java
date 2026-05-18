@@ -22,8 +22,8 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/26
+ * @author chyuan
+ *         2026/3/26
  */
 @Service
 public class AdminService implements IAdminService {

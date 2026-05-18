@@ -5,8 +5,8 @@ import cn.chyuan.ai.domain.auth.model.entity.RegisterCommandEntity;
 /**
  * 认证服务注册接口
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/13 08:34
+ * @author chyuan
+ *         2026/3/13 08:34
  */
 public interface IAuthRegisterService {
 

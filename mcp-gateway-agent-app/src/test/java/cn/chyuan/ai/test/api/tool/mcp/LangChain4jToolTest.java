@@ -14,10 +14,11 @@ import java.time.Duration;
  * LangChain4j
  * <p>
  * 文档：<a href="https://docs.langchain4j.info/">langchain4j</a>
- * 案例：<a href="https://github.com/langchain4j/langchain4j-examples">langchain4j-examples</a>
+ * 案例：<a href=
+ * "https://github.com/langchain4j/langchain4j-examples">langchain4j-examples</a>
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/14 09:20
+ * @author chyuan
+ *         2025/12/14 09:20
  */
 @Slf4j
 public class LangChain4jToolTest {
@@ -50,11 +51,13 @@ public class LangChain4jToolTest {
     public static McpSyncClient sseMcpClient() {
 
         // 自己申请 api_key
-        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport.builder("http://appbuilder.baidu.com/v2/ai_search/mcp/")
+        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
+                .builder("http://appbuilder.baidu.com/v2/ai_search/mcp/")
                 .sseEndpoint("sse?api_key=bce-v3/ALTAK-JFZXXLpfxhAutDQvJ32Ei/4492c1879b8c2f0df4612ef5b4a52df1c1fba9f7")
                 .build();
 
-        McpSyncClient mcpSyncClient = McpClient.sync(sseClientTransport).requestTimeout(Duration.ofMinutes(360)).build();
+        McpSyncClient mcpSyncClient = McpClient.sync(sseClientTransport).requestTimeout(Duration.ofMinutes(360))
+                .build();
         var init_sse = mcpSyncClient.initialize();
         log.info("Tool SSE MCP Initialized {}", init_sse);
 

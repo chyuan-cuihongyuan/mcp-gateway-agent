@@ -20,10 +20,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 回话端口服务
+ * 会话端口服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/30 20:56
+ * @author chyuan
+ *         2026/1/30 20:56
  */
 @Component
 public class SessionPort implements ISessionPort {
@@ -55,15 +55,17 @@ public class SessionPort implements ISessionPort {
                         MediaType.parse("application/json"));
 
                 Call<ResponseBody> call = gateway.post(httpConfig.getHttpUrl(), headers, requestBody);
-                ResponseBody responseBody = call.execute().body();
-
-                assert responseBody != null;
-
-                return responseBody.string();
+                try (ResponseBody responseBody = call.execute().body()) {
+                    if (responseBody == null) {
+                        throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
+                    }
+                    return responseBody.string();
+                }
             }
             // 2. 执行get请求
             case "get": {
-                Map<String, Object> objMapRequest = new java.util.HashMap<>((Map<String, Object>) arguments.values().toArray()[0]);
+                Map<String, Object> objMapRequest = new java.util.HashMap<>(
+                        (Map<String, Object>) arguments.values().toArray()[0]);
 
                 String url = httpConfig.getHttpUrl();
                 // 替换路径参数
@@ -78,16 +80,16 @@ public class SessionPort implements ISessionPort {
 
                 Call<ResponseBody> call = gateway.get(url, headers, objMapRequest);
 
-                ResponseBody responseBody = call.execute().body();
-
-                assert responseBody != null;
-
-                return responseBody.string();
+                try (ResponseBody responseBody = call.execute().body()) {
+                    if (responseBody == null) {
+                        throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
+                    }
+                    return responseBody.string();
+                }
             }
         }
 
         throw new AppException(ResponseCode.METHOD_NOT_FOUND.getCode(), ResponseCode.METHOD_NOT_FOUND.getInfo());
     }
-
 
 }

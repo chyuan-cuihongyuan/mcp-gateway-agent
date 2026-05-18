@@ -12,31 +12,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Spring AI Community 构建skills <a href="https://github.com/spring-ai-community/spring-ai-agent-utils">spring-ai-agent-utils</a>
+ * Spring AI Community 构建skills <a href=
+ * "https://github.com/spring-ai-community/spring-ai-agent-utils">spring-ai-agent-utils</a>
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/6 08:04
+ * @author chyuan
+ *         2026/2/6 08:04
  */
 @Slf4j
 @Service
 public class DefaultToolSkillsCreateService implements ToolSkillsCreateService {
 
     @Override
-    public ToolCallback[] buildToolCallback(AiAgentConfigTableVO.Module.ChatModel.ToolSkills toolSkills) throws Exception {
+    public ToolCallback[] buildToolCallback(AiAgentConfigTableVO.Module.ChatModel.ToolSkills toolSkills)
+            throws Exception {
 
         String type = toolSkills.getType();
         String path = toolSkills.getPath();
 
         List<ToolCallback> toolCallbackList = new ArrayList<>();
 
-        if ("directory".equals(type)){
+        if ("directory".equals(type)) {
             ToolCallback toolCallback = SkillsTool.builder()
                     .addSkillsDirectory(path)
                     .build();
             toolCallbackList.add(toolCallback);
         }
 
-        if ("resource".equals(type)){
+        if ("resource".equals(type)) {
             ToolCallback toolCallback = SkillsTool.builder()
                     .addSkillsResource(new ClassPathResource(path))
                     .build();

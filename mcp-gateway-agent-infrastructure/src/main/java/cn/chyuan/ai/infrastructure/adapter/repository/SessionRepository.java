@@ -18,12 +18,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 会话仓储服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/13 08:25
+ * @author chyuan
+ *         2026/1/13 08:25
  */
 @Slf4j
 @Repository
@@ -44,7 +46,8 @@ public class SessionRepository implements ISessionRepository {
     @Override
     public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
         McpGatewayPO mcpGatewayPO = mcpGatewayDao.queryMcpGatewayByGatewayId(gatewayId);
-        if (null == mcpGatewayPO) return null;
+        if (null == mcpGatewayPO)
+            return null;
 
         return McpGatewayConfigVO.builder()
                 .gatewayId(mcpGatewayPO.getGatewayId())
@@ -61,17 +64,34 @@ public class SessionRepository implements ISessionRepository {
 
         // 1. 查询工具列表
         List<McpGatewayToolPO> mcpGatewayToolPOList = mcpGatewayToolDao.queryEffectiveTools(gatewayId);
+        if (mcpGatewayToolPOList.isEmpty()) {
+            return mcpToolConfigVOS;
+        }
 
-        // 2. 组装参数信息
+        // 2. 批量查询所有协议映射（避免 N+1 查询）
+        List<Long> protocolIds = mcpGatewayToolPOList.stream()
+                .map(McpGatewayToolPO::getProtocolId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<McpProtocolMappingPO> allMappings = mcpProtocolMappingDao.queryListByProtocolIds(protocolIds);
+
+        // 按 protocolId 分组
+        Map<Long, List<McpProtocolMappingPO>> mappingsByProtocolId = allMappings.stream()
+                .collect(Collectors.groupingBy(McpProtocolMappingPO::getProtocolId));
+
+        // 3. 组装参数信息
         for (McpGatewayToolPO tool : mcpGatewayToolPOList) {
 
-            List<McpProtocolMappingPO> mappingPOList = mcpProtocolMappingDao.queryMcpGatewayToolConfigListByProtocolId(tool.getProtocolId());
+            List<McpProtocolMappingPO> mappingPOList = mappingsByProtocolId.getOrDefault(tool.getProtocolId(),
+                    new ArrayList<>());
 
             List<McpToolProtocolConfigVO.ProtocolMapping> requestProtocolMappings = new ArrayList<>();
 
             // 协议信息
             for (McpProtocolMappingPO mcpProtocolMappingPO : mappingPOList) {
-                McpToolProtocolConfigVO.ProtocolMapping protocolMapping = McpToolProtocolConfigVO.ProtocolMapping.builder()
+                McpToolProtocolConfigVO.ProtocolMapping protocolMapping = McpToolProtocolConfigVO.ProtocolMapping
+                        .builder()
                         .mappingType(mcpProtocolMappingPO.getMappingType())
                         .parentPath(mcpProtocolMappingPO.getParentPath())
                         .fieldName(mcpProtocolMappingPO.getFieldName())
@@ -113,7 +133,8 @@ public class SessionRepository implements ISessionRepository {
 
         // 查询协议
         McpProtocolHttpPO mcpProtocolHttpPO = mcpProtocolRegistryDao.queryMcpProtocolHttpByProtocolId(protocolId);
-        if (null == mcpProtocolHttpPO) return null;
+        if (null == mcpProtocolHttpPO)
+            return null;
 
         McpToolProtocolConfigVO.HTTPConfig httpConfig = new McpToolProtocolConfigVO.HTTPConfig();
         httpConfig.setHttpUrl(mcpProtocolHttpPO.getHttpUrl());

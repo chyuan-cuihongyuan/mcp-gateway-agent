@@ -23,8 +23,8 @@ import java.util.Map;
  * <p>
  * Jackson 注解用于控制 JSON 序列化和反序列化行为。
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/20 09:07
+ * @author chyuan
+ *         2025/12/20 09:07
  */
 @Slf4j
 public final class McpSchemaVO {
@@ -56,7 +56,7 @@ public final class McpSchemaVO {
         throw new IllegalArgumentException("Cannot deserialize JSONRPCMessage: " + jsonText);
     }
 
-    public static  <T> T unmarshalFrom(Object data, TypeReference<T> typeRef) {
+    public static <T> T unmarshalFrom(Object data, TypeReference<T> typeRef) {
         return objectMapper.convertValue(data, typeRef);
     }
 
@@ -80,10 +80,9 @@ public final class McpSchemaVO {
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JSONRPCRequest(@JsonProperty("jsonrpc") String jsonrpc,
-                                 @JsonProperty("method") String method,
-                                 @JsonProperty("id") Object id,
-                                 @JsonProperty("params") Object params
-    ) implements JSONRPCMessage {
+            @JsonProperty("method") String method,
+            @JsonProperty("id") Object id,
+            @JsonProperty("params") Object params) implements JSONRPCMessage {
     }
 
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
@@ -108,8 +107,7 @@ public final class McpSchemaVO {
             @JsonProperty("jsonrpc") String jsonrpc,
             @JsonProperty("id") Object id,
             @JsonProperty("result") Object result,
-            @JsonProperty("error") JSONRPCError error
-    ) implements JSONRPCMessage {
+            @JsonProperty("error") JSONRPCError error) implements JSONRPCMessage {
         @JsonInclude(JsonInclude.Include.NON_ABSENT)
         @JsonIgnoreProperties(ignoreUnknown = true)
         public record JSONRPCError(
@@ -320,7 +318,6 @@ public final class McpSchemaVO {
 
     } // @formatter:on
 
-
     @JsonInclude(JsonInclude.Include.NON_ABSENT)
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record JsonSchema( // @formatter:off
@@ -335,8 +332,7 @@ public final class McpSchemaVO {
     private static JsonSchema parseSchema(String schema) {
         try {
             return objectMapper.readValue(schema, JsonSchema.class);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new IllegalArgumentException("Invalid schema: " + schema, e);
         }
     }

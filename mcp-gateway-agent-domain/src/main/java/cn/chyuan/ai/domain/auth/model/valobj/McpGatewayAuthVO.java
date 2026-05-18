@@ -11,8 +11,8 @@ import java.util.Date;
 /**
  * 网关服务认证值对象
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:23
+ * @author chyuan
+ *         2026/2/22 10:23
  */
 @Getter
 @Builder

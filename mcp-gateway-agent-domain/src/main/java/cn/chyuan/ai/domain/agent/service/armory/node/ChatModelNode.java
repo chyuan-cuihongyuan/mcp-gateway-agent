@@ -5,7 +5,7 @@ import cn.chyuan.ai.domain.agent.model.valobj.AiAgentConfigTableVO;
 import cn.chyuan.ai.domain.agent.model.valobj.AiAgentRegisterVO;
 import cn.chyuan.ai.domain.agent.service.armory.AbstractArmorySupport;
 import cn.chyuan.ai.domain.agent.service.armory.factory.DefaultArmoryFactory;
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.TooMcpCreateService;
+import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.factory.DefaultMcpClientFactory;
 import cn.chyuan.ai.domain.agent.service.armory.matter.skills.ToolSkillsCreateService;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
@@ -17,7 +17,7 @@ import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +38,7 @@ public class ChatModelNode extends AbstractArmorySupport {
     protected AiAgentRegisterVO doApply(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
         log.info("Ai Agent 装配操作 - ChatModelNode");
 
-        // 获取上下文对象
+        // 获取上下文对�?
         OpenAiApi openAiApi = dynamicContext.getOpenAiApi();
 
         // 获取配置对象
@@ -52,8 +52,8 @@ public class ChatModelNode extends AbstractArmorySupport {
 
         if (null != toolMcpList && !toolMcpList.isEmpty()) {
             for (AiAgentConfigTableVO.Module.ChatModel.ToolMcp toolMcp : toolMcpList) {
-                TooMcpCreateService tooMcpCreateService = defaultMcpClientFactory.getTooMcpCreateService(toolMcp);
-                ToolCallback[] toolCallbacks = tooMcpCreateService.buildToolCallback(toolMcp);
+                ToolMcpCreateService toolMcpCreateService = defaultMcpClientFactory.getToolMcpCreateService(toolMcp);
+                ToolCallback[] toolCallbacks = toolMcpCreateService.buildToolCallback(toolMcp);
                 toolCallbackList.addAll(List.of(toolCallbacks));
             }
         }

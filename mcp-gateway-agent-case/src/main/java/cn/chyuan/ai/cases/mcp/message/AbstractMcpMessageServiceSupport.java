@@ -7,7 +7,7 @@ import cn.chyuan.ai.domain.session.service.ISessionMessageService;
 import cn.bugstack.wrench.design.framework.tree.AbstractMultiThreadStrategyRouter;
 import org.springframework.http.ResponseEntity;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 

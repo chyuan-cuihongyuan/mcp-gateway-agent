@@ -7,8 +7,8 @@ import java.util.List;
 /**
  * 网关协议映射
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/1/21 08:17
+ * @author chyuan
+ *         2026/1/21 08:17
  */
 @Getter
 @Builder

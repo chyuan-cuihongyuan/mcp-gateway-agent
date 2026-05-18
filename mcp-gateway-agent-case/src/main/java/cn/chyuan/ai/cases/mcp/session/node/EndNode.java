@@ -15,15 +15,16 @@ import java.time.Duration;
 /**
  * 结束节点
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2025/12/13 09:25
+ * @author chyuan
+ *         2025/12/13 09:25
  */
 @Slf4j
 @Service("mcpSessionEndNode")
 public class EndNode extends AbstractMcpSessionSupport {
 
     @Override
-    protected Flux<ServerSentEvent<String>> doApply(String requestParameter, DefaultMcpSessionFactory.DynamicContext dynamicContext) throws Exception {
+    protected Flux<ServerSentEvent<String>> doApply(String requestParameter,
+            DefaultMcpSessionFactory.DynamicContext dynamicContext) throws Exception {
         log.info("创建会话-EndNode:{}", requestParameter);
 
         // 获取上下文
@@ -39,8 +40,7 @@ public class EndNode extends AbstractMcpSessionSupport {
                                 .map(i -> ServerSentEvent.<String>builder()
                                         .event("ping")
                                         .data("ping")
-                                        .build())
-                )
+                                        .build()))
                 // 连接取消时的清理逻辑
                 .doOnCancel(() -> {
                     log.info("SSE连接取消，会话ID: {}", sessionId);
@@ -54,7 +54,8 @@ public class EndNode extends AbstractMcpSessionSupport {
     }
 
     @Override
-    public StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(String requestParameter, DefaultMcpSessionFactory.DynamicContext dynamicContext) throws Exception {
+    public StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> get(
+            String requestParameter, DefaultMcpSessionFactory.DynamicContext dynamicContext) throws Exception {
         return defaultStrategyHandler;
     }
 

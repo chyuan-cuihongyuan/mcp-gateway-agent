@@ -13,7 +13,7 @@ import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.List;
 
 @Slf4j
@@ -37,15 +37,15 @@ public class AgentWorkflowNode extends AbstractArmorySupport {
         List<AiAgentConfigTableVO.Module.AgentWorkflow> agentWorkflows = aiAgentConfigTableVO.getModule().getAgentWorkflows();
 
         if (null == agentWorkflows || agentWorkflows.isEmpty() || dynamicContext.getCurrentStepIndex() >= agentWorkflows.size()) {
-            // 设置结果值
+            // 设置结果�?
             dynamicContext.setCurrentAgentWorkflow(null);
-            // 路由下节点
+            // 路由下节�?
             return router(requestParameter, dynamicContext);
         }
 
         dynamicContext.setCurrentAgentWorkflow(agentWorkflows.get(dynamicContext.getCurrentStepIndex()));
 
-        // 步骤值增加
+        // 步骤值增�?
         dynamicContext.addCurrentStepIndex();
 
         return router(requestParameter, dynamicContext);

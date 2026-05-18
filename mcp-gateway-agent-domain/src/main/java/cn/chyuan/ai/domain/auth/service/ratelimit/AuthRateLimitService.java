@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * 调用限制服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:19
+ * @author chyuan
+ *         2026/2/22 10:19
  */
 @Slf4j
 @Service
@@ -38,12 +38,14 @@ public class AuthRateLimitService implements IAuthRateLimitService {
         String gatewayId = commandEntity.getGatewayId();
         String apiKey = commandEntity.getApiKey();
 
-        if (StringUtils.isBlank(apiKey)) return false;
+        if (StringUtils.isBlank(apiKey))
+            return false;
 
         try {
             // 1. 获取限流组件
             RateLimiter rateLimiter = rateLimiterCache.get(gatewayId + "_" + apiKey, () -> {
-                McpGatewayAuthVO mcpGatewayAuthVO = repository.queryEffectiveGatewayAuthInfo(new LicenseCommandEntity(gatewayId, apiKey));
+                McpGatewayAuthVO mcpGatewayAuthVO = repository
+                        .queryEffectiveGatewayAuthInfo(new LicenseCommandEntity(gatewayId, apiKey));
                 if (null == mcpGatewayAuthVO || null == mcpGatewayAuthVO.getRateLimit()) {
                     throw new IllegalStateException("未配置限流");
                 }

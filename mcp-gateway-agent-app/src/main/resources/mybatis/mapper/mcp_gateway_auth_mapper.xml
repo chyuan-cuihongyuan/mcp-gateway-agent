@@ -55,6 +55,7 @@
         SELECT id, gateway_id, api_key, rate_limit, expire_time, status, create_time, update_time
         FROM mcp_gateway_auth
         ORDER BY id DESC
+        LIMIT 1000
     </select>
 
     <select id="queryMcpGatewayAuthPO" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayAuthPO" resultMap="McpGatewayAuthMap">

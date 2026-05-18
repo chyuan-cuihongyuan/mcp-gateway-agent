@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 /**
  * 网关配置实体
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/3/26
+ * @author chyuan
+ *         2026/3/26
  */
 @Data
 @Builder

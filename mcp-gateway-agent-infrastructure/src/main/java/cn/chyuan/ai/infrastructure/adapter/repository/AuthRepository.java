@@ -17,8 +17,8 @@ import org.springframework.stereotype.Repository;
 /**
  * 鉴权仓储服务
  *
- * @author xiaofuge bugstack.cn @小傅哥
- * 2026/2/22 10:57
+ * @author chyuan
+ *         2026/2/22 10:57
  */
 @Slf4j
 @Repository
@@ -36,7 +36,8 @@ public class AuthRepository implements IAuthRepository {
         poReq.setGatewayId(gatewayId);
         poReq.setApiKey(apiKey);
         McpGatewayAuthPO mcpGatewayAuthPO = mcpGatewayAuthDao.queryMcpGatewayAuthPO(poReq);
-        if (null == mcpGatewayAuthPO) return false;
+        if (null == mcpGatewayAuthPO)
+            return false;
         return mcpGatewayAuthPO.getStatus() == AuthStatusEnum.AuthConfig.ENABLE.getCode();
     }
 
@@ -53,7 +54,8 @@ public class AuthRepository implements IAuthRepository {
         poReq.setApiKey(commandEntity.getApiKey());
 
         McpGatewayAuthPO mcpGatewayAuthPO = mcpGatewayAuthDao.queryMcpGatewayAuthPO(poReq);
-        if (null == mcpGatewayAuthPO) return null;
+        if (null == mcpGatewayAuthPO)
+            return null;
 
         return McpGatewayAuthVO.builder()
                 .gatewayId(mcpGatewayAuthPO.getGatewayId())
@@ -66,7 +68,8 @@ public class AuthRepository implements IAuthRepository {
 
     @Override
     public void saveGatewayAuth(McpGatewayAuthVO mcpGatewayAuthVO) {
-        McpGatewayAuthPO existingAuth = mcpGatewayAuthDao.queryMcpGatewayAuthPO(McpGatewayAuthPO.builder().gatewayId(mcpGatewayAuthVO.getGatewayId()).build());
+        McpGatewayAuthPO existingAuth = mcpGatewayAuthDao
+                .queryMcpGatewayAuthPO(McpGatewayAuthPO.builder().gatewayId(mcpGatewayAuthVO.getGatewayId()).build());
 
         McpGatewayAuthPO mcpGatewayAuthPO = McpGatewayAuthPO.builder()
                 .gatewayId(mcpGatewayAuthVO.getGatewayId())

@@ -64,11 +64,11 @@ public class AiAgentConfigTableVO {
 
         @Data
         public static class AiApi {
+            private String provider = "openai";
             private String baseUrl;
             private String apiKey;
             private String completionsPath = "/v1/chat/completions";
             private String embeddingsPath = "/v1/embeddings";
-
         }
 
         @Data

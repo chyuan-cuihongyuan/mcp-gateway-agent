@@ -148,10 +148,15 @@ public class AgentServiceController implements IAgentService {
     public ResponseBodyEmitter chatStream(@Valid @RequestBody ChatRequestDTO requestDTO) {
         ResponseBodyEmitter emitter = new ResponseBodyEmitter(3 * 60 * 1000L);
         try {
+            String sessionId = requestDTO.getSessionId();
+            if (sessionId == null || sessionId.isEmpty()) {
+                sessionId = chatService.createSession(requestDTO.getAgentId(), requestDTO.getUserId());
+            }
+
             log.info("流式对话 agentId:{} userId:{} sessionId:{} message:{}", requestDTO.getAgentId(),
-                    requestDTO.getUserId(), requestDTO.getSessionId(), requestDTO.getMessage());
+                    requestDTO.getUserId(), sessionId, requestDTO.getMessage());
             chatService
-                    .handleMessageStream(requestDTO.getAgentId(), requestDTO.getUserId(), requestDTO.getSessionId(),
+                    .handleMessageStream(requestDTO.getAgentId(), requestDTO.getUserId(), sessionId,
                             requestDTO.getMessage())
                     .subscribe(
                             event -> {

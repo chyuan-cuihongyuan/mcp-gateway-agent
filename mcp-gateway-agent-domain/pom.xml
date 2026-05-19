@@ -23,6 +23,11 @@
             <artifactId>spring-ai-mcp</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-spring-webflux</artifactId>
+            <version>0.14.0</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.adk</groupId>
             <artifactId>google-adk</artifactId>
         </dependency>

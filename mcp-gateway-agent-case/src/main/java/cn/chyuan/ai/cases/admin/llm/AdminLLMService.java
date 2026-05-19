@@ -27,7 +27,7 @@ import java.util.List;
 @Service
 public class AdminLLMService implements IAdminLLMService {
 
-    @Value("${server.servlet.context-path}")
+    @Value("${server.servlet.context-path:}")
     private String baseUrlContextPath;
 
     @Value("${server.port}")

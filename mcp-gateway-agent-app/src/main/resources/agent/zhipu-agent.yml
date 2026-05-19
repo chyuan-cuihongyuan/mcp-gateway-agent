@@ -1,0 +1,34 @@
+ai:
+  agent:
+    config:
+      tables:
+        zhipuAgent:
+          app-name: zhipuAgent
+          agent:
+            agent-id: 100004
+            agent-name: 智谱智能体
+            agent-desc: 智谱GLM模型智能体
+          module:
+            ai-api:
+              provider: zhipu
+              base-url: https://open.bigmodel.cn/api/paas/v4/
+              api-key: your-zhipu-api-key
+              completions-path: chat/completions
+              embeddings-path: embeddings
+            chat-model:
+              model: glm-4-flash
+              tool-mcp-list:
+                - sse:
+                    name: baidu-search
+                    base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
+                    sse-endpoint: sse?api_key=your-baidu-api-key
+                    request-timeout: 500000
+            agents:
+              - name: zhipuAgent
+                description: 智谱GLM模型智能助手
+                instruction: |
+                  你是一个专业的 AI 助手。
+            runner:
+              agent-name: zhipuAgent
+              plugin-name-list:
+                - myTestPlugin

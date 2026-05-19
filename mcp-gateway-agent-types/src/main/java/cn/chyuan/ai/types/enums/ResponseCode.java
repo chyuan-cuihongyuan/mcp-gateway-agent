@@ -14,6 +14,7 @@ public enum ResponseCode {
 
     E0001("E0001", "智能体ID不存在"),
     E0002("E0002", "智能体MCP配置不在可加载范围"),
+    RESPONSE_ERROR("0006", "响应错误"),
 
     ;
 

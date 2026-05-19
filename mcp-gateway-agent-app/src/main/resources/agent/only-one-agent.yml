@@ -17,11 +17,12 @@ ai:
             chat-model:
               model: ${LLM_MODEL:gpt-4.1}
               tool-mcp-list:
-                - sse:
-                    name: baidu-search
-                    base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
-                    sse-endpoint: sse?api_key=${BAIDU_MCP_API_KEY:changeme}
-                    request-timeout: 500000
+                # - sse:
+                #     name: baidu-search
+                #     base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
+                #     sse-endpoint: /sse
+                #     api-key: ${BAIDU_MCP_API_KEY:changeme}
+                #     request-timeout: 500000
                 - local:
                     name: myToolCallbackProvider
               tool-skills-list:

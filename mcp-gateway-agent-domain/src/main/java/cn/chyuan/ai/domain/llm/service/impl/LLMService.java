@@ -64,14 +64,19 @@ public class LLMService implements ILLMService {
 
     public ToolCallback[] buildToolCallback(McpConfigVO mcpConfigVO) {
         String sseEndPoint = mcpConfigVO.getSseEndpoint();
+
+        HttpClientSseClientTransport.Builder builder = HttpClientSseClientTransport
+                .builder(mcpConfigVO.getBaseUri())
+                .sseEndpoint(sseEndPoint);
+
+        // 使用 HTTP 请求头传递 API Key，而不是 URL 参数
         if (StringUtils.isNotBlank(mcpConfigVO.getAuthApiKey())) {
-            sseEndPoint += "?api_key=" + mcpConfigVO.getAuthApiKey();
+            builder.customizeRequest(request -> {
+                request.header("Authorization", "Bearer " + mcpConfigVO.getAuthApiKey());
+            });
         }
 
-        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
-                .builder(mcpConfigVO.getBaseUri())
-                .sseEndpoint(sseEndPoint)
-                .build();
+        HttpClientSseClientTransport sseClientTransport = builder.build();
 
         McpSyncClient mcpSyncClient = McpClient
                 .sync(sseClientTransport)

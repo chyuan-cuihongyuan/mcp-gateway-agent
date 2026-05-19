@@ -48,10 +48,18 @@ public class SSEToolMcpCreateService implements ToolMcpCreateService {
 
         sseEndpoint = StringUtils.isBlank(sseEndpoint) ? "/sse" : sseEndpoint;
 
-        HttpClientSseClientTransport sseClientTransport = HttpClientSseClientTransport
+        HttpClientSseClientTransport.Builder builder = HttpClientSseClientTransport
                 .builder(baseUri)
-                .sseEndpoint(sseEndpoint)
-                .build();
+                .sseEndpoint(sseEndpoint);
+
+        // 使用 HTTP 请求头传递 API Key
+        if (StringUtils.isNotBlank(sseConfig.getApiKey())) {
+            builder.customizeRequest(request -> {
+                request.header("Authorization", "Bearer " + sseConfig.getApiKey());
+            });
+        }
+
+        HttpClientSseClientTransport sseClientTransport = builder.build();
 
         McpSyncClient mcpSyncClient = McpClient
                 .sync(sseClientTransport)

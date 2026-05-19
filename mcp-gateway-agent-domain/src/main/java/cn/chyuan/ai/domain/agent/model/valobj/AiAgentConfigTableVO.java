@@ -94,6 +94,7 @@ public class AiAgentConfigTableVO {
                     private String name;
                     private String baseUri;
                     private String sseEndpoint;
+                    private String apiKey;
                     private Integer requestTimeout = 3000;
 
                 }

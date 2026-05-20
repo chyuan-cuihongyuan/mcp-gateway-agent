@@ -39,3 +39,4 @@ build/
 /data/
 /ai-agent-scaffold-draw-io-app/data/
 .idea/
+/mcp-gateway-agent-app/data

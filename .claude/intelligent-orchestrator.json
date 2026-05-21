@@ -1,0 +1,236 @@
+{
+  "orchestratorConfig": {
+    "agentName": "智能编排网关 Agent",
+    "version": "2.0",
+    "architecture": "intelligent-pipeline",
+    "description": "AI 驱动的智能编排网关，负责对话理解、流程编排和技能调度",
+
+    "pipeline": {
+      "stages": [
+        {
+          "name": "对话理解",
+          "agent": "mcp-gateway-agent",
+          "capabilities": [
+            "意图识别",
+            "实体抽取",
+            "上下文理解",
+            "多轮对话管理"
+          ],
+          "aiModel": "claude-3.5-sonnet",
+          "output": "structured_request"
+        },
+        {
+          "name": "流程编排",
+          "agent": "mcp-gateway-agent",
+          "capabilities": [
+            "任务分解",
+            "技能选择",
+            "执行顺序规划",
+            "依赖关系管理"
+          ],
+          "aiModel": "claude-3.5-sonnet",
+          "output": "execution_plan"
+        },
+        {
+          "name": "技能调用",
+          "agent": "mcp-gateway-agent",
+          "skills": [
+            "知识检索",
+            "数据分析",
+            "业务规则",
+            "外部API调用"
+          ],
+          "output": "skill_results"
+        },
+        {
+          "name": "后端执行",
+          "agent": "aggregation-support-agent",
+          "capabilities": [
+            "业务逻辑执行",
+            "数据库操作",
+            "事务管理",
+            "结果聚合"
+          ],
+          "output": "execution_results"
+        },
+        {
+          "name": "结果封装",
+          "agent": "mcp-gateway-agent",
+          "capabilities": [
+            "结果格式化",
+            "响应构建",
+            "错误处理",
+            "日志记录"
+          ],
+          "output": "final_response"
+        }
+      ]
+    },
+
+    "intelligentFeatures": {
+      "autoDevelopment": {
+        "enabled": true,
+        "capabilities": [
+          "自动代码生成",
+          "接口自动对接",
+          "数据库schema自动迁移",
+          "测试用例自动生成"
+        ]
+      },
+      "autoOptimization": {
+        "enabled": true,
+        "capabilities": [
+          "性能瓶颈自动识别",
+          "查询优化建议",
+          "缓存策略优化",
+          "并发调优"
+        ]
+      },
+      "autoDebugging": {
+        "enabled": true,
+        "capabilities": [
+          "错误自动定位",
+          "日志智能分析",
+          "异常自动恢复",
+          "根因分析"
+        ]
+      },
+      "autoIteration": {
+        "enabled": true,
+        "capabilities": [
+          "用户反馈学习",
+          "模型效果评估",
+          "策略自动调优",
+          "A/B测试自动执行"
+        ]
+      }
+    },
+
+    "skillsRegistry": {
+      "knowledge": {
+        "name": "知识检索技能",
+        "endpoint": "/api/v1/skills/knowledge",
+        "description": "从知识库中检索相关信息",
+        "parameters": ["query", "limit", "threshold"]
+      },
+      "analysis": {
+        "name": "数据分析技能",
+        "endpoint": "/api/v1/skills/analysis",
+        "description": "对数据进行分析和处理",
+        "parameters": ["data", "analysisType", "options"]
+      },
+      "business": {
+        "name": "业务规则技能",
+        "endpoint": "/api/v1/skills/business",
+        "description": "执行业务规则和逻辑",
+        "parameters": ["ruleId", "context", "params"]
+      },
+      "external": {
+        "name": "外部API调用技能",
+        "endpoint": "/api/v1/skills/external",
+        "description": "调用外部第三方API",
+        "parameters": ["apiUrl", "method", "headers", "body"]
+      }
+    },
+
+    "backendIntegration": {
+      "baseURL": "http://127.0.0.1:8091",
+      "endpoints": {
+        "chat": "/api/v1/chat_stream",
+        "aiops": "/api/v1/ai_ops",
+        "graph": "/api/v1/graph/**",
+        "knowledge": "/api/v1/knowledge/**"
+      },
+      "authentication": {
+        "type": "cookie",
+        "cookieName": "ai_agent_login"
+      },
+      "retryStrategy": {
+        "maxRetries": 3,
+        "backoffMs": 1000,
+        "exponentialBackoff": true
+      }
+    },
+
+    "requestResponseFlow": {
+      "example": {
+        "userInput": "帮我分析一下最近的告警情况",
+        "flow": [
+          {
+            "stage": "对话理解",
+            "action": "识别意图：告警分析",
+            "entities": ["时间范围：最近", "对象：告警"]
+          },
+          {
+            "stage": "流程编排",
+            "action": "规划执行步骤",
+            "steps": [
+              "调用知识检索技能获取告警数据",
+              "调用数据分析技能进行统计分析",
+              "调用后端接口生成报告"
+            ]
+          },
+          {
+            "stage": "技能调用",
+            "action": "执行具体技能",
+            "skills": ["knowledge", "analysis"]
+          },
+          {
+            "stage": "后端执行",
+            "action": "调用Java后端接口",
+            "endpoint": "/api/v1/aiops/analyze",
+            "method": "POST"
+          },
+          {
+            "stage": "结果封装",
+            "action": "格式化并返回结果",
+            "response": {
+              "summary": "最近24小时共处理告警123条",
+              "trends": "告警数量下降15%",
+              "recommendations": ["建议关注系统性能监控"]
+            }
+          }
+        ]
+      }
+    },
+
+    "automationCapabilities": {
+      "fullStackDevelopment": {
+        "description": "全栈自动开发能力",
+        "features": [
+          "根据需求自动生成前后端代码",
+          "数据库表结构自动设计和迁移",
+          "API接口自动生成和文档化",
+          "前端页面自动创建和对接"
+        ]
+      },
+      "intelligentOptimization": {
+        "description": "智能优化能力",
+        "features": [
+          "代码质量自动分析和改进",
+          "性能瓶颈自动识别和优化",
+          "资源使用自动调优",
+          "用户体验持续优化"
+        ]
+      },
+      "smartDebugging": {
+        "description": "智能排错能力",
+        "features": [
+          "错误自动定位和修复建议",
+          "日志智能分析和异常预测",
+          "系统健康度自动监控",
+          "故障自动恢复机制"
+        ]
+      },
+      "continuousIteration": {
+        "description": "持续迭代能力",
+        "features": [
+          "用户行为分析和需求挖掘",
+          "功能效果自动评估",
+          "策略自动调优和A/B测试",
+          "产品持续改进建议"
+        ]
+      }
+    }
+  }
+}

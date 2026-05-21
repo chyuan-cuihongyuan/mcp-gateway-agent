@@ -1,0 +1,199 @@
+{
+  "autoDevConfig": {
+    "enabled": true,
+    "agentName": "全自动化开发 Agent",
+    "description": "支持全自动开发、调优、排错和迭代的智能 Agent",
+
+    "developmentCycle": {
+      "phases": [
+        {
+          "name": "需求分析",
+          "autoActions": [
+            "自动解析用户需求",
+            "生成功能规格说明",
+            "识别技术依赖和风险",
+            "评估开发工作量"
+          ]
+        },
+        {
+          "name": "设计阶段",
+          "autoActions": [
+            "自动生成系统设计文档",
+            "数据库表结构自动设计",
+            "API 接口自动定义",
+            "前端页面原型自动生成"
+          ]
+        },
+        {
+          "name": "开发实现",
+          "autoActions": [
+            "后端代码自动生成",
+            "前端组件自动创建",
+            "API 对接自动完成",
+            "数据库迁移自动执行"
+          ]
+        },
+        {
+          "name": "测试验证",
+          "autoActions": [
+            "单元测试自动生成",
+            "集成测试自动执行",
+            "E2E 测试自动运行",
+            "性能测试自动评估"
+          ]
+        },
+        {
+          "name": "部署上线",
+          "autoActions": [
+            "构建脚本自动生成",
+            "部署流程自动化",
+            "监控告警自动配置",
+            "回滚机制自动准备"
+          ]
+        }
+      ]
+    },
+
+    "optimizationEngine": {
+      "performance": {
+        "enabled": true,
+        "metrics": [
+          "响应时间",
+          "吞吐量",
+          "资源使用率",
+          "错误率"
+        ],
+        "actions": [
+          "SQL 查询自动优化",
+          "缓存策略自动调整",
+          "并发配置自动调优",
+          "资源分配自动优化"
+        ]
+      },
+      "quality": {
+        "enabled": true,
+        "checks": [
+          "代码规范检查",
+          "安全漏洞扫描",
+          "性能瓶颈识别",
+          "代码重复度分析"
+        ],
+        "actions": [
+          "代码自动重构",
+          "安全漏洞自动修复",
+          "性能问题自动优化",
+          "技术债务自动清理"
+        ]
+      }
+    },
+
+    "debuggingSystem": {
+      "realTimeMonitoring": {
+        "enabled": true,
+        "monitors": [
+          "应用性能监控",
+          "错误日志监控",
+          "业务指标监控",
+          "用户体验监控"
+        ]
+      },
+      "autoAnalysis": {
+        "enabled": true,
+        "capabilities": [
+          "异常自动分类",
+          "根因自动分析",
+          "影响范围自动评估",
+          "修复方案自动推荐"
+        ]
+      },
+      "selfHealing": {
+        "enabled": true,
+        "actions": [
+          "服务自动重启",
+          "降级策略自动触发",
+          "限流保护自动启用",
+          "熔断机制自动执行"
+        ]
+      }
+    },
+
+    "iterationEngine": {
+      "dataCollection": {
+        "enabled": true,
+        "sources": [
+          "用户行为数据",
+          "系统性能数据",
+          "业务指标数据",
+          "用户反馈数据"
+        ]
+      },
+      "analysis": {
+        "enabled": true,
+        "methods": [
+          "A/B 测试自动执行",
+          "用户反馈自动分析",
+          "性能趋势自动预测",
+          "瓶颈自动识别"
+        ]
+      },
+      "optimization": {
+        "enabled": true,
+        "actions": [
+          "策略参数自动调优",
+          "界面布局自动优化",
+          "交互流程自动改进",
+          "算法模型自动更新"
+        ]
+      }
+    },
+
+    "toolIntegration": {
+      "codeGeneration": {
+        "backend": {
+          "framework": "Spring Boot",
+          "language": "Java",
+          "templates": ["Controller", "Service", "Repository", "Entity"],
+          "autoGeneration": true
+        },
+        "frontend": {
+          "framework": "Next.js",
+          "language": "TypeScript",
+          "templates": ["Page", "Component", "Hook", "API"],
+          "autoGeneration": true
+        }
+      },
+      "database": {
+        "type": "MySQL",
+        "tools": ["Flyway", "MyBatis Plus"],
+        "autoMigration": true,
+        "autoSchemaGeneration": true
+      },
+      "testing": {
+        "frameworks": ["JUnit", "Jest", "Playwright"],
+        "autoTestGeneration": true,
+        "autoTestExecution": true
+      },
+      "deployment": {
+        "tools": ["Docker", "Kubernetes"],
+        "autoDeployment": true,
+        "autoMonitoring": true
+      }
+    },
+
+    "learningSystem": {
+      "enabled": true,
+      "capabilities": [
+        "从错误中学习",
+        "从用户反馈中学习",
+        "从系统监控中学习",
+        "从业务数据中学习"
+      ],
+      "improvementAreas": [
+        "代码质量持续提升",
+        "系统性能持续优化",
+        "用户体验持续改进",
+        "业务价值持续增长"
+      ]
+    }
+  }
+}

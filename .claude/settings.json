@@ -1,0 +1,101 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm *)",
+      "Bash(node *)",
+      "Bash(mvn *)",
+      "Bash(java *)",
+      "Skill(superpowers:systematic-debugging)",
+      "Skill(superpowers:brainstorming)",
+      "Skill(document-skills:mcp-builder)",
+      "Read(src/**/*)",
+      "Edit(src/**/*)",
+      "Write(src/**/*)",
+      "Grep(**/*)",
+      "Glob(**/*)"
+    ]
+  },
+  "hooks": {
+    "pre-session": [
+      {
+        "command": "echo '=== 🟣 MCP 智能编排网关 Agent 已激活 ==='",
+        "description": "显示 MCP 网关 Agent 激活提示"
+      },
+      {
+        "command": "echo '🔗 MCP 协议集成 + 智能编排模式'",
+        "description": "显示工作模式"
+      },
+      {
+        "command": "echo '🚀 端口: 8092 | 职责: 对话理解 + 流程编排 + 技能调度'",
+        "description": "显示核心职责"
+      },
+      {
+        "command": "echo '✨ 全自动: 开发 | 调优 | 排错 | 迭代'",
+        "description": "显示自动化能力"
+      }
+    ]
+  },
+  "metadata": {
+    "agentName": "MCP 智能编排网关 Agent",
+    "agentType": "orchestrator",
+    "techStack": ["MCP Protocol", "Java", "Spring Boot", "Claude AI", "WebSocket"],
+    "responsibilities": [
+      "对话理解和意图识别",
+      "智能流程编排",
+      "业务技能调度",
+      "后端服务集成",
+      "结果封装和返回"
+    ],
+    "port": 8092,
+    "devCommand": "mvn spring-boot:run",
+    "buildCommand": "mvn clean package",
+    "orchestrationFlow": "Agent请求 → 对话理解 → 流程编排 → 技能调用 → 后端执行 → 结果返回"
+  },
+  "environment": {
+    "GATEWAY_PORT": "8092",
+    "BACKEND_URL": "http://127.0.0.1:8091",
+    "BUSINESS_URL": "http://127.0.0.1:8093",
+    "AI_MODEL": "claude-3.5-sonnet"
+  },
+  "intelligentFeatures": {
+    "autoDevelopment": {
+      "enabled": true,
+      "description": "全自动开发能力"
+    },
+    "autoOptimization": {
+      "enabled": true,
+      "description": "智能调优能力"
+    },
+    "autoDebugging": {
+      "enabled": true,
+      "description": "自动排错能力"
+    },
+    "autoIteration": {
+      "enabled": true,
+      "description": "持续迭代能力"
+    }
+  },
+  "skillsRegistry": {
+    "knowledge": {
+      "endpoint": "/api/v1/skills/knowledge",
+      "description": "知识检索技能"
+    },
+    "analysis": {
+      "endpoint": "/api/v1/skills/analysis",
+      "description": "数据分析技能"
+    },
+    "business": {
+      "endpoint": "/api/v1/skills/business",
+      "description": "业务规则技能"
+    },
+    "external": {
+      "endpoint": "/api/v1/skills/external",
+      "description": "外部API调用技能"
+    }
+  },
+  "collaboration": {
+    "frontendAgent": "aggregation-support-agent-web",
+    "backendAgent": "aggregation-support-agent",
+    "businessAgent": "agent-add-oil"
+  }
+}

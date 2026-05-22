@@ -19,9 +19,9 @@ ai:
             chat-model:
               model: ${LLM_MODEL:gpt-4.1}
               tool-mcp-list: []
-              tool-skills-list:
-                - type: resource
-                  path: agent/skills
+              tool-skills-list: []
+                # - type: resource
+                #   path: agent/skills
             agents:
               - name: businessAgent
                 react-mode: true

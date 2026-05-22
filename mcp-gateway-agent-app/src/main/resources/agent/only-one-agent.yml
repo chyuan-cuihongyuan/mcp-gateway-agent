@@ -25,9 +25,9 @@ ai:
                 #     request-timeout: 500000
                 - local:
                     name: myToolCallbackProvider
-              tool-skills-list:
-                - type: resource
-                  path: agent/skills
+              tool-skills-list: []
+                # - type: resource
+                #   path: agent/skills
             agents:
               - name: onlyAgent
                 description: draw.io 图表生成助手

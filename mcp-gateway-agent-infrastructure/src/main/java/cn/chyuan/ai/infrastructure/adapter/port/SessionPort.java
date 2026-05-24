@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import retrofit2.Call;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,23 +50,33 @@ public class SessionPort implements ISessionPort {
         }
 
         switch (httpMethod) {
-            // 1. 构建请求体
+            // POST 请求：直接使用完整参数，不丢弃
             case "post": {
-                RequestBody requestBody = RequestBody.create(JSON.toJSONString(arguments.values().toArray()[0]),
+                RequestBody requestBody = RequestBody.create(JSON.toJSONString(arguments),
                         MediaType.parse("application/json"));
 
                 Call<ResponseBody> call = gateway.post(httpConfig.getHttpUrl(), headers, requestBody);
-                try (ResponseBody responseBody = call.execute().body()) {
+                retrofit2.Response<ResponseBody> response = call.execute();
+                try {
+                    // 检查 HTTP 状态码
+                    if (!response.isSuccessful()) {
+                        String errorBody = response.errorBody() != null ? response.errorBody().string() : "未知错误";
+                        throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
+                                "HTTP " + response.code() + ": " + errorBody);
+                    }
+                    ResponseBody responseBody = response.body();
                     if (responseBody == null) {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
                     }
                     return responseBody.string();
+                } finally {
+                    response.body().close();
                 }
             }
-            // 2. 执行get请求
+            // GET 请求：支持路径参数替换
             case "get": {
-                Map<String, Object> objMapRequest = new java.util.HashMap<>(
-                        (Map<String, Object>) arguments.values().toArray()[0]);
+                Map<String, Object> objMapRequest = new HashMap<>();
+                arguments.forEach((key, value) -> objMapRequest.put(String.valueOf(key), value));
 
                 String url = httpConfig.getHttpUrl();
                 // 替换路径参数
@@ -80,11 +91,23 @@ public class SessionPort implements ISessionPort {
 
                 Call<ResponseBody> call = gateway.get(url, headers, objMapRequest);
 
-                try (ResponseBody responseBody = call.execute().body()) {
+                retrofit2.Response<ResponseBody> response = call.execute();
+                try {
+                    // 检查 HTTP 状态码
+                    if (!response.isSuccessful()) {
+                        String errorBody = response.errorBody() != null ? response.errorBody().string() : "未知错误";
+                        throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
+                                "HTTP " + response.code() + ": " + errorBody);
+                    }
+                    ResponseBody responseBody = response.body();
                     if (responseBody == null) {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
                     }
                     return responseBody.string();
+                } finally {
+                    if (response.body() != null) {
+                        response.body().close();
+                    }
                 }
             }
         }

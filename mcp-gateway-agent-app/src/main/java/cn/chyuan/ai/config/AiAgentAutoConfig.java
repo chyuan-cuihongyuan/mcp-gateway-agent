@@ -26,7 +26,7 @@ public class AiAgentAutoConfig implements ApplicationListener<ApplicationReadyEv
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
         try {
-            log.info("Ai Agent 智能体装�?{}", JSON.toJSONString(aiAgentAutoConfigProperties.getTables().values()));
+            log.info("Ai Agent 智能体装载完成: {}", JSON.toJSONString(aiAgentAutoConfigProperties.getTables().values()));
 
             armoryService.acceptArmoryAgents(new ArrayList<>(aiAgentAutoConfigProperties.getTables().values()));
         } catch (Exception e) {

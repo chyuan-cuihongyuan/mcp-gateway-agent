@@ -53,16 +53,8 @@ public class SessionManagementService implements ISessionManagementService {
 
         Sinks.Many<ServerSentEvent<String>> sink = Sinks.many().multicast().onBackpressureBuffer();
 
-        // 发送端点消息 - 告知客户端消息请求地址（客户端第二次会使用 messageEndpoint 进行请求会话）
-        String messageEndpoint = "/api-gateway/" + gatewayId + "/mcp/sse?sessionId=" + sessionId;
-        if (StringUtils.isNoneBlank(apiKey)) {
-            messageEndpoint += "&api_key=" + apiKey;
-        }
-
-        sink.tryEmitNext(ServerSentEvent.<String>builder()
-                .event("endpoint")
-                .data(messageEndpoint)
-                .build());
+        // 标准 MCP 协议：不发送 endpoint 事件，保持 SSE 连接打开
+        // 客户端通过同一个 SSE 连接发送和接收消息
 
         SessionConfigVO sessionConfigVO = new SessionConfigVO(sessionId, sink);
 

@@ -46,7 +46,7 @@ public class AdminLLMService implements IAdminLLMService {
         String gatewayId = requestDTO.getGatewayId();
 
         String baseUrl = "http://localhost:" + port;
-        String sseEndpoint = baseUrlContextPath + "/" + gatewayId + "/mcp/sse";
+        String sseEndpoint = baseUrlContextPath + "/api-gateway/" + gatewayId + "/mcp/sse";
 
         // 获取对话模型
         ChatModel chatModel = llmService.getChatModel(gatewayId);

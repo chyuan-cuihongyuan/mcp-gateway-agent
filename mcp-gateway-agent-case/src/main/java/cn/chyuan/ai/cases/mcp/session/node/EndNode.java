@@ -33,14 +33,15 @@ public class EndNode extends AbstractMcpSessionSupport {
 
         Sinks.Many<ServerSentEvent<String>> sink = sessionConfigVO.getSink();
 
+        // 发送MCP协议要求的endpoint事件，告诉客户端后续消息发送地址
+        String endpoint = "/api-gateway/" + requestParameter + "/mcp/sse?sessionId=" + sessionId;
+        sink.tryEmitNext(ServerSentEvent.<String>builder()
+                .event("endpoint")
+                .data(endpoint)
+                .build());
+        log.info("发送MCP endpoint事件: {}", endpoint);
+
         return sink.asFlux()
-                .mergeWith(
-                        // 心跳机制 - 防止连接超时，延长间隔避免干扰正常通信
-                        Flux.interval(Duration.ofSeconds(60))
-                                .map(i -> ServerSentEvent.<String>builder()
-                                        .event("ping")
-                                        .data("ping")
-                                        .build()))
                 // 连接取消时的清理逻辑
                 .doOnCancel(() -> {
                     log.info("SSE连接取消，会话ID: {}", sessionId);

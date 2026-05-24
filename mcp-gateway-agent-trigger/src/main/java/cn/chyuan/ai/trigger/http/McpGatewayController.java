@@ -34,7 +34,7 @@ import jakarta.annotation.Resource;
 @Slf4j
 @RestController
 @CrossOrigin(origins = {"${cors.allowed-origins:http://localhost:3000}"}, allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
-@RequestMapping("/")
+@RequestMapping("/api-gateway")
 public class McpGatewayController implements IMcpGatewayService {
 
     @Resource

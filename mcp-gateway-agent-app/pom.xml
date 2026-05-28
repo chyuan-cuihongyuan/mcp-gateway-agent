@@ -158,6 +158,11 @@
             <groupId>cn.chyuan.ai</groupId>
             <artifactId>mcp-gateway-agent-infrastructure</artifactId>
         </dependency>
+        <!-- Observability Client SDK -->
+        <dependency>
+            <groupId>cn.chyuan.ai</groupId>
+            <artifactId>agent-rag-observability-server-client</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -10,6 +10,7 @@ import cn.chyuan.ai.domain.session.service.ISessionManagementService;
 import cn.chyuan.ai.domain.session.service.ISessionMessageService;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.api.response.Response;
+import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +43,9 @@ public class McpGatewayController implements IMcpGatewayService {
 
     @Resource
     private IMcpMessageService mcpMessageService;
+
+    @Resource
+    private ObservabilityHelper observabilityHelper;
 
     /**
      * 处理 sse 连接，创建会�?
@@ -117,9 +121,11 @@ public class McpGatewayController implements IMcpGatewayService {
             HandleMessageCommandEntity commandEntity = new HandleMessageCommandEntity(gatewayId, apiKey, sessionId, messageBody);
             ResponseEntity<Void> responseEntity = mcpMessageService.handleMessage(commandEntity);
 
+            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "SUCCESS", null, null);
             return Mono.just(responseEntity);
         } catch (Exception e) {
             log.error("处理 MCP SSE 消息失败，gatewayId:{} sessionId:{} messageBody:{}", gatewayId, sessionId, messageBody, e);
+            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "FAIL", null, e.getMessage());
             return Mono.just(ResponseEntity.internalServerError().build());
         }
     }

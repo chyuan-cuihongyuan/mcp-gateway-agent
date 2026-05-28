@@ -44,6 +44,10 @@
             <groupId>cn.chyuan.ai</groupId>
             <artifactId>mcp-gateway-agent-case</artifactId>
         </dependency>
+        <dependency>
+            <groupId>cn.chyuan.ai</groupId>
+            <artifactId>mcp-gateway-agent-infrastructure</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

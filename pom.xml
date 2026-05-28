@@ -231,6 +231,12 @@
         <artifactId>mcp-gateway-agent-trigger</artifactId>
         <version>1.0</version>
       </dependency>
+      <!-- Observability Client SDK -->
+      <dependency>
+        <groupId>cn.chyuan.ai</groupId>
+        <artifactId>agent-rag-observability-server-client</artifactId>
+        <version>1.0</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <build>

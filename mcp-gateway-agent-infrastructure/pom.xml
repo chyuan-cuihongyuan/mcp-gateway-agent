@@ -16,6 +16,10 @@
         </dependency>
 
         <dependency>
+            <groupId>cn.chyuan.ai</groupId>
+            <artifactId>agent-rag-observability-server-client</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
         </dependency>

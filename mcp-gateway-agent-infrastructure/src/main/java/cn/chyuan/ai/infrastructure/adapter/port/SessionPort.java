@@ -57,6 +57,7 @@ public class SessionPort implements ISessionPort {
 
                 Call<ResponseBody> call = gateway.post(httpConfig.getHttpUrl(), headers, requestBody);
                 retrofit2.Response<ResponseBody> response = call.execute();
+                ResponseBody responseBody = response.body();
                 try {
                     // 检查 HTTP 状态码
                     if (!response.isSuccessful()) {
@@ -64,13 +65,14 @@ public class SessionPort implements ISessionPort {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
                                 "HTTP " + response.code() + ": " + errorBody);
                     }
-                    ResponseBody responseBody = response.body();
                     if (responseBody == null) {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
                     }
                     return responseBody.string();
                 } finally {
-                    response.body().close();
+                    if (responseBody != null) {
+                        responseBody.close();
+                    }
                 }
             }
             // GET 请求：支持路径参数替换
@@ -92,6 +94,7 @@ public class SessionPort implements ISessionPort {
                 Call<ResponseBody> call = gateway.get(url, headers, objMapRequest);
 
                 retrofit2.Response<ResponseBody> response = call.execute();
+                ResponseBody responseBody = response.body();
                 try {
                     // 检查 HTTP 状态码
                     if (!response.isSuccessful()) {
@@ -99,14 +102,13 @@ public class SessionPort implements ISessionPort {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
                                 "HTTP " + response.code() + ": " + errorBody);
                     }
-                    ResponseBody responseBody = response.body();
                     if (responseBody == null) {
                         throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "响应体为空");
                     }
                     return responseBody.string();
                 } finally {
-                    if (response.body() != null) {
-                        response.body().close();
+                    if (responseBody != null) {
+                        responseBody.close();
                     }
                 }
             }

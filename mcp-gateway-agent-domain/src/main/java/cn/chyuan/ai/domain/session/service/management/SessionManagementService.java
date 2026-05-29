@@ -1,13 +1,17 @@
 package cn.chyuan.ai.domain.session.service.management;
 
+import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
+import cn.chyuan.ai.domain.session.model.valobj.SessionMetaVO;
 import cn.chyuan.ai.domain.session.model.valobj.SessionConfigVO;
 import cn.chyuan.ai.domain.session.service.ISessionManagementService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Sinks;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +32,8 @@ public class SessionManagementService implements ISessionManagementService {
     /**
      * 会话超时时间（分钟）- 也可以把配置抽取到yml里
      */
-    private static final long SESSION_TIMEOUT_MINUTES = 30;
+    @Value("${mcp.session.timeout-minutes:30}")
+    private long sessionTimeoutMinutes;
 
     /**
      * 定时任务调度
@@ -40,9 +45,12 @@ public class SessionManagementService implements ISessionManagementService {
      */
     private final Map<String, SessionConfigVO> activeSessions = new ConcurrentHashMap<>();
 
+    @Autowired(required = false)
+    private ISessionMetaRepository sessionMetaRepository;
+
     public SessionManagementService() {
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
-        log.info("会话管理服务已启动，会话超时时间: {} 分钟", SESSION_TIMEOUT_MINUTES);
+        log.info("会话管理服务已启动");
     }
 
     @Override
@@ -59,6 +67,7 @@ public class SessionManagementService implements ISessionManagementService {
         SessionConfigVO sessionConfigVO = new SessionConfigVO(sessionId, sink);
 
         activeSessions.put(sessionId, sessionConfigVO);
+        saveSessionMeta(sessionId, gatewayId, apiKey);
 
         log.info("创建会话 gatewayId:{} sessionId:{},当前活跃会话数:{}", gatewayId, sessionId, activeSessions.size());
 
@@ -79,6 +88,9 @@ public class SessionManagementService implements ISessionManagementService {
         } catch (Exception e) {
             log.warn("关闭会话Sink时出错:{}", e.getMessage());
         }
+        if (sessionMetaRepository != null) {
+            sessionMetaRepository.delete(sessionId);
+        }
 
         log.info("移除会话:{},剩余活跃会话数:{}", sessionId, activeSessions.size());
     }
@@ -92,6 +104,9 @@ public class SessionManagementService implements ISessionManagementService {
         SessionConfigVO sessionConfigVO = activeSessions.get(sessionId);
         if (null != sessionConfigVO && sessionConfigVO.isActive()) {
             sessionConfigVO.updateLastAccessed();
+            if (sessionMetaRepository != null) {
+                sessionMetaRepository.touch(sessionId, Duration.ofMinutes(sessionTimeoutMinutes));
+            }
             return sessionConfigVO;
         }
 
@@ -104,7 +119,7 @@ public class SessionManagementService implements ISessionManagementService {
         for (Map.Entry<String, SessionConfigVO> entry : activeSessions.entrySet()) {
             SessionConfigVO sessionConfigVO = entry.getValue();
 
-            if (!sessionConfigVO.isActive() || sessionConfigVO.isExpired(SESSION_TIMEOUT_MINUTES)) {
+            if (!sessionConfigVO.isActive() || sessionConfigVO.isExpired(sessionTimeoutMinutes)) {
                 removeSession(sessionConfigVO.getSessionId());
                 cleanedCount++;
             }
@@ -141,6 +156,22 @@ public class SessionManagementService implements ISessionManagementService {
         }
 
         log.info("关闭会话管理服务完成");
+    }
+
+    private void saveSessionMeta(String sessionId, String gatewayId, String apiKey) {
+        if (sessionMetaRepository == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        SessionMetaVO meta = SessionMetaVO.builder()
+                .sessionId(sessionId)
+                .gatewayId(gatewayId)
+                .apiKeyHash(apiKey == null ? "" : Integer.toHexString(apiKey.hashCode()))
+                .createTime(now)
+                .lastAccessedTime(now)
+                .status("ACTIVE")
+                .build();
+        sessionMetaRepository.save(meta, Duration.ofMinutes(sessionTimeoutMinutes));
     }
 
 }

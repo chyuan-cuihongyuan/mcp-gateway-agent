@@ -36,6 +36,12 @@
             <artifactId>okhttp</artifactId>
         </dependency>
 
+        <!-- Redis cache/session metadata -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- Fastjson -->
         <dependency>
             <groupId>com.alibaba</groupId>

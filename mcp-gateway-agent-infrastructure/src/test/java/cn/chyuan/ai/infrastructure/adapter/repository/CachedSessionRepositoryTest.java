@@ -17,13 +17,17 @@ class CachedSessionRepositoryTest {
 
     @Test
     void loadsFromDelegateThenWritesCacheOnMiss() {
-        SessionRepository delegate = mock(SessionRepository.class);
+        McpGatewayConfigVO config = McpGatewayConfigVO.builder().gatewayId("gateway_001").build();
+        SessionRepository delegate = new SessionRepository() {
+            @Override
+            public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
+                return config;
+            }
+        };
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("mcp:gateway:config:gateway_001")).thenReturn(null);
-        McpGatewayConfigVO config = McpGatewayConfigVO.builder().gatewayId("gateway_001").build();
-        when(delegate.queryMcpGatewayConfigByGatewayId("gateway_001")).thenReturn(config);
 
         CachedSessionRepository repository = new CachedSessionRepository();
         ReflectionTestUtils.setField(repository, "delegate", delegate);

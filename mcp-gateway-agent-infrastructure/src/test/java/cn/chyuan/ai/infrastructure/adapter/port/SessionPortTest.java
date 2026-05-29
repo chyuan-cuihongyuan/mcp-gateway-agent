@@ -5,7 +5,7 @@ import cn.chyuan.ai.infrastructure.gateway.GenericHttpGateway;
 import cn.chyuan.ai.types.exception.AppException;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
-import okhttp3.Timeout;
+import okio.Timeout;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import retrofit2.Call;

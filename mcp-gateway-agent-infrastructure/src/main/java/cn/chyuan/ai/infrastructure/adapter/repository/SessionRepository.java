@@ -145,4 +145,14 @@ public class SessionRepository implements ISessionRepository {
         return McpToolProtocolConfigVO.builder().httpConfig(httpConfig).build();
     }
 
+    @Override
+    public void evictGateway(String gatewayId) {
+        log.warn("缓存清理请求未生效：当前未使用 Redis 缓存，gatewayId={}", gatewayId);
+    }
+
+    @Override
+    public void evictToolProtocol(String gatewayId, String toolName) {
+        log.warn("缓存清理请求未生效：当前未使用 Redis 缓存，gatewayId={}, toolName={}", gatewayId, toolName);
+    }
+
 }

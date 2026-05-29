@@ -3,6 +3,7 @@ package cn.chyuan.ai.config;
 import cn.chyuan.ai.infrastructure.gateway.GenericHttpGateway;
 import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import retrofit2.Retrofit;
@@ -19,14 +20,23 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class HTTPClientConfig {
 
+    @Value("${mcp.http.connect-timeout-ms:10000}")
+    private int connectTimeoutMs;
+
+    @Value("${mcp.http.read-timeout-ms:60000}")
+    private int readTimeoutMs;
+
+    @Value("${mcp.http.write-timeout-ms:60000}")
+    private int writeTimeoutMs;
+
     @Bean
     public OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
                 .connectionPool(new ConnectionPool(20, 5, TimeUnit.MINUTES))
                 .retryOnConnectionFailure(true)
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
+                .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
+                .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
+                .writeTimeout(writeTimeoutMs, TimeUnit.MILLISECONDS)
                 .build();
     }
 

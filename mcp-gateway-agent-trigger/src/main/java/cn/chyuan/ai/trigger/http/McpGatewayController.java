@@ -13,8 +13,10 @@ import cn.chyuan.ai.api.response.Response;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.MediaType;
@@ -38,6 +40,10 @@ import jakarta.annotation.Resource;
 @RequestMapping("/api-gateway")
 public class McpGatewayController implements IMcpGatewayService {
 
+    private static final Pattern ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$");
+    private static final Pattern MCP_METHOD_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_./:-]{0,127}$");
+    private static final int MAX_MESSAGE_BODY_LENGTH = 64 * 1024;
+
     @Resource
     private IMcpSessionService mcpSessionService;
 
@@ -46,6 +52,8 @@ public class McpGatewayController implements IMcpGatewayService {
 
     @Resource
     private ObservabilityHelper observabilityHelper;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 处理 sse 连接，创建会�?
@@ -62,10 +70,7 @@ public class McpGatewayController implements IMcpGatewayService {
             @PathVariable("gatewayId") String gatewayId, @RequestParam(value = "api_key", required = false, defaultValue = "") String apiKey) throws Exception {
         try {
             log.info("建立 MCP SSE 连接，gatewayId:{}", gatewayId);
-            if (StringUtils.isBlank(gatewayId)) {
-                log.info("非法参数，gateway is null");
-                throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), ResponseCode.ILLEGAL_PARAMETER.getInfo());
-            }
+            validateId("gatewayId", gatewayId);
 
             return mcpSessionService.createMcpSession(gatewayId, apiKey);
         } catch (AppException e) {
@@ -113,20 +118,58 @@ public class McpGatewayController implements IMcpGatewayService {
                                                     @RequestBody String messageBody) {
         try {
             log.info("处理 MCP SSE 消息，gatewayId:{} apiKey:{} sessionId:{} messageBody:{}", gatewayId, apiKey, sessionId, messageBody);
-            if (StringUtils.isBlank(gatewayId) || StringUtils.isBlank(sessionId)) {
-                log.info("非法参数，gateway、sessionId is null");
-                throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), ResponseCode.ILLEGAL_PARAMETER.getInfo());
-            }
+            validateId("gatewayId", gatewayId);
+            validateId("sessionId", sessionId);
+            validateMessageBody(messageBody);
 
             HandleMessageCommandEntity commandEntity = new HandleMessageCommandEntity(gatewayId, apiKey, sessionId, messageBody);
             ResponseEntity<Void> responseEntity = mcpMessageService.handleMessage(commandEntity);
 
             observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "SUCCESS", null, null);
             return Mono.just(responseEntity);
+        } catch (AppException e) {
+            log.warn("处理 MCP SSE 消息参数非法，gatewayId:{} sessionId:{} reason:{}", gatewayId, sessionId, e.getInfo());
+            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "FAIL", null, e.getInfo());
+            return Mono.just(ResponseEntity.badRequest().build());
         } catch (Exception e) {
             log.error("处理 MCP SSE 消息失败，gatewayId:{} sessionId:{} messageBody:{}", gatewayId, sessionId, messageBody, e);
             observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "FAIL", null, e.getMessage());
             return Mono.just(ResponseEntity.internalServerError().build());
+        }
+    }
+
+    private void validateId(String fieldName, String value) {
+        if (StringUtils.isBlank(value) || !ID_PATTERN.matcher(value).matches()) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), fieldName + "格式非法");
+        }
+    }
+
+    private void validateMessageBody(String messageBody) {
+        if (StringUtils.isBlank(messageBody)) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "messageBody不能为空");
+        }
+        if (messageBody.length() > MAX_MESSAGE_BODY_LENGTH) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "messageBody超过64KB限制");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(messageBody);
+            JsonNode methodNode = root.get("method");
+            if (methodNode != null && !methodNode.isNull()) {
+                String method = methodNode.asText();
+                if (StringUtils.isBlank(method) || !MCP_METHOD_PATTERN.matcher(method).matches()) {
+                    throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "method格式非法");
+                }
+                if ("tools/call".equals(method)) {
+                    JsonNode toolNameNode = root.path("params").path("name");
+                    if (!toolNameNode.isTextual() || !MCP_METHOD_PATTERN.matcher(toolNameNode.asText()).matches()) {
+                        throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "toolName格式非法");
+                    }
+                }
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "messageBody不是合法JSON");
         }
     }
 

@@ -20,4 +20,14 @@ public interface ISessionRepository {
 
     McpToolProtocolConfigVO queryMcpGatewayProtocolConfig(String gatewayId, String toolName);
 
+    /**
+     * 清理指定网关的所有配置缓存
+     */
+    default void evictGateway(String gatewayId) {}
+
+    /**
+     * 清理指定工具协议配置缓存
+     */
+    default void evictToolProtocol(String gatewayId, String toolName) {}
+
 }

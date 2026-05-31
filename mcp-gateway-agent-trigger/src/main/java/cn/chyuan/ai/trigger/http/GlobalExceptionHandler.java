@@ -4,9 +4,12 @@ import cn.chyuan.ai.api.response.Response;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理器
@@ -26,6 +29,20 @@ public class GlobalExceptionHandler {
         return Response.<Void>builder()
                 .code(e.getCode())
                 .info(e.getInfo())
+                .build();
+    }
+
+    /**
+     * 处理静态资源未找到异常
+     * 浏览器访问根路径 / 或请求 favicon.ico 时会触发，不应作为系统错误记录
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Response<Void> handleNoResourceFound(NoResourceFoundException e) {
+        log.debug("资源未找到: {}", e.getMessage());
+        return Response.<Void>builder()
+                .code(ResponseCode.UN_ERROR.getCode())
+                .info("资源不存在")
                 .build();
     }
 

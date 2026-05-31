@@ -70,6 +70,9 @@
         SELECT id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
         FROM mcp_protocol_http
         WHERE protocol_id = #{protocolId}
+          AND status = 1
+        ORDER BY update_time DESC, id DESC
+        LIMIT 1
     </select>
 
     <select id="queryListByProtocolIds" resultMap="McpProtocolRegistryMap">

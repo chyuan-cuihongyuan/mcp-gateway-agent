@@ -18,7 +18,9 @@ ai:
               embeddings-path: v1/embeddings
             chat-model:
               model: ${LLM_MODEL:gpt-4.1}
-              tool-mcp-list: []
+              tool-mcp-list:
+                - local:
+                    name: yunfanOilToolCallbackProvider
               tool-skills-list: []
                 # - type: resource
                 #   path: agent/skills

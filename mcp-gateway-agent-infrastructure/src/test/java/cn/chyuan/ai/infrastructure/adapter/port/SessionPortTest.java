@@ -5,14 +5,18 @@ import cn.chyuan.ai.infrastructure.gateway.GenericHttpGateway;
 import cn.chyuan.ai.types.exception.AppException;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
+import okhttp3.MediaType;
 import okio.Timeout;
+import okio.Buffer;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import retrofit2.Call;
 import retrofit2.Response;
 
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -47,6 +51,30 @@ class SessionPortTest {
                 .hasMessage("响应体为空");
 
         verify(gateway).post(eq("http://example.test/api"), eq(Map.of()), any(RequestBody.class));
+    }
+
+    @Test
+    void postUnwrapsLegacyRequestObjectArguments() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.execute()).thenReturn(Response.success(ResponseBody.create("{\"code\":0}",
+                MediaType.parse("application/json"))));
+        when(gateway.post(eq("http://example.test/api"), any(Map.class), any(RequestBody.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+
+        Object result = port.toolCall(httpConfig("post"),
+                Map.of("request", Map.of("orderId", "OD012026052515030031863")));
+
+        ArgumentCaptor<RequestBody> bodyCaptor = ArgumentCaptor.forClass(RequestBody.class);
+        verify(gateway).post(eq("http://example.test/api"), eq(Map.of()), bodyCaptor.capture());
+        Buffer buffer = new Buffer();
+        bodyCaptor.getValue().writeTo(buffer);
+
+        assertThat(result).isEqualTo("{\"code\":0}");
+        assertThat(buffer.readUtf8()).isEqualTo("{\"orderId\":\"OD012026052515030031863\"}");
     }
 
     private McpToolProtocolConfigVO.HTTPConfig httpConfig(String method) {

@@ -20,6 +20,7 @@ import retrofit2.Response;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -47,11 +48,12 @@ public class SessionPort implements ISessionPort {
         Map<String, Object> headers = parseHeaders(httpConfig);
         String httpMethod = httpConfig.getHttpMethod().toLowerCase();
 
-        if (!(params instanceof Map<?, ?> arguments)) {
+        if (!(params instanceof Map<?, ?> rawArguments)) {
             throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), ResponseCode.ILLEGAL_PARAMETER.getInfo());
         }
 
         try {
+            Map<String, Object> arguments = normalizeArguments(rawArguments);
             switch (httpMethod) {
                 case "post" -> {
                     return executePost(httpConfig, headers, arguments);
@@ -81,8 +83,26 @@ public class SessionPort implements ISessionPort {
         return objectMapper.readValue(httpHeadersJson, new TypeReference<Map<String, Object>>() {});
     }
 
-    private Object executePost(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<?, ?> arguments) throws IOException {
-        RequestBody requestBody = RequestBody.create(JSON.toJSONString(arguments),
+    private Map<String, Object> normalizeArguments(Map<?, ?> rawArguments) {
+        if (rawArguments.size() == 1) {
+            Object request = rawArguments.get("request");
+            if (request instanceof Map<?, ?> requestArguments) {
+                return toStringKeyMap(requestArguments);
+            }
+        }
+        return toStringKeyMap(rawArguments);
+    }
+
+    private Map<String, Object> toStringKeyMap(Map<?, ?> source) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        source.forEach((key, value) -> result.put(String.valueOf(key), value));
+        return result;
+    }
+
+    private Object executePost(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<String, Object> arguments) throws IOException {
+        String jsonBody = JSON.toJSONString(arguments);
+        log.info("HTTP POST 工具调用: url={}, body={}", httpConfig.getHttpUrl(), jsonBody);
+        RequestBody requestBody = RequestBody.create(jsonBody,
                 MediaType.parse("application/json"));
         String url = httpConfig.getHttpUrl();
         Call<ResponseBody> call = gateway.post(url, headers, requestBody);
@@ -90,10 +110,10 @@ public class SessionPort implements ISessionPort {
         return handleResponse(call.execute(), url);
     }
 
-    private Object executeGet(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<?, ?> arguments) throws IOException {
+    private Object executeGet(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<String, Object> arguments) throws IOException {
         String url = httpConfig.getHttpUrl();
         Map<String, Object> queryParams = new HashMap<>();
-        arguments.forEach((key, value) -> queryParams.put(String.valueOf(key), value));
+        queryParams.putAll(arguments);
 
         Matcher matcher = PATH_PARAM_PATTERN.matcher(url);
         while (matcher.find()) {

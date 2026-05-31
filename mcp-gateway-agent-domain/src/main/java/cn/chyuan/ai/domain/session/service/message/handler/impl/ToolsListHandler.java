@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 返回服务器支持的工具列表
@@ -45,8 +46,8 @@ public class ToolsListHandler implements IRequestHandler {
 
         for (McpToolConfigVO toolConfigVO : toolConfigs) {
             McpToolProtocolConfigVO mcpToolProtocolConfigVO = toolConfigVO.getMcpToolProtocolConfigVO();
-            List<McpToolProtocolConfigVO.ProtocolMapping> configs = mcpToolProtocolConfigVO
-                    .getRequestProtocolMappings();
+            List<McpToolProtocolConfigVO.ProtocolMapping> configs = normalizeRequestMappings(mcpToolProtocolConfigVO
+                    .getRequestProtocolMappings());
 
             // 排序
             configs.sort((o1, o2) -> {
@@ -86,12 +87,9 @@ public class ToolsListHandler implements IRequestHandler {
                 }
             }
 
-            // 获取类型
-            String type = roots.size() == 1 ? roots.get(0).getMcpType() : "object";
-
             // 构造函数
             McpSchemaVO.JsonSchema inputSchema = new McpSchemaVO.JsonSchema(
-                    type,
+                    "object",
                     properties,
                     required.isEmpty() ? null : required,
                     false,
@@ -103,6 +101,51 @@ public class ToolsListHandler implements IRequestHandler {
         }
 
         return tools;
+    }
+
+    private List<McpToolProtocolConfigVO.ProtocolMapping> normalizeRequestMappings(
+            List<McpToolProtocolConfigVO.ProtocolMapping> configs) {
+        if (configs == null || configs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        boolean hasRoot = configs.stream().anyMatch(config -> config.getParentPath() == null);
+        if (hasRoot) {
+            return new ArrayList<>(configs);
+        }
+
+        boolean legacyRequestWrapperOnly = configs.stream()
+                .filter(Objects::nonNull)
+                .allMatch(config -> "request".equals(config.getParentPath())
+                        && config.getMcpPath() != null
+                        && config.getMcpPath().startsWith("request."));
+
+        if (!legacyRequestWrapperOnly) {
+            return new ArrayList<>(configs);
+        }
+
+        List<McpToolProtocolConfigVO.ProtocolMapping> normalized = new ArrayList<>();
+        for (McpToolProtocolConfigVO.ProtocolMapping config : configs) {
+            normalized.add(McpToolProtocolConfigVO.ProtocolMapping.builder()
+                    .mappingType(config.getMappingType())
+                    .parentPath(null)
+                    .fieldName(config.getFieldName())
+                    .mcpPath(stripRequestPrefix(config.getMcpPath(), config.getFieldName()))
+                    .mcpType(config.getMcpType())
+                    .mcpDesc(config.getMcpDesc())
+                    .isRequired(config.getIsRequired())
+                    .sortOrder(config.getSortOrder())
+                    .build());
+        }
+        return normalized;
+    }
+
+    private String stripRequestPrefix(String mcpPath, String fallback) {
+        if (mcpPath == null) {
+            return fallback;
+        }
+        String prefix = "request.";
+        return mcpPath.startsWith(prefix) ? mcpPath.substring(prefix.length()) : mcpPath;
     }
 
     private Map<String, Object> buildProperty(McpToolProtocolConfigVO.ProtocolMapping current,

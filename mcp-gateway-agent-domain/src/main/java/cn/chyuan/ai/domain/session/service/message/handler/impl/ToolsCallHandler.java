@@ -42,6 +42,8 @@ public class ToolsCallHandler implements IRequestHandler {
             Object argumentsObj = callToolRequest.arguments();
             String toolName = callToolRequest.name();
 
+            log.info("工具调用请求: gatewayId={}, toolName={}, arguments={}", gatewayId, toolName, argumentsObj);
+
             // 参数校验
             if (argumentsObj == null) {
                 throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "工具调用参数不能为空");
@@ -53,6 +55,20 @@ public class ToolsCallHandler implements IRequestHandler {
             if (null == mcpToolProtocolConfigVO) {
                 throw new AppException(ResponseCode.METHOD_NOT_FOUND.getCode(),
                         "工具未找到: " + toolName);
+            }
+
+            // 参数校验：检查必填参数是否存在
+            if (mcpToolProtocolConfigVO.getRequestProtocolMappings() != null) {
+                for (McpToolProtocolConfigVO.ProtocolMapping mapping : mcpToolProtocolConfigVO.getRequestProtocolMappings()) {
+                    if (Integer.valueOf(1).equals(mapping.getIsRequired()) && argumentsObj instanceof Map<?, ?> args) {
+                        Object value = args.get(mapping.getFieldName());
+                        if (value == null || (value instanceof String s && s.isBlank())) {
+                            log.warn("必填参数缺失: toolName={}, field={}, desc={}", toolName, mapping.getFieldName(), mapping.getMcpDesc());
+                            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                                    "缺少必填参数: " + mapping.getMcpDesc() + "(" + mapping.getFieldName() + ")");
+                        }
+                    }
+                }
             }
 
             // 3. 调用接口

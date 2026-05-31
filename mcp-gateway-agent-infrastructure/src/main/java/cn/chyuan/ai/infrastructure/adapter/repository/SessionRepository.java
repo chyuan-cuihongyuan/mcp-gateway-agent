@@ -131,6 +131,8 @@ public class SessionRepository implements ISessionRepository {
         mcpGatewayToolPOReq.setToolName(toolName);
         Long protocolId = mcpGatewayToolDao.queryToolProtocolIdByToolName(mcpGatewayToolPOReq);
 
+        log.info("查询工具协议配置: gatewayId={}, toolName={}, protocolId={}", gatewayId, toolName, protocolId);
+
         // 查询协议
         McpProtocolHttpPO mcpProtocolHttpPO = mcpProtocolRegistryDao.queryMcpProtocolHttpByProtocolId(protocolId);
         if (null == mcpProtocolHttpPO)
@@ -142,7 +144,32 @@ public class SessionRepository implements ISessionRepository {
         httpConfig.setHttpMethod(mcpProtocolHttpPO.getHttpMethod());
         httpConfig.setTimeout(mcpProtocolHttpPO.getTimeout());
 
-        return McpToolProtocolConfigVO.builder().httpConfig(httpConfig).build();
+        // 加载请求参数映射配置（用于参数转换和校验）
+        List<McpProtocolMappingPO> mappingPOList = mcpProtocolMappingDao.queryListByProtocolIds(List.of(protocolId));
+        List<McpToolProtocolConfigVO.ProtocolMapping> requestProtocolMappings = new ArrayList<>();
+        for (McpProtocolMappingPO po : mappingPOList) {
+            if ("request".equals(po.getMappingType())) {
+                McpToolProtocolConfigVO.ProtocolMapping protocolMapping = McpToolProtocolConfigVO.ProtocolMapping
+                        .builder()
+                        .mappingType(po.getMappingType())
+                        .parentPath(po.getParentPath())
+                        .fieldName(po.getFieldName())
+                        .mcpPath(po.getMcpPath())
+                        .mcpType(po.getMcpType())
+                        .mcpDesc(po.getMcpDesc())
+                        .isRequired(po.getIsRequired())
+                        .sortOrder(po.getSortOrder())
+                        .build();
+                requestProtocolMappings.add(protocolMapping);
+            }
+        }
+
+        log.info("工具协议配置加载完成: toolName={}, 映射参数数量={}", toolName, requestProtocolMappings.size());
+
+        return McpToolProtocolConfigVO.builder()
+                .httpConfig(httpConfig)
+                .requestProtocolMappings(requestProtocolMappings)
+                .build();
     }
 
     @Override

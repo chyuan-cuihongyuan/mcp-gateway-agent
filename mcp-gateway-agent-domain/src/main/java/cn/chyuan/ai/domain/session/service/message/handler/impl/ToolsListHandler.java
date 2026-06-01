@@ -11,9 +11,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 返回服务器支持的工具列表
@@ -62,7 +65,7 @@ public class ToolsListHandler implements IRequestHandler {
             List<McpToolProtocolConfigVO.ProtocolMapping> roots = new ArrayList<>();
 
             for (McpToolProtocolConfigVO.ProtocolMapping config : configs) {
-                if (config.getParentPath() == null) {
+                if (isRootPath(config.getParentPath())) {
                     roots.add(config);
                 } else {
                     childrenMap.computeIfAbsent(config.getParentPath(), k -> new ArrayList<>()).add(config);
@@ -77,11 +80,11 @@ public class ToolsListHandler implements IRequestHandler {
             });
 
             // 构建输入结构
-            Map<String, Object> properties = new HashMap<>();
-            List<String> required = new ArrayList<>();
+            Map<String, Object> properties = new LinkedHashMap<>();
+            Set<String> required = new LinkedHashSet<>();
 
             for (McpToolProtocolConfigVO.ProtocolMapping root : roots) {
-                properties.put(root.getFieldName(), buildProperty(root, childrenMap));
+                properties.putIfAbsent(root.getFieldName(), buildProperty(root, childrenMap));
                 if (Integer.valueOf(1).equals(root.getIsRequired())) {
                     required.add(root.getFieldName());
                 }
@@ -91,7 +94,7 @@ public class ToolsListHandler implements IRequestHandler {
             McpSchemaVO.JsonSchema inputSchema = new McpSchemaVO.JsonSchema(
                     "object",
                     properties,
-                    required.isEmpty() ? null : required,
+                    required.isEmpty() ? null : new ArrayList<>(required),
                     false,
                     null,
                     null);
@@ -109,7 +112,7 @@ public class ToolsListHandler implements IRequestHandler {
             return new ArrayList<>();
         }
 
-        boolean hasRoot = configs.stream().anyMatch(config -> config.getParentPath() == null);
+        boolean hasRoot = configs.stream().anyMatch(config -> config != null && isRootPath(config.getParentPath()));
         if (hasRoot) {
             return new ArrayList<>(configs);
         }
@@ -148,9 +151,13 @@ public class ToolsListHandler implements IRequestHandler {
         return mcpPath.startsWith(prefix) ? mcpPath.substring(prefix.length()) : mcpPath;
     }
 
+    private boolean isRootPath(String parentPath) {
+        return parentPath == null || parentPath.isBlank();
+    }
+
     private Map<String, Object> buildProperty(McpToolProtocolConfigVO.ProtocolMapping current,
             Map<String, List<McpToolProtocolConfigVO.ProtocolMapping>> childrenMap) {
-        Map<String, Object> property = new HashMap<>();
+        Map<String, Object> property = new LinkedHashMap<>();
         property.put("type", current.getMcpType());
         if (current.getMcpDesc() != null) {
             property.put("description", current.getMcpDesc());
@@ -159,8 +166,8 @@ public class ToolsListHandler implements IRequestHandler {
         // 校验孩子元素
         List<McpToolProtocolConfigVO.ProtocolMapping> children = childrenMap.get(current.getMcpPath());
         if (children != null && !children.isEmpty()) {
-            Map<String, Object> props = new HashMap<>();
-            List<String> reqs = new ArrayList<>();
+            Map<String, Object> props = new LinkedHashMap<>();
+            Set<String> reqs = new LinkedHashSet<>();
 
             // 排序
             children.sort((o1, o2) -> {
@@ -171,7 +178,7 @@ public class ToolsListHandler implements IRequestHandler {
 
             for (McpToolProtocolConfigVO.ProtocolMapping child : children) {
                 // 注意，buildProperty 嵌套递归，一层层的寻找，是否还有孩子元素（children）
-                props.put(child.getFieldName(), buildProperty(child, childrenMap));
+                props.putIfAbsent(child.getFieldName(), buildProperty(child, childrenMap));
                 if (Integer.valueOf(1).equals(child.getIsRequired())) {
                     reqs.add(child.getFieldName());
                 }
@@ -180,7 +187,7 @@ public class ToolsListHandler implements IRequestHandler {
             property.put("properties", props);
 
             if (!reqs.isEmpty()) {
-                property.put("required", reqs);
+                property.put("required", new ArrayList<>(reqs));
             }
 
         }

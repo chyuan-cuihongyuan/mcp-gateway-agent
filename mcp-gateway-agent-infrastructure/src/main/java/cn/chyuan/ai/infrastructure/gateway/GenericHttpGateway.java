@@ -13,7 +13,7 @@ import retrofit2.http.Url;
 import java.util.Map;
 
 /**
- * 资料：<a href="https://bugstack.cn/md/road-map/http.html">HTTP 框架案例</a>
+ * 资料：<a href="https://chyuan/md/road-map/http.html">HTTP 框架案例</a>
  */
 public interface GenericHttpGateway {
 

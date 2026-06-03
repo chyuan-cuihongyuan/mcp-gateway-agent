@@ -31,7 +31,7 @@ import jakarta.annotation.Resource;
 /**
  * MCP 网关服务接口管理
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2025/12/13 08:54
  */
 @Slf4j
@@ -56,7 +56,7 @@ public class McpGatewayController implements IMcpGatewayService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 处理 sse 连接，创建会�?
+     * 处理 sse 连接，创建会
      * <br/>
      * <a href="http://localhost:8777/api-gateway/gateway_001/mcp/sse">http://localhost:8777/api-gateway/gateway_001/mcp/sse</a>
      * <br/>
@@ -90,7 +90,7 @@ public class McpGatewayController implements IMcpGatewayService {
     }
 
     /**
-     * 处理 sse 消息，响应会�?
+     * 处理 sse 消息，响应会
      *
      * @param gatewayId   网关ID
      * @param sessionId   会话ID

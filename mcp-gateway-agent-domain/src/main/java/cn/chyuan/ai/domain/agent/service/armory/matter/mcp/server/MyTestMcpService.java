@@ -23,7 +23,7 @@ public class MyTestMcpService {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class XxxRequest {
         @JsonProperty(required = true, value = "word")
-        @JsonPropertyDescription("英文单词，字符串，字母。例如: good,xiaofuge")
+        @JsonPropertyDescription("英文单词，字符串，字母。例如: good,chyuan")
         private String word;
     }
 

@@ -17,7 +17,7 @@ import jakarta.annotation.Resource;
 /**
  * MCP会话消息工厂
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2026/2/20 07:39
  */
 @Service

@@ -20,13 +20,13 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class HTTPClientConfig {
 
-    @Value("${mcp.http.connect-timeout-ms:10000}")
+    @Value("${mcp.http.connect-timeout-ms}")
     private int connectTimeoutMs;
 
-    @Value("${mcp.http.read-timeout-ms:60000}")
+    @Value("${mcp.http.read-timeout-ms}")
     private int readTimeoutMs;
 
-    @Value("${mcp.http.write-timeout-ms:60000}")
+    @Value("${mcp.http.write-timeout-ms}")
     private int writeTimeoutMs;
 
     @Bean

@@ -14,7 +14,7 @@ import jakarta.annotation.Resource;
 /**
  * 会话节点
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2025/12/13 09:23
  */
 @Slf4j

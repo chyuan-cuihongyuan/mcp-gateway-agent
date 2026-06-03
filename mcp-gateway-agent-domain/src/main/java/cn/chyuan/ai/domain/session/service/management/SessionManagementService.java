@@ -32,7 +32,7 @@ public class SessionManagementService implements ISessionManagementService {
     /**
      * 会话超时时间（分钟）- 也可以把配置抽取到yml里
      */
-    @Value("${mcp.session.timeout-minutes:30}")
+    @Value("${mcp.session.timeout-minutes}")
     private long sessionTimeoutMinutes;
 
     /**

@@ -34,10 +34,10 @@ public class CachedSessionRepository implements ISessionRepository {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
-    @Value("${mcp.cache.tool-config.enabled:true}")
+    @Value("${mcp.cache.tool-config.enabled}")
     private boolean enabled;
 
-    @Value("${mcp.cache.tool-config.ttl-minutes:30}")
+    @Value("${mcp.cache.tool-config.ttl-minutes}")
     private long ttlMinutes;
 
     @Override

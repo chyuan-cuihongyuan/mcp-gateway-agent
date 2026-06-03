@@ -21,9 +21,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 默认的装配工�?
+ * 默认的装配工
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2025/12/17 08:16
  */
 @Service
@@ -44,7 +44,7 @@ public class DefaultArmoryFactory {
     }
 
     /**
-     * 定义一个上下文对象，用于各个节点串联的时候，写入数据和使用数�?
+     * 定义一个上下文对象，用于各个节点串联的时候，写入数据和使用数
      */
     @Data
     @Builder

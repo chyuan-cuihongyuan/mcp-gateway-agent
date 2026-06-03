@@ -38,7 +38,7 @@ public class ChatModelNode extends AbstractArmorySupport {
     protected AiAgentRegisterVO doApply(ArmoryCommandEntity requestParameter, DefaultArmoryFactory.DynamicContext dynamicContext) throws Exception {
         log.info("Ai Agent 装配操作 - ChatModelNode");
 
-        // 获取上下文对�?
+        // 获取上下文对
         OpenAiApi openAiApi = dynamicContext.getOpenAiApi();
 
         // 获取配置对象

@@ -17,7 +17,7 @@ import jakarta.annotation.Resource;
 /**
  * 鉴权核验
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2025/12/13 09:22
  */
 @Slf4j

@@ -17,9 +17,9 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.Resource;
 
 /**
- * 根节�?
+ * 根节
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2026/2/20 08:00
  */
 @Slf4j
@@ -37,13 +37,13 @@ public class RootNode extends AbstractMcpMessageServiceSupport {
         try {
             log.info("消息处理 mcp message RootNode:{}", requestParameter);
 
-            // 判断命中工具调用做限流处�?
+            // 判断命中工具调用做限流处
             if (requestParameter.getJsonrpcMessage() instanceof McpSchemaVO.JSONRPCRequest request) {
                 String method = request.method();
 
                 SessionMessageHandlerMethodEnum sessionMessageHandlerMethodEnum = SessionMessageHandlerMethodEnum.getByMethod(method);
                 if (SessionMessageHandlerMethodEnum.TOOLS_CALL.equals(sessionMessageHandlerMethodEnum)){
-                    // 是（true）否（false）命中限�?
+                    // 是（true）否（false）命中限
                     boolean isHit = authRateLimitService.rateLimit(new RateLimitCommandEntity(requestParameter.getGatewayId(), requestParameter.getApiKey()));
                     if (isHit) {
                         log.warn("消息处理 mcp message RootNode - 命中限流{} {}", requestParameter.getGatewayId(), requestParameter.getApiKey());

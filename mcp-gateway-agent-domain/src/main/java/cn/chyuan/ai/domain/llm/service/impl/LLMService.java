@@ -38,7 +38,7 @@ public class LLMService implements ILLMService {
     @Resource
     private OpenAiApi openAiApi;
 
-    @Value("${spring.ai.openai.options.model:gpt-4o}")
+    @Value("${spring.ai.openai.options.model}")
     private String model;
 
     @Override

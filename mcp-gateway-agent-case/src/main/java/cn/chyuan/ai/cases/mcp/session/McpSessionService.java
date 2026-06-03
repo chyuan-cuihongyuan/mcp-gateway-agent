@@ -12,7 +12,7 @@ import jakarta.annotation.Resource;
 /**
  * 会话服务接口
  *
- * @author xiaofuge bugstack.cn @小傅�?
+ * @author chyuan @chyuan
  * 2025/12/13 09:08
  */
 @Service

@@ -37,6 +37,7 @@ import java.util.regex.Pattern;
 public class SessionPort implements ISessionPort {
 
     private static final Pattern PATH_PARAM_PATTERN = Pattern.compile("\\{([^}]+)\\}");
+    private static final int MAX_ERROR_BODY_LENGTH = 512;
 
     @Resource
     private GenericHttpGateway gateway;
@@ -101,7 +102,7 @@ public class SessionPort implements ISessionPort {
 
     private Object executePost(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<String, Object> arguments) throws IOException {
         String jsonBody = JSON.toJSONString(arguments);
-        log.info("HTTP POST 工具调用: url={}, body={}", httpConfig.getHttpUrl(), jsonBody);
+        log.info("HTTP POST 工具调用: url={}, argumentCount={}", httpConfig.getHttpUrl(), arguments.size());
         RequestBody requestBody = RequestBody.create(jsonBody,
                 MediaType.parse("application/json"));
         String url = httpConfig.getHttpUrl();
@@ -124,6 +125,7 @@ public class SessionPort implements ISessionPort {
             }
         }
 
+        log.info("HTTP GET 工具调用: url={}, queryCount={}", url, queryParams.size());
         Call<ResponseBody> call = gateway.get(url, headers, queryParams);
         applyCallTimeout(call, httpConfig.getTimeout());
         return handleResponse(call.execute(), url);
@@ -141,7 +143,7 @@ public class SessionPort implements ISessionPort {
             // 脱敏：不打印完整 header，避免泄露 token
             log.warn("下游返回非成功状态: url={}, code={}", url, response.code());
             throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
-                    "HTTP " + response.code() + ": " + errorBody);
+                    "HTTP " + response.code() + ": " + truncate(errorBody));
         }
         ResponseBody body = response.body();
         if (body == null) {
@@ -152,6 +154,13 @@ public class SessionPort implements ISessionPort {
         } finally {
             body.close();
         }
+    }
+
+    private String truncate(String value) {
+        if (value == null || value.length() <= MAX_ERROR_BODY_LENGTH) {
+            return value;
+        }
+        return value.substring(0, MAX_ERROR_BODY_LENGTH) + "...";
     }
 
 }

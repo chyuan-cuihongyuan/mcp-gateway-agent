@@ -1,6 +1,7 @@
 package cn.chyuan.ai.infrastructure.adapter.repository;
 
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpGatewayConfigVO;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -26,17 +27,21 @@ class CachedSessionRepositoryTest {
         };
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("mcp:gateway:config:gateway_001")).thenReturn(null);
 
         CachedSessionRepository repository = new CachedSessionRepository();
         ReflectionTestUtils.setField(repository, "delegate", delegate);
         ReflectionTestUtils.setField(repository, "stringRedisTemplate", redisTemplate);
+        ReflectionTestUtils.setField(repository, "meterRegistry", meterRegistry);
         ReflectionTestUtils.setField(repository, "enabled", true);
         ReflectionTestUtils.setField(repository, "ttlMinutes", 30L);
 
         assertThat(repository.queryMcpGatewayConfigByGatewayId("gateway_001")).isSameAs(config);
         verify(valueOperations).set(eq("mcp:gateway:config:gateway_001"), any(String.class), eq(java.time.Duration.ofMinutes(30)));
+        assertThat(meterRegistry.counter("mcp_gateway_config_cache_total",
+                "cache", "gateway_config", "result", "miss").count()).isEqualTo(1.0);
     }
 
     @Test

@@ -4,6 +4,7 @@ import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
 import cn.chyuan.ai.domain.session.model.valobj.SessionMetaVO;
 import cn.chyuan.ai.domain.session.model.valobj.SessionConfigVO;
 import cn.chyuan.ai.domain.session.service.ISessionManagementService;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,7 +12,11 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Sinks;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,7 +43,11 @@ public class SessionManagementService implements ISessionManagementService {
     /**
      * 定时任务调度
      */
-    private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "mcp-session-cleanup");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     /**
      * 活跃会话存储器，key->sessionId，ConcurrentHashMap 确保线程安全
@@ -133,6 +142,7 @@ public class SessionManagementService implements ISessionManagementService {
     }
 
     @Override
+    @PreDestroy
     public void shutdown() {
         log.info("关闭会话管理服务...");
 
@@ -147,11 +157,11 @@ public class SessionManagementService implements ISessionManagementService {
             // 等待5秒让正在执行的任务完成
             if (!cleanupScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 // 超时强制关闭
-                cleanupScheduler.shutdown();
+                cleanupScheduler.shutdownNow();
             }
         } catch (InterruptedException e) {
             // 异常强制关闭
-            cleanupScheduler.shutdown();
+            cleanupScheduler.shutdownNow();
             Thread.currentThread().interrupt();
         }
 
@@ -166,12 +176,25 @@ public class SessionManagementService implements ISessionManagementService {
         SessionMetaVO meta = SessionMetaVO.builder()
                 .sessionId(sessionId)
                 .gatewayId(gatewayId)
-                .apiKeyHash(apiKey == null ? "" : Integer.toHexString(apiKey.hashCode()))
+                .apiKeyHash(hashApiKey(apiKey))
                 .createTime(now)
                 .lastAccessedTime(now)
                 .status("ACTIVE")
                 .build();
         sessionMetaRepository.save(meta, Duration.ofMinutes(sessionTimeoutMinutes));
+    }
+
+    private String hashApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "";
+        }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(apiKey.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm unavailable", e);
+        }
     }
 
 }

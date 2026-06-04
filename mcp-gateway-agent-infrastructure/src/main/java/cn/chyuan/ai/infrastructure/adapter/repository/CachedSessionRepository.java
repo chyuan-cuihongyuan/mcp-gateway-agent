@@ -7,7 +7,9 @@ import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 import jakarta.annotation.Resource;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Primary;
@@ -34,6 +36,9 @@ public class CachedSessionRepository implements ISessionRepository {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Autowired(required = false)
+    private MeterRegistry meterRegistry;
+
     @Value("${mcp.cache.tool-config.enabled}")
     private boolean enabled;
 
@@ -43,6 +48,7 @@ public class CachedSessionRepository implements ISessionRepository {
     @Override
     public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
         return getOrLoad(GATEWAY_KEY_PREFIX + gatewayId,
+                "gateway_config",
                 McpGatewayConfigVO.class,
                 () -> delegate.queryMcpGatewayConfigByGatewayId(gatewayId));
     }
@@ -50,6 +56,7 @@ public class CachedSessionRepository implements ISessionRepository {
     @Override
     public List<McpToolConfigVO> queryMcpGatewayToolConfigListByGatewayId(String gatewayId) {
         return getListOrLoad(TOOL_LIST_KEY_PREFIX + gatewayId,
+                "tool_list",
                 new TypeReference<List<McpToolConfigVO>>() {},
                 () -> delegate.queryMcpGatewayToolConfigListByGatewayId(gatewayId));
     }
@@ -57,6 +64,7 @@ public class CachedSessionRepository implements ISessionRepository {
     @Override
     public McpToolProtocolConfigVO queryMcpGatewayProtocolConfig(String gatewayId, String toolName) {
         return getOrLoad(TOOL_PROTOCOL_KEY_PREFIX + gatewayId + ":" + toolName,
+                "tool_protocol",
                 McpToolProtocolConfigVO.class,
                 () -> delegate.queryMcpGatewayProtocolConfig(gatewayId, toolName));
     }
@@ -70,48 +78,66 @@ public class CachedSessionRepository implements ISessionRepository {
         stringRedisTemplate.delete(TOOL_PROTOCOL_KEY_PREFIX + gatewayId + ":" + toolName);
     }
 
-    private <T> T getOrLoad(String key, Class<T> type, Supplier<T> loader) {
+    private <T> T getOrLoad(String key, String cacheName, Class<T> type, Supplier<T> loader) {
         if (!enabled) {
             return loader.get();
         }
         try {
             String cached = stringRedisTemplate.opsForValue().get(key);
             if (cached != null) {
+                incrementCacheMetric(cacheName, "hit");
                 return JSON.parseObject(cached, type);
             }
         } catch (Exception e) {
+            incrementCacheMetric(cacheName, "read_error");
             log.debug("read mcp cache failed: key={}", key, e);
         }
+        incrementCacheMetric(cacheName, "miss");
         T value = loader.get();
-        cache(key, value);
+        cache(key, cacheName, value);
         return value;
     }
 
-    private <T> T getListOrLoad(String key, TypeReference<T> typeReference, Supplier<T> loader) {
+    private <T> T getListOrLoad(String key, String cacheName, TypeReference<T> typeReference, Supplier<T> loader) {
         if (!enabled) {
             return loader.get();
         }
         try {
             String cached = stringRedisTemplate.opsForValue().get(key);
             if (cached != null) {
+                incrementCacheMetric(cacheName, "hit");
                 return JSON.parseObject(cached, typeReference);
             }
         } catch (Exception e) {
+            incrementCacheMetric(cacheName, "read_error");
             log.debug("read mcp list cache failed: key={}", key, e);
         }
+        incrementCacheMetric(cacheName, "miss");
         T value = loader.get();
-        cache(key, value);
+        cache(key, cacheName, value);
         return value;
     }
 
-    private void cache(String key, Object value) {
+    private void cache(String key, String cacheName, Object value) {
         if (value == null) {
+            return;
+        }
+        if (ttlMinutes <= 0) {
+            log.debug("skip mcp cache write because ttl is not positive: key={}, ttlMinutes={}", key, ttlMinutes);
             return;
         }
         try {
             stringRedisTemplate.opsForValue().set(key, JSON.toJSONString(value), Duration.ofMinutes(ttlMinutes));
         } catch (Exception e) {
+            incrementCacheMetric(cacheName, "write_error");
             log.debug("write mcp cache failed: key={}", key, e);
         }
+    }
+
+    private void incrementCacheMetric(String cacheName, String result) {
+        if (meterRegistry == null) {
+            return;
+        }
+        meterRegistry.counter("mcp_gateway_config_cache_total", "cache", cacheName, "result", result).increment();
     }
 }

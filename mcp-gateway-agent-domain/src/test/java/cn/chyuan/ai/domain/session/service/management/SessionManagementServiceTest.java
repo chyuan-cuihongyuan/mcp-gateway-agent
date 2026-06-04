@@ -8,7 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.HexFormat;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,6 +43,8 @@ class SessionManagementServiceTest {
         assertThat(metaCaptor.getValue().getSessionId()).isEqualTo(session.getSessionId());
         assertThat(metaCaptor.getValue().getGatewayId()).isEqualTo("gateway_001");
         assertThat(metaCaptor.getValue().getStatus()).isEqualTo("ACTIVE");
+        assertThat(metaCaptor.getValue().getApiKeyHash()).isEqualTo(sha256("secret-key"));
+        assertThat(metaCaptor.getValue().getApiKeyHash()).doesNotContain("secret-key");
     }
 
     @Test
@@ -51,5 +56,11 @@ class SessionManagementServiceTest {
 
         service.removeSession(session.getSessionId());
         verify(metaRepository).delete(session.getSessionId());
+    }
+
+    private String sha256(String value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(digest);
     }
 }

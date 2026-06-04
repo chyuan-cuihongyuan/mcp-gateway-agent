@@ -10,9 +10,11 @@ import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * 协议握手，建立客户端与服务器的连接
@@ -26,6 +28,12 @@ public class InitializeHandler implements IRequestHandler {
 
     @Resource
     private ISessionRepository repository;
+
+    @Value("${mcp.protocol.default-version:" + McpSchemaVO.LATEST_PROTOCOL_VERSION + "}")
+    private String defaultProtocolVersion;
+
+    @Value("#{'${mcp.protocol.supported-versions:" + McpSchemaVO.LATEST_PROTOCOL_VERSION + "}'.split(',')}")
+    private List<String> supportedProtocolVersions;
 
     /**
      * 对照 io.modelcontextprotocol.spec.McpServerSession
@@ -79,9 +87,11 @@ public class InitializeHandler implements IRequestHandler {
             throw new AppException(ResponseCode.METHOD_NOT_FOUND.getCode(), "网关配置不存在: " + gatewayId);
         }
 
+        String protocolVersion = negotiateProtocolVersion(initializeRequest.protocolVersion());
+
         // 3. 组装信息
         McpSchemaVO.InitializeResult initializeResult = new McpSchemaVO.InitializeResult(
-                initializeRequest.protocolVersion(),
+                protocolVersion,
                 new McpSchemaVO.ServerCapabilities(new McpSchemaVO.ServerCapabilities.CompletionCapabilities(),
                         new HashMap<>(),
                         new McpSchemaVO.ServerCapabilities.LoggingCapabilities(),
@@ -93,6 +103,20 @@ public class InitializeHandler implements IRequestHandler {
 
         // 4. 返回结果
         return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION, message.id(), initializeResult, null);
+    }
+
+    private String negotiateProtocolVersion(String requestedVersion) {
+        if (requestedVersion != null && !requestedVersion.isBlank()) {
+            boolean supported = supportedProtocolVersions.stream()
+                    .map(String::trim)
+                    .anyMatch(requestedVersion::equals);
+            if (supported) {
+                return requestedVersion;
+            }
+            log.info("客户端 MCP 协议版本不在支持列表内，使用默认版本: requested={}, default={}",
+                    requestedVersion, defaultProtocolVersion);
+        }
+        return defaultProtocolVersion;
     }
 
 }

@@ -15,7 +15,7 @@ MESSAGE=$3
 SESSION_ID=${4:-""}
 
 # 业务 API 地址
-API_URL="http://localhost:8091/api/v1/chat"
+API_URL="http://49.232.169.33:8091/api/v1/chat"
 
 # 构建请求体
 if [ -z "$SESSION_ID" ]; then

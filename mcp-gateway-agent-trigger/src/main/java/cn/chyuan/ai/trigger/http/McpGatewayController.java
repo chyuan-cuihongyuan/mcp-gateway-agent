@@ -36,7 +36,7 @@ import jakarta.annotation.Resource;
  */
 @Slf4j
 @RestController
-@CrossOrigin(origins = {"${cors.allowed-origins:http://localhost:3000}"}, allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
+@CrossOrigin(origins = {"${cors.allowed-origins:http://49.232.169.33:3000}"}, allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 @RequestMapping("/api-gateway")
 public class McpGatewayController implements IMcpGatewayService {
 
@@ -58,9 +58,9 @@ public class McpGatewayController implements IMcpGatewayService {
     /**
      * 处理 sse 连接，创建会
      * <br/>
-     * <a href="http://localhost:8777/api-gateway/gateway_001/mcp/sse">http://localhost:8777/api-gateway/gateway_001/mcp/sse</a>
+     * <a href="http://49.232.169.33:8777/api-gateway/gateway_001/mcp/sse">http://49.232.169.33:8777/api-gateway/gateway_001/mcp/sse</a>
      * <br/>
-     * <a href="http://localhost:8777/api-gateway/gateway_001/mcp/sse?api_key=gw-lf3HFzlJCdnrYl20oHbd5lJQxE7GWz8wjsSgjDZfctJNV8s5">http://localhost:8777/api-gateway/gateway_001/mcp/sse?api_key=gw-lf3HFzlJCdnrYl20oHbd5lJQxE7GWz8wjsSgjDZfctJNV8s5</a>
+     * <a href="http://49.232.169.33:8777/api-gateway/gateway_001/mcp/sse?api_key=gw-lf3HFzlJCdnrYl20oHbd5lJQxE7GWz8wjsSgjDZfctJNV8s5">http://49.232.169.33:8777/api-gateway/gateway_001/mcp/sse?api_key=gw-lf3HFzlJCdnrYl20oHbd5lJQxE7GWz8wjsSgjDZfctJNV8s5</a>
      *
      * @param gatewayId 网关ID
      */

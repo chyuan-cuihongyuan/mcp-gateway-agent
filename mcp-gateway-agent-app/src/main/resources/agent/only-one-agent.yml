@@ -10,12 +10,12 @@ ai:
             agent-desc: 单一智能体
           module:
             ai-api:
-              base-url: ${LLM_BASE_URL:https://apis.itedus.cn}
-              api-key: ${LLM_API_KEY:changeme}
+              base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4}
+              api-key: ${LLM_API_KEY:47b14566882e4e5ab68ae079e307667f.gYg6trXMmDAFQBT3}
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:
-              model: ${LLM_MODEL:gpt-4.1}
+              model: ${LLM_MODEL:glm-5.1}
               tool-mcp-list:
                 # - sse:
                 #     name: baidu-search

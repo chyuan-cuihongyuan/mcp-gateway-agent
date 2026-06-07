@@ -68,13 +68,17 @@ public class McpGatewayController implements IMcpGatewayService {
     @Override
     public Flux<ServerSentEvent<String>> handleSseConnection(
             @PathVariable("gatewayId") String gatewayId, @RequestParam(value = "api_key", required = false, defaultValue = "") String apiKey) throws Exception {
+        String connectTraceId = UUID.randomUUID().toString().replace("-", "");
         try {
             log.info("建立 MCP SSE 连接，gatewayId:{}", gatewayId);
             validateId("gatewayId", gatewayId);
 
-            return mcpSessionService.createMcpSession(gatewayId, apiKey);
+            Flux<ServerSentEvent<String>> session = mcpSessionService.createMcpSession(gatewayId, apiKey);
+            observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "SUCCESS", null, null);
+            return session;
         } catch (AppException e) {
             log.error("建立 MCP SSE 连接拒绝，gatewayId: {}", gatewayId, e);
+            observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "FAIL", null, e.getInfo());
             return Flux.just(ServerSentEvent.<String>builder()
                     .id(UUID.randomUUID().toString())
                     .event("error")
@@ -85,6 +89,7 @@ public class McpGatewayController implements IMcpGatewayService {
                     .build());
         } catch (Exception e) {
             log.error("建立 MCP SSE 连接失败，gatewayId: {}", gatewayId, e);
+            observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "FAIL", null, e.getMessage());
             throw e;
         }
     }
@@ -116,6 +121,8 @@ public class McpGatewayController implements IMcpGatewayService {
                                                     @RequestParam("sessionId") String sessionId,
                                                     @RequestParam(value = "api_key", required = false, defaultValue = "") String apiKey,
                                                     @RequestBody String messageBody) {
+        long start = System.currentTimeMillis();
+        String toolName = extractMcpMethod(messageBody);
         try {
             log.info("处理 MCP SSE 消息，gatewayId:{} apiKey:{} sessionId:{} messageBody:{}", gatewayId, apiKey, sessionId, messageBody);
             validateId("gatewayId", gatewayId);
@@ -125,17 +132,33 @@ public class McpGatewayController implements IMcpGatewayService {
             HandleMessageCommandEntity commandEntity = new HandleMessageCommandEntity(gatewayId, apiKey, sessionId, messageBody);
             ResponseEntity<Void> responseEntity = mcpMessageService.handleMessage(commandEntity);
 
-            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "SUCCESS", null, null);
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "SUCCESS",
+                    (int) (System.currentTimeMillis() - start), null);
             return Mono.just(responseEntity);
         } catch (AppException e) {
             log.warn("处理 MCP SSE 消息参数非法，gatewayId:{} sessionId:{} reason:{}", gatewayId, sessionId, e.getInfo());
-            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "FAIL", null, e.getInfo());
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL",
+                    (int) (System.currentTimeMillis() - start), e.getInfo());
             return Mono.just(ResponseEntity.badRequest().build());
         } catch (Exception e) {
             log.error("处理 MCP SSE 消息失败，gatewayId:{} sessionId:{} messageBody:{}", gatewayId, sessionId, messageBody, e);
-            observabilityHelper.reportToolCall(sessionId, gatewayId, "handleMessage", "FAIL", null, e.getMessage());
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL",
+                    (int) (System.currentTimeMillis() - start), e.getMessage());
             return Mono.just(ResponseEntity.internalServerError().build());
         }
+    }
+
+    /** 从 MCP 消息体解析 method（失败回退 handleMessage），用于可观测性上报工具名 */
+    private String extractMcpMethod(String messageBody) {
+        try {
+            JsonNode methodNode = objectMapper.readTree(messageBody).get("method");
+            if (methodNode != null && !methodNode.isNull() && StringUtils.isNotBlank(methodNode.asText())) {
+                return methodNode.asText();
+            }
+        } catch (Exception ignored) {
+            // 解析失败回退默认值
+        }
+        return "handleMessage";
     }
 
     private void validateId(String fieldName, String value) {

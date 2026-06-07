@@ -20,9 +20,10 @@ public class ObservabilityHelper {
         try {
             AgentDecisionReport report = AgentDecisionReport.builder()
                     .traceId(traceId).sourceService(SOURCE_SERVICE)
-                    .agentId(gatewayId).userQuery(toolName)
+                    .sessionId(traceId).agentId(gatewayId)
+                    .userQuery(toolName).intentType(toolName)
                     .branchType("TOOL_CALL").agentStatus(status)
-                    .costTimeMs(costTimeMs).errorMessage(errorMessage)
+                    .toolCallTimes(1).costTimeMs(costTimeMs).errorMessage(errorMessage)
                     .build();
             observabilityClient.reportAgentDecision(report);
         } catch (Exception e) {

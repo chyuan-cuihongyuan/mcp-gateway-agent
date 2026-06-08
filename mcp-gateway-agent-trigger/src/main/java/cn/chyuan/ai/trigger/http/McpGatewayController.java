@@ -11,6 +11,7 @@ import cn.chyuan.ai.domain.session.service.ISessionMessageService;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.api.response.Response;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
+import cn.chyuan.ai.infrastructure.utils.TraceContext;
 import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -123,6 +124,10 @@ public class McpGatewayController implements IMcpGatewayService {
                                                     @RequestBody String messageBody) {
         long start = System.currentTimeMillis();
         String toolName = extractMcpMethod(messageBody);
+
+        // 设置 traceId 到 TraceContext，供跨服务调用时注入 HTTP Header
+        TraceContext.setTraceId(sessionId);
+
         try {
             log.info("处理 MCP SSE 消息，gatewayId:{} apiKey:{} sessionId:{} messageBody:{}", gatewayId, apiKey, sessionId, messageBody);
             validateId("gatewayId", gatewayId);
@@ -145,6 +150,9 @@ public class McpGatewayController implements IMcpGatewayService {
             observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL",
                     (int) (System.currentTimeMillis() - start), e.getMessage());
             return Mono.just(ResponseEntity.internalServerError().build());
+        } finally {
+            // 清理 TraceContext
+            TraceContext.clear();
         }
     }
 

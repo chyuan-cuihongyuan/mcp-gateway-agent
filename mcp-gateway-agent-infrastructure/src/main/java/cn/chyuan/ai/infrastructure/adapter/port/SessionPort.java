@@ -3,6 +3,7 @@ package cn.chyuan.ai.infrastructure.adapter.port;
 import cn.chyuan.ai.domain.session.adapter.port.ISessionPort;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import cn.chyuan.ai.infrastructure.gateway.GenericHttpGateway;
+import cn.chyuan.ai.infrastructure.utils.TraceContext;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
@@ -47,6 +48,13 @@ public class SessionPort implements ISessionPort {
     @Override
     public Object toolCall(McpToolProtocolConfigVO.HTTPConfig httpConfig, Object params) throws IOException {
         Map<String, Object> headers = parseHeaders(httpConfig);
+
+        // 注入 X-Trace-Id Header，实现跨服务链路追踪
+        String traceId = TraceContext.getTraceId();
+        if (traceId != null && !traceId.isEmpty()) {
+            headers.put("X-Trace-Id", traceId);
+        }
+
         String httpMethod = httpConfig.getHttpMethod().toLowerCase();
 
         if (!(params instanceof Map<?, ?> rawArguments)) {

@@ -76,10 +76,16 @@ public class McpGatewayController implements IMcpGatewayService {
 
             Flux<ServerSentEvent<String>> session = mcpSessionService.createMcpSession(gatewayId, apiKey);
             observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "SUCCESS", null, null);
+            observabilityHelper.reportAgentDecision(connectTraceId, null, null, gatewayId,
+                    "sse/connect", "DIRECT_ANSWER", "general_chat", null, null, null,
+                    0, 0, "SUCCESS", 0, null, null);
             return session;
         } catch (AppException e) {
             log.error("建立 MCP SSE 连接拒绝，gatewayId: {}", gatewayId, e);
             observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "FAIL", null, e.getInfo());
+            observabilityHelper.reportAgentDecision(connectTraceId, null, null, gatewayId,
+                    "sse/connect", "DIRECT_ANSWER", "general_chat", null, null, null,
+                    0, 0, "FAIL", 0, null, e.getInfo());
             return Flux.just(ServerSentEvent.<String>builder()
                     .id(UUID.randomUUID().toString())
                     .event("error")
@@ -91,6 +97,9 @@ public class McpGatewayController implements IMcpGatewayService {
         } catch (Exception e) {
             log.error("建立 MCP SSE 连接失败，gatewayId: {}", gatewayId, e);
             observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "FAIL", null, e.getMessage());
+            observabilityHelper.reportAgentDecision(connectTraceId, null, null, gatewayId,
+                    "sse/connect", "DIRECT_ANSWER", "general_chat", null, null, null,
+                    0, 0, "FAIL", 0, null, e.getMessage());
             throw e;
         }
     }
@@ -137,18 +146,28 @@ public class McpGatewayController implements IMcpGatewayService {
             HandleMessageCommandEntity commandEntity = new HandleMessageCommandEntity(gatewayId, apiKey, sessionId, messageBody);
             ResponseEntity<Void> responseEntity = mcpMessageService.handleMessage(commandEntity);
 
-            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "SUCCESS",
-                    (int) (System.currentTimeMillis() - start), null);
+            int costMs = (int) (System.currentTimeMillis() - start);
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "SUCCESS", costMs, null);
+            // 补齐 Agent 决策和问答结果上报
+            observabilityHelper.reportAgentDecision(sessionId, sessionId, null, gatewayId,
+                    "handleMessage", "TOOL_CALL", "tool_invocation", null, null, null,
+                    1, 0, "SUCCESS", costMs, null, null);
             return Mono.just(responseEntity);
         } catch (AppException e) {
             log.warn("处理 MCP SSE 消息参数非法，gatewayId:{} sessionId:{} reason:{}", gatewayId, sessionId, e.getInfo());
-            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL",
-                    (int) (System.currentTimeMillis() - start), e.getInfo());
+            int costMs = (int) (System.currentTimeMillis() - start);
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL", costMs, e.getInfo());
+            observabilityHelper.reportAgentDecision(sessionId, sessionId, null, gatewayId,
+                    "handleMessage", "TOOL_CALL", "tool_invocation", null, null, null,
+                    1, 0, "FAIL", costMs, null, e.getInfo());
             return Mono.just(ResponseEntity.badRequest().build());
         } catch (Exception e) {
             log.error("处理 MCP SSE 消息失败，gatewayId:{} sessionId:{} messageBody:{}", gatewayId, sessionId, messageBody, e);
-            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL",
-                    (int) (System.currentTimeMillis() - start), e.getMessage());
+            int costMs = (int) (System.currentTimeMillis() - start);
+            observabilityHelper.reportToolCall(sessionId, gatewayId, toolName, "FAIL", costMs, e.getMessage());
+            observabilityHelper.reportAgentDecision(sessionId, sessionId, null, gatewayId,
+                    "handleMessage", "TOOL_CALL", "tool_invocation", null, null, null,
+                    1, 0, "FAIL", costMs, null, e.getMessage());
             return Mono.just(ResponseEntity.internalServerError().build());
         } finally {
             // 清理 TraceContext

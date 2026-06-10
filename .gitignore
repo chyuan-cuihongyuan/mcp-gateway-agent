@@ -39,4 +39,3 @@ build/
 .DS_Store
 /data/
 /mcp-gateway-agent-app/data/
-/mcp-gateway-agent-app/${project.build.directory}

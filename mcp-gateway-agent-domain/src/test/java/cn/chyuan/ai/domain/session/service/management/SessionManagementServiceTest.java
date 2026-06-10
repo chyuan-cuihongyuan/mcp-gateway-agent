@@ -35,7 +35,7 @@ class SessionManagementServiceTest {
     }
 
     @Test
-    void createSessionPersistsRedisMetadata() {
+    void createSessionPersistsRedisMetadata() throws Exception {
         SessionConfigVO session = service.createSession("gateway_001", "secret-key");
 
         ArgumentCaptor<SessionMetaVO> metaCaptor = ArgumentCaptor.forClass(SessionMetaVO.class);
@@ -48,7 +48,7 @@ class SessionManagementServiceTest {
     }
 
     @Test
-    void getSessionTouchesMetadataAndRemoveDeletesMetadata() {
+    void getSessionTouchesMetadataAndRemoveDeletesMetadata() throws Exception {
         SessionConfigVO session = service.createSession("gateway_001", "secret-key");
 
         assertThat(service.getSession(session.getSessionId())).isSameAs(session);

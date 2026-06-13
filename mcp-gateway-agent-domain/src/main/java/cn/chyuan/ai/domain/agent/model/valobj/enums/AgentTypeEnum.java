@@ -13,6 +13,11 @@ public enum AgentTypeEnum {
     Parallel("并行执行", "parallel", "parallelAgentNode"),
     Sequential("串行执行", "sequential", "sequentialAgentNode"),
 
+    // 【同步自 aggregation-support-agent】高级 Agentic Workflow 模式
+    Reflection("反思工作流", "reflection", "reflectionAgentNode"),
+    Reflexion("反思迭代工作流", "reflexion", "reflexionAgentNode"),
+    Replan("动态重规划工作流", "replan", "replanAgentNode"),
+
     ;
 
     private String name;

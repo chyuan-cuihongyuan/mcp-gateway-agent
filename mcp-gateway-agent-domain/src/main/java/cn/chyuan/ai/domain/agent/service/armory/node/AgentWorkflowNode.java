@@ -9,6 +9,9 @@ import cn.chyuan.ai.domain.agent.service.armory.factory.DefaultArmoryFactory;
 import cn.chyuan.ai.domain.agent.service.armory.node.workflow.LoopAgentNode;
 import cn.chyuan.ai.domain.agent.service.armory.node.workflow.ParallelAgentNode;
 import cn.chyuan.ai.domain.agent.service.armory.node.workflow.SequentialAgentNode;
+import cn.chyuan.ai.domain.agent.service.armory.node.workflow.ReflectionAgentNode;
+import cn.chyuan.ai.domain.agent.service.armory.node.workflow.ReflexionAgentNode;
+import cn.chyuan.ai.domain.agent.service.armory.node.workflow.ReplanAgentNode;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,12 @@ public class AgentWorkflowNode extends AbstractArmorySupport {
     @Resource
     private SequentialAgentNode sequentialAgentNode;
     @Resource
+    private ReflectionAgentNode reflectionAgentNode;
+    @Resource
+    private ReflexionAgentNode reflexionAgentNode;
+    @Resource
+    private ReplanAgentNode replanAgentNode;
+    @Resource
     private RunnerNode runnerNode;
 
     @Override
@@ -37,15 +46,15 @@ public class AgentWorkflowNode extends AbstractArmorySupport {
         List<AiAgentConfigTableVO.Module.AgentWorkflow> agentWorkflows = aiAgentConfigTableVO.getModule().getAgentWorkflows();
 
         if (null == agentWorkflows || agentWorkflows.isEmpty() || dynamicContext.getCurrentStepIndex() >= agentWorkflows.size()) {
-            // 设置结果�?
+            // 设置结果�?
             dynamicContext.setCurrentAgentWorkflow(null);
-            // 路由下节�?
+            // 路由下节�?
             return router(requestParameter, dynamicContext);
         }
 
         dynamicContext.setCurrentAgentWorkflow(agentWorkflows.get(dynamicContext.getCurrentStepIndex()));
 
-        // 步骤值增�?
+        // 步骤值增�?
         dynamicContext.addCurrentStepIndex();
 
         return router(requestParameter, dynamicContext);
@@ -73,6 +82,10 @@ public class AgentWorkflowNode extends AbstractArmorySupport {
             case "loopAgentNode" -> loopAgentNode;
             case "parallelAgentNode" -> parallelAgentNode;
             case "sequentialAgentNode" -> sequentialAgentNode;
+            // 【同步自 aggregation-support-agent】高级 Agentic Workflow 路由
+            case "reflectionAgentNode" -> reflectionAgentNode;
+            case "reflexionAgentNode" -> reflexionAgentNode;
+            case "replanAgentNode" -> replanAgentNode;
             default -> runnerNode;
         };
     }

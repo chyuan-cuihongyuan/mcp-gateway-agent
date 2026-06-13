@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!-- 暂时未使用 文档：https://mybatis.org/mybatis-3/zh/configuration.html#typeAliases -->
+    <typeAliases>
+        <typeAlias type="cn.chyuan.ai.infrastructure.dao.po.McpGatewayPO" alias="McpGatewayPO"/>
+        <typeAlias type="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" alias="McpGatewayToolPO"/>
+        <typeAlias type="cn.chyuan.ai.infrastructure.dao.po.McpGatewayAuthPO" alias="McpGatewayAuthPO"/>
+        <typeAlias type="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO" alias="McpProtocolHttpPO"/>
+        <typeAlias type="cn.chyuan.ai.infrastructure.dao.po.McpProtocolMappingPO" alias="McpProtocolMappingPO"/>
+    </typeAliases>
+</configuration>

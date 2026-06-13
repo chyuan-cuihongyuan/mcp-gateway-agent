@@ -1,0 +1,47 @@
+ai:
+  agent:
+    config:
+      tables:
+        testAgent03:
+          app-name: testAgent03
+          agent:
+            agent-id: 100003
+            agent-name: 单一智能体
+            agent-desc: 单一智能体
+          module:
+            ai-api:
+              base-url: ${LLM_BASE_URL:https://open.bigmodel.cn/api/paas/v4}
+              api-key: ${LLM_API_KEY:47b14566882e4e5ab68ae079e307667f.gYg6trXMmDAFQBT3}
+              completions-path: v1/chat/completions
+              embeddings-path: v1/embeddings
+            chat-model:
+              model: ${LLM_MODEL:glm-4-flash}
+              tool-mcp-list:
+                # - sse:
+                #     name: baidu-search
+                #     base-uri: http://appbuilder.baidu.com/v2/ai_search/mcp/
+                #     sse-endpoint: /sse
+                #     api-key: ${BAIDU_MCP_API_KEY:changeme}
+                #     request-timeout: 500000
+                - local:
+                    name: myToolCallbackProvider
+              tool-skills-list: []
+                # - type: resource
+                #   path: agent/skills
+            agents:
+              - name: onlyAgent
+                description: draw.io 图表生成助手
+                instruction: |
+                  你是一个专业的 draw.io 图表生成助手。
+                  请根据用户的描述生成相应的 draw.io XML 数据。
+                  要求：
+                  1. 输出内容必须且只能是 draw.io 的 XML 代码。
+                  2. 不要使用 Markdown 代码块（如 ```xml ... ```）。
+                  3. 不要包含任何解释、前言或结束语。
+                  4. 确保 XML 结构完整，可以直接被 draw.io 组件加载。
+                  5. 图表布局要美观、清晰，确保连线不要交叉。
+            runner:
+              agent-name: onlyAgent
+              plugin-name-list:
+                - myTestPlugin
+                - myLogPlugin

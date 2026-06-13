@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IMcpGatewayToolDao">
+
+    <resultMap id="McpGatewayToolMap" type="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO">
+        <id column="id" property="id"/>
+        <result column="gateway_id" property="gatewayId"/>
+        <result column="tool_id" property="toolId"/>
+        <result column="tool_name" property="toolName"/>
+        <result column="tool_type" property="toolType"/>
+        <result column="tool_description" property="toolDescription"/>
+        <result column="tool_version" property="toolVersion"/>
+        <result column="protocol_id" property="protocolId"/>
+        <result column="protocol_type" property="protocolType"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO">
+        INSERT INTO mcp_gateway_tool (gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type)
+        VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolDescription}, #{toolVersion}, #{protocolId}, #{protocolType})
+        ON DUPLICATE KEY UPDATE
+        gateway_id = #{gatewayId},
+        tool_name = #{toolName},
+        tool_type = #{toolType},
+        tool_description = #{toolDescription},
+        tool_version = #{toolVersion},
+        protocol_id = #{protocolId},
+        protocol_type = #{protocolType},
+        update_time = NOW()
+    </insert>
+
+    <update id="updateProtocolByGatewayId" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO">
+        UPDATE mcp_gateway_tool
+        SET protocol_id = #{protocolId},
+        protocol_type = #{protocolType},
+        update_time = NOW()
+        WHERE gateway_id = #{gatewayId}
+    </update>
+
+    <select id="queryEffectiveTools" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO"
+            resultMap="McpGatewayToolMap">
+        SELECT id, gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type,
+        create_time, update_time
+        FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId}
+    </select>
+
+    <select id="queryToolProtocolIdByToolName" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" resultType="java.lang.Long">
+        SELECT protocol_id FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId} and tool_name = #{toolName}
+    </select>
+
+    <update id="updateGatewayToolProtocol" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO">
+        UPDATE mcp_gateway_tool
+        SET protocol_id = #{protocolId},
+        protocol_type = #{protocolType},
+        update_time = NOW()
+        WHERE gateway_id = #{gatewayId}
+        <if test="toolId != null">
+            AND tool_id = #{toolId}
+        </if>
+    </update>
+
+    <select id="queryListByGatewayId" parameterType="java.lang.String" resultMap="McpGatewayToolMap">
+        SELECT id, gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type,
+               create_time, update_time
+        FROM mcp_gateway_tool
+        WHERE gateway_id = #{gatewayId}
+    </select>
+
+    <select id="queryToolList" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" resultMap="McpGatewayToolMap">
+        SELECT id, gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type,
+               create_time, update_time
+        FROM mcp_gateway_tool
+        <where>
+            <if test="gatewayId != null and gatewayId != ''">
+                AND gateway_id like concat('%', #{gatewayId}, '%')
+            </if>
+            <if test="toolId != null and toolId != ''">
+                AND tool_id like concat('%', #{toolId}, '%')
+            </if>
+            <if test="toolName != null and toolName != ''">
+                AND tool_name like concat('%', #{toolName}, '%')
+            </if>
+        </where>
+        ORDER BY update_time DESC
+        <if test="limitStart != null and limitCount != null">
+            LIMIT #{limitStart}, #{limitCount}
+        </if>
+    </select>
+
+    <select id="queryToolListCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" resultType="java.lang.Long">
+        SELECT count(id)
+        FROM mcp_gateway_tool
+        <where>
+            <if test="gatewayId != null and gatewayId != ''">
+                AND gateway_id like concat('%', #{gatewayId}, '%')
+            </if>
+            <if test="toolId != null and toolId != ''">
+                AND tool_id like concat('%', #{toolId}, '%')
+            </if>
+            <if test="toolName != null and toolName != ''">
+                AND tool_name like concat('%', #{toolName}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="queryAll" resultMap="McpGatewayToolMap">
+        SELECT id, gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type,
+        create_time, update_time
+        FROM mcp_gateway_tool
+        ORDER BY id DESC
+        LIMIT 1000
+    </select>
+
+    <delete id="deleteByToolId" parameterType="java.lang.Long">
+        DELETE FROM mcp_gateway_tool WHERE tool_id = #{toolId}
+    </delete>
+
+</mapper>

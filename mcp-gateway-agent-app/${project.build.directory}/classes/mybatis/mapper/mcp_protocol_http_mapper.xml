@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IMcpProtocolHttpDao">
+
+    <resultMap id="McpProtocolRegistryMap" type="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO">
+        <id column="id" property="id"/>
+        <result column="protocol_id" property="protocolId"/>
+        <result column="http_url" property="httpUrl"/>
+        <result column="http_method" property="httpMethod"/>
+        <result column="http_headers" property="httpHeaders"/>
+        <result column="timeout" property="timeout"/>
+        <result column="retry_times" property="retryTimes"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_protocol_http (protocol_id, http_url, http_method, http_headers, timeout, retry_times, status)
+        VALUES (#{protocolId}, #{httpUrl}, #{httpMethod}, #{httpHeaders}, #{timeout}, #{retryTimes}, #{status})
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM mcp_protocol_http WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByProtocolId" parameterType="java.lang.Long">
+        DELETE FROM mcp_protocol_http WHERE protocol_id = #{protocolId}
+    </delete>
+
+    <update id="updateById" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO">
+        UPDATE mcp_protocol_http
+        SET protocol_id = #{protocolId},
+            http_url = #{httpUrl},
+            http_method = #{httpMethod},
+            http_headers = #{httpHeaders},
+            timeout = #{timeout},
+            retry_times = #{retryTimes},
+            status = #{status},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateByProtocolId" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO">
+        UPDATE mcp_protocol_http
+        SET http_url = #{httpUrl},
+            http_method = #{httpMethod},
+            http_headers = #{httpHeaders},
+            timeout = #{timeout},
+            retry_times = #{retryTimes},
+            status = #{status},
+            update_time = NOW()
+        WHERE protocol_id = #{protocolId}
+    </update>
+
+    <select id="queryById" parameterType="java.lang.Long" resultMap="McpProtocolRegistryMap">
+        SELECT id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
+        FROM mcp_protocol_http
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryAll" resultMap="McpProtocolRegistryMap">
+        SELECT id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
+        FROM mcp_protocol_http
+        ORDER BY id DESC
+        LIMIT 1000
+    </select>
+
+    <select id="queryMcpProtocolHttpByProtocolId" parameterType="java.lang.Long" resultMap="McpProtocolRegistryMap">
+        SELECT id, protocol_id, http_url, http_method, http_headers, timeout, retry_times, status, create_time, update_time
+        FROM mcp_protocol_http
+        WHERE protocol_id = #{protocolId}
+          AND status = 1
+        ORDER BY update_time DESC, id DESC
+        LIMIT 1
+    </select>
+
+    <select id="queryListByProtocolIds" resultMap="McpProtocolRegistryMap">
+        SELECT id, protocol_id, http_url, http_method, http_headers, timeout,
+               create_time, update_time
+        FROM mcp_protocol_http
+        WHERE protocol_id IN
+        <foreach collection="list" item="protocolId" open="(" separator="," close=")">
+            #{protocolId}
+        </foreach>
+    </select>
+
+    <select id="queryProtocolList" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO" resultMap="McpProtocolRegistryMap">
+        SELECT id, protocol_id, http_url, http_method, http_headers, timeout,
+               create_time, update_time
+        FROM mcp_protocol_http
+        <where>
+            <if test="protocolId != null">
+                AND protocol_id = #{protocolId}
+            </if>
+            <if test="httpUrl != null and httpUrl != ''">
+                AND http_url like concat('%', #{httpUrl}, '%')
+            </if>
+        </where>
+        ORDER BY update_time DESC
+        <if test="limitStart != null and limitCount != null">
+            LIMIT #{limitStart}, #{limitCount}
+        </if>
+    </select>
+
+    <select id="queryProtocolListCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpProtocolHttpPO" resultType="java.lang.Long">
+        SELECT count(id)
+        FROM mcp_protocol_http
+        <where>
+            <if test="protocolId != null">
+                AND protocol_id = #{protocolId}
+            </if>
+            <if test="httpUrl != null and httpUrl != ''">
+                AND http_url like concat('%', #{httpUrl}, '%')
+            </if>
+        </where>
+    </select>
+
+</mapper>

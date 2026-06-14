@@ -66,16 +66,37 @@ public class ChatModelNode extends AbstractArmorySupport {
             }
         }
 
-        // 构建对话模型
+        // 构建对话模型（带全部工具）
+        OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder()
+                .model(chatModelConfig.getModel())
+                .toolCallbacks(toolCallbackList);
+        if (chatModelConfig.getMaxTokens() != null && chatModelConfig.getMaxTokens() > 0) {
+            optionsBuilder.maxTokens(chatModelConfig.getMaxTokens());
+        }
+
         ChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder()
-                        .model(chatModelConfig.getModel())
-                        .toolCallbacks(toolCallbackList)
-                        .build())
+                .defaultOptions(optionsBuilder.build())
+                .build();
+
+        // 无工具 ChatModel 变体（tools 声明为空/未配置时使用）
+        OpenAiChatOptions.Builder noToolOptionsBuilder = OpenAiChatOptions.builder()
+                .model(chatModelConfig.getModel());
+        if (chatModelConfig.getMaxTokens() != null && chatModelConfig.getMaxTokens() > 0) {
+            noToolOptionsBuilder.maxTokens(chatModelConfig.getMaxTokens());
+        }
+        ChatModel noToolChatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(noToolOptionsBuilder.build())
                 .build();
 
         dynamicContext.setChatModel(chatModel);
+        dynamicContext.setNoToolChatModel(noToolChatModel);
+        dynamicContext.setHasTools(!toolCallbackList.isEmpty());
+        // 存储全局工具池 + 模型名/最大 token，供 AgentNode 按子 agent 的 tools 声明构建受限 ChatModel 变体
+        dynamicContext.setGlobalToolCallbacks(toolCallbackList);
+        dynamicContext.setChatModelName(chatModelConfig.getModel());
+        dynamicContext.setChatModelMaxTokens(chatModelConfig.getMaxTokens());
 
         return router(requestParameter, dynamicContext);
     }

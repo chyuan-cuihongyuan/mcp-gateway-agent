@@ -5,6 +5,7 @@ import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateS
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.LocalToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.SSEToolMcpCreateService;
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.StdioToolMcpCreateService;
+import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.impl.StreamableHttpToolMcpCreateService;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.types.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
@@ -25,10 +26,14 @@ public class DefaultMcpClientFactory {
     @Resource
     private StdioToolMcpCreateService stdioToolMcpCreateService;
 
+    @Resource
+    private StreamableHttpToolMcpCreateService streamableHttpToolMcpCreateService;
+
     public ToolMcpCreateService getToolMcpCreateService(AiAgentConfigTableVO.Module.ChatModel.ToolMcp toolMcp) {
         if (null != toolMcp.getLocal()) return localToolMcpCreateService;
         if (null != toolMcp.getSse()) return sseToolMcpCreateService;
         if (null != toolMcp.getStdio()) return stdioToolMcpCreateService;
+        if (null != toolMcp.getStreamableHttp()) return streamableHttpToolMcpCreateService;
         throw new AppException(ResponseCode.METHOD_NOT_FOUND.getCode(), ResponseCode.METHOD_NOT_FOUND.getInfo());
     }
 

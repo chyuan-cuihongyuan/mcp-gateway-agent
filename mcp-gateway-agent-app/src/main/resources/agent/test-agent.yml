@@ -30,6 +30,7 @@ ai:
             agents:
               - name: CodeWriterAgent
                 description: Writes initial Java code based on a specification.
+                tools: []
                 instruction: |
                   You are a Java Code Generator.
                   Based *only* on the user's request, write Java code that fulfills the requirement.
@@ -37,6 +38,7 @@ ai:
                 output-key: generated_code
               - name: CodeReviewerAgent
                 description: Reviews code and provides feedback.
+                tools: []
                 instruction: |
                   You are an expert Java Code Reviewer.
                   Your task is to provide constructive feedback on the provided code.
@@ -60,6 +62,7 @@ ai:
                 output-key: review_comments
               - name: CodeRefactorerAgent
                 description: Refactors code based on review comments.
+                tools: []
                 instruction: |
                   You are a Java Code Refactoring AI.
                   Your goal is to improve the given Java code based on the provided review comments.

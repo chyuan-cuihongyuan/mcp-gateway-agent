@@ -21,7 +21,9 @@
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <google.adk.version>0.5.0</google.adk.version>
+    <google.adk.version>1.4.0</google.adk.version>
+    <!-- OpenTelemetry 版本（与 agent-rag-observability-server 对齐，用于 Agentic Workflow 阶段级 span 上报） -->
+    <opentelemetry.version>1.39.0</opentelemetry.version>
   </properties>
   <developers>
     <developer>

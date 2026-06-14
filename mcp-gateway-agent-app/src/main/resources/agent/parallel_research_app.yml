@@ -25,6 +25,7 @@ ai:
             agents:
               - name: RenewableEnergyResearcher
                 description: Researches renewable energy sources.
+                tools: ["*"]
                 instruction: |
                   You are an AI Research Assistant specializing in energy.
                   Research the latest advancements in 'renewable energy sources'.
@@ -34,6 +35,7 @@ ai:
                 output-key: renewable_energy_result
               - name: EVResearcher
                 description: Researches electric vehicle technology.
+                tools: ["*"]
                 instruction: |
                   You are an AI Research Assistant specializing in transportation.
                   Research the latest developments in 'electric vehicle technology'.
@@ -43,6 +45,7 @@ ai:
                 output-key: ev_technology_result
               - name: CarbonCaptureResearcher
                 description: Researches carbon capture methods.
+                tools: ["*"]
                 instruction: |
                   You are an AI Research Assistant specializing in climate solutions.
                   Research the current state of 'carbon capture methods'.
@@ -52,6 +55,7 @@ ai:
                 output-key: carbon_capture_result
               - name: SynthesisAgent
                 description: Combines research findings into a structured report.
+                tools: []
                 instruction: |
                   You are an AI Assistant responsible for combining research findings into a structured report.
                   Your primary task is to synthesize the following research summaries, clearly attributing findings to their source areas. Structure your response using headings for each topic. Ensure the report is coherent and integrates the key points smoothly.

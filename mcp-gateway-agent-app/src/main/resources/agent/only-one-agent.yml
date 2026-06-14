@@ -31,6 +31,7 @@ ai:
             agents:
               - name: onlyAgent
                 description: draw.io 图表生成助手
+                tools: []
                 instruction: |
                   你是一个专业的 draw.io 图表生成助手。
                   请根据用户的描述生成相应的 draw.io XML 数据。

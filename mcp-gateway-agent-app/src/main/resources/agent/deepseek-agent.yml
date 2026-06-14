@@ -26,6 +26,7 @@ ai:
             agents:
               - name: deepseekAgent
                 description: DeepSeek模型智能助手
+                tools: ["*"]
                 instruction: |
                   你是一个专业的 AI 助手。
             runner:

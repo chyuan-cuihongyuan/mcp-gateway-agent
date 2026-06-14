@@ -33,6 +33,12 @@ public class MySpringAI extends BaseLlm {
     private final MessageConverter messageConverter;
     private final SpringAIObservabilityHandler observabilityHandler;
 
+    /**
+     * 是否配置了工具。true 表示该智能体声明了工具，强制走同步路径（chatModel.call 一次性返回），
+     * 避免流式模式下带工具调用时模型自问自答持续输出。
+     */
+    private boolean hasConfiguredTools;
+
     public MySpringAI(ChatModel chatModel) {
         super(extractModelName(chatModel));
         this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
@@ -40,6 +46,16 @@ public class MySpringAI extends BaseLlm {
         this.objectMapper = new ObjectMapper();
         this.messageConverter = new MyMessageConverter(objectMapper);
         this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+    }
+
+    public MySpringAI(ChatModel chatModel, boolean hasConfiguredTools) {
+        super(extractModelName(chatModel));
+        this.chatModel = Objects.requireNonNull(chatModel, "chatModel cannot be null");
+        this.streamingChatModel = (chatModel instanceof StreamingChatModel) ? (StreamingChatModel) chatModel : null;
+        this.objectMapper = new ObjectMapper();
+        this.messageConverter = new MyMessageConverter(objectMapper);
+        this.observabilityHandler = new SpringAIObservabilityHandler(createDefaultObservabilityConfig());
+        this.hasConfiguredTools = hasConfiguredTools;
     }
 
     public MySpringAI(ChatModel chatModel, String modelName) {
@@ -121,6 +137,12 @@ public class MySpringAI extends BaseLlm {
         if (stream) {
             if (this.streamingChatModel == null) {
                 return Flowable.error(new IllegalStateException("StreamingChatModel is not configured"));
+            }
+
+            // 有工具配置的智能体走同步路径：chatModel.call() 一次性返回完整响应，
+            // 模型在 stop token 处自然结束，避免流式模式下的自问自答持续输出
+            if (hasConfiguredTools && this.chatModel != null) {
+                return generateContent(llmRequest);
             }
 
             return generateStreamingContent(llmRequest);

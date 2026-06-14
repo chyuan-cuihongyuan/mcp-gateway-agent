@@ -1,0 +1,134 @@
+# 超级智能体配置 — Agentic Workflow（Reflection / Reflexion / Replan）示例
+#
+# 本配置演示 mcp-gateway-agent 支持的三种高级 Agentic Workflow：
+#   1. reflection  — Actor → Critic → Reflector 单轮反思（SequentialAgent）
+#   2. reflexion   — Actor → Critic → Reflector 多轮迭代 + 跨迭代记忆（LoopAgent + exitLoop 门控）
+#   3. replan      — Plan → Execute → Evaluate → 条件 Replan（SequentialAgent + 内层 LoopAgent）
+#
+# 运行入口由 runner.agent-name 指定，可切换为 reflection_demo / reflexion_demo / replan_demo 体验不同模式。
+ai:
+  agent:
+    config:
+      tables:
+        superAgent:
+          app-name: superAgent
+          agent:
+            agent-id: "500001"
+            agent-name: 超级智能助手
+            agent-desc: 基于 Agentic Workflow（Reflection/Reflexion/Replan）的 MCP 网关智能助手
+          module:
+            ai-api:
+              base-url: https://api.deepseek.com
+              api-key: ${DEEPSEEK_API_KEY:sk-REDACTED}
+              completions-path: /v1/chat/completions
+            chat-model:
+              model: deepseek-chat
+              max-tokens: 8192
+              tool-mcp-list:
+                - local:
+                    name: yunfanOilToolCallbackProvider
+              tool-skills-list: []
+            agents:
+              # ============ 通用：Actor / 执行者 ============
+              - name: taskExecutor
+                react-mode: true
+                max-steps: 10
+                tools: ["*"]
+                description: 按计划调用 MCP 网关工具完成任务
+                instruction: |
+                  根据上下文完成用户任务，可调用 MCP 业务工具。
+                  严格按计划执行，不要重复调用。完成后输出结果。
+                output-key: task_result
+              # ============ Critic / Evaluator ============
+              - name: taskCritic
+                react-mode: false
+                max-steps: 1
+                tools: []
+                description: 评估任务完成度
+                instruction: |
+                  评估 {task_result} 的完整性。
+                  输出：{"verdict":"PASSED","summary":"..."} 或
+                  {"verdict":"INSUFFICIENT","gap":"...","supplement_plan":"..."}
+                  评估通过时 verdict 必须为 PASSED。只输出 JSON。
+                output-key: quality_verdict
+              # ============ Reflector（Reflexion 反思者） ============
+              - name: taskReflector
+                react-mode: false
+                max-steps: 1
+                tools: []
+                description: 产出本轮反思教训
+                instruction: |
+                  基于 {quality_verdict} 和 {task_result}，总结本轮执行中的不足与改进方向。
+                  输出简洁的反思要点，供下一轮执行参考。只输出反思文本。
+                output-key: rag_reflection
+              # ============ Replan：Planner / Replanner ============
+              - name: taskPlanner
+                react-mode: false
+                max-steps: 1
+                tools: []
+                description: 初始任务规划
+                instruction: |
+                  分析用户需求，输出结构化执行计划 JSON。
+                  {"plan":"步骤1;步骤2;...","tools":["tool1"]}
+                  只输出 JSON。
+                output-key: plan_result
+              - name: taskReplanner
+                react-mode: false
+                max-steps: 1
+                tools: []
+                description: 根据评估结果重新规划
+                instruction: |
+                  根据 {plan_result} 和 {quality_verdict}，针对不足之处重新规划。
+                  输出修正后的执行计划 JSON，覆盖 plan_result。
+                  {"plan":"修正步骤","tools":["tool1"]}
+                  只输出 JSON。
+                output-key: plan_result
+              # ============ Response ============
+              - name: responseSynthesizer
+                react-mode: false
+                max-steps: 1
+                tools: []
+                description: 整合结果生成最终回答
+                instruction: |
+                  基于 {task_result} 生成中文回答。基于数据回答，不编造。
+                  回答完毕立即停止，不要自问自答。
+                output-key: final_response
+            # ============ 工作流（展平结构） ============
+            agent-workflows:
+              # ---- 模式 1：Reflection（单轮反思，Sequential） ----
+              - type: reflection
+                name: reflection_demo
+                sub-agents:
+                  - taskExecutor
+                  - taskCritic
+                  - taskReflector
+              # ---- 模式 2：Reflexion（多轮迭代 + 跨迭代记忆，Loop） ----
+              - type: reflexion
+                name: reflexion_demo
+                max-iterations: 3
+                reflection-state-key: reflections:reflexion_demo
+                sub-agents:
+                  - taskExecutor
+                  - taskCritic
+                  - taskReflector
+              # ---- 模式 3：Replan（Plan→Execute→Evaluate→条件 Replan） ----
+              - type: replan
+                name: replan_demo
+                max-iterations: 2
+                # exit-agent 指定评估者，缺省取 sub-agents[2]
+                exit-agent: taskCritic
+                sub-agents:
+                  - taskPlanner
+                  - taskExecutor
+                  - taskCritic
+                  - taskReplanner
+              # ---- 顶层流水线（默认运行入口） ----
+              - type: sequential
+                name: super_pipeline
+                sub-agents:
+                  - replan_demo
+                  - responseSynthesizer
+            runner:
+              agent-name: super_pipeline
+              plugin-name-list:
+                - myLogPlugin

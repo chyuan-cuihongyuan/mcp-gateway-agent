@@ -27,6 +27,7 @@ ai:
             agents:
               - name: businessAgent
                 react-mode: true
+                tools: ["*"]
                 description: 网关业务智能体，理解用户意图并调用对应工具完成任务
                 instruction: |
                   你是一个加油站订单客服助手，能够帮助用户处理订单退款和开票相关业务。你通过 MCP 网关连接到业务后端系统，拥有以下能力：

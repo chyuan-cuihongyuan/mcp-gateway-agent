@@ -39,6 +39,12 @@
             <groupId>org.springaicommunity</groupId>
             <artifactId>spring-ai-agent-utils</artifactId>
         </dependency>
+        <!-- OpenTelemetry API —— Agentic Workflow 阶段级 span 上报（A2）。
+             仅引 API；SDK 由 app/trigger 层通过 observability-client 引入，避免 DDD 跨层污染。 -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

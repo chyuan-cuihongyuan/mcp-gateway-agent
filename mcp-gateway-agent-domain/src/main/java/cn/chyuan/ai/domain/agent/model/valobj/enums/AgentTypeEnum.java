@@ -13,10 +13,13 @@ public enum AgentTypeEnum {
     Parallel("并行执行", "parallel", "parallelAgentNode"),
     Sequential("串行执行", "sequential", "sequentialAgentNode"),
 
-    // 【同步自 aggregation-support-agent】高级 Agentic Workflow 模式
+    // 【Phase 2-4 新增】高级 Agentic Workflow 模式
     Reflection("反思工作流", "reflection", "reflectionAgentNode"),
     Reflexion("反思迭代工作流", "reflexion", "reflexionAgentNode"),
     Replan("动态重规划工作流", "replan", "replanAgentNode"),
+
+    // 【P0 新增】Human-in-the-Loop 人工审批机制
+    HITL("人工审批工作流", "hitl", "humanInTheLoopAgentNode"),
 
     ;
 

@@ -35,13 +35,6 @@ import java.util.function.BiConsumer;
  *       整个 LoopAgent 生命周期共享，Reflexion 借此累积跨迭代反思。</li>
  * </ul>
  *
- * <h3>2026-06-14 升级：A2/A3/A6 增强</h3>
- * <ul>
- *   <li>A2 {@link #attachSpanEmitter} —— 阶段级 OTel span 上报，让 Reflexion/Replan 每轮迭代可观测</li>
- *   <li>A3 {@link #attachReflexionDegradeDetector} —— Reflexion 自动降级，连续 N 轮无提升/低于阈值时强制退出</li>
- *   <li>A6 {@link #attachQueryPredicateShortCircuit} —— Conditional 谓词短路，简单 query 跳过 LLM 调用</li>
- * </ul>
- *
  * @author chyuan
  * @since 2026-06-13
  */
@@ -479,6 +472,218 @@ public final class AgenticWorkflowEnhancer {
         log.info("已为 agent[{}] 追加 A6 谓词短路（regex={}, response={}）",
                 ctx.getAgentName(), compiledPredicate.pattern(),
                 responseText.substring(0, Math.min(30, responseText.length())));
+    }
+
+    // ============================== P0: Human-in-the-Loop 审批门控 ==============================
+
+    /** HITL 审批状态：待审批 */
+    private static final String HITL_STATUS_PENDING = "pending";
+
+    /** HITL 审批状态：已批准 */
+    private static final String HITL_STATUS_APPROVED = "approved";
+
+    /** HITL 审批状态：已拒绝 */
+    private static final String HITL_STATUS_REJECTED = "rejected";
+
+    /** HITL Session state key：审批状态 */
+    private static final String HITL_STATE_KEY_STATUS = "approval_status";
+
+    /** HITL Session state key：审批请求信息 */
+    private static final String HITL_STATE_KEY_REQUEST = "approval_request";
+
+    /**
+     * 给审批门控 agent 挂"人工审批"能力 —— beforeModelCallback 检查审批状态，
+     * 未审批时创建审批请求并暂停执行，已审批时根据结果继续或退出。
+     *
+     * <p>P0 设计目标：让关键操作（如删除数据、发送邮件、修改配置）在执行前暂停，
+     * 等待人工审批，避免 AI 自主决策带来的风险。
+     *
+     * <h3>审批流程</h3>
+     * <ol>
+     *   <li>beforeModelCallback 检查 state["approval_status"]</li>
+     *   <li>null → 创建审批请求，设置 status="pending"，返回 LlmResponse 暂停执行</li>
+     *   <li>"pending" → 继续暂停，等待外部系统更新状态</li>
+     *   <li>"approved" → 清除状态，返回 Optional.empty() 继续执行</li>
+     *   <li>"rejected" → 返回拒绝响应，触发退出或重规划</li>
+     * </ol>
+     *
+     * <h3>外部审批接口</h3>
+     * <p>外部系统（Web UI / IM / Email）通过 API 更新审批状态：
+     * <pre>
+     * POST /api/v1/approval/{sessionId}/approve
+     * POST /api/v1/approval/{sessionId}/reject
+     * </pre>
+     *
+     * @param ctx                   审批 agent 的增强上下文
+     * @param approvalChannel       审批渠道（web/feishu/email/dingtalk）
+     * @param approvalTimeoutSeconds 审批超时时间（秒）
+     * @param riskLevel             风险等级（high/medium/low）
+     */
+    public static void attachApprovalGate(AgentEnhancementContext ctx,
+                                         String approvalChannel,
+                                         int approvalTimeoutSeconds,
+                                         String riskLevel) {
+        ctx.beforeModelCallbackSync((callbackContext, llmRequestBuilder) -> {
+            Object statusObj = callbackContext.state().get(HITL_STATE_KEY_STATUS);
+            String status = statusObj instanceof String ? (String) statusObj : null;
+
+            if (status == null) {
+                // 首次进入：创建审批请求
+                String requestId = java.util.UUID.randomUUID().toString();
+                long requestTime = System.currentTimeMillis();
+                long timeoutTime = requestTime + (approvalTimeoutSeconds * 1000L);
+
+                // 构建审批请求信息
+                String approvalRequest = buildApprovalRequest(
+                        requestId, approvalChannel, riskLevel,
+                        callbackContext.state(), requestTime, timeoutTime);
+
+                // 存储审批请求信息
+                callbackContext.state().put(HITL_STATE_KEY_REQUEST, approvalRequest);
+                callbackContext.state().put(HITL_STATE_KEY_STATUS, HITL_STATUS_PENDING);
+                callbackContext.state().put("approval_request_id", requestId);
+                callbackContext.state().put("approval_timeout_time", timeoutTime);
+
+                log.info("【HITL】创建审批请求：requestId={}, channel={}, riskLevel={}, timeout={}s",
+                        requestId, approvalChannel, riskLevel, approvalTimeoutSeconds);
+
+                // 发送审批通知（根据渠道）
+                sendApprovalNotification(requestId, approvalChannel, approvalRequest);
+
+                // 返回暂停响应，让 agent 输出审批等待信息
+                LlmResponse pendingResponse = LlmResponse.builder()
+                        .content(Content.fromParts(Part.fromText(
+                                "⏳ 已提交审批请求（" + requestId + "），等待人工审批...\n" +
+                                "审批渠道：" + approvalChannel + "\n" +
+                                "风险等级：" + riskLevel + "\n" +
+                                "超时时间：" + approvalTimeoutSeconds + "秒")))
+                        .build();
+                return Optional.of(pendingResponse);
+
+            } else if (HITL_STATUS_PENDING.equals(status)) {
+                // 检查是否超时
+                Object timeoutObj = callbackContext.state().get("approval_timeout_time");
+                if (timeoutObj instanceof Long timeoutTime && System.currentTimeMillis() > timeoutTime) {
+                    log.warn("【HITL】审批超时：requestId={}", callbackContext.state().get("approval_request_id"));
+                    callbackContext.state().put(HITL_STATE_KEY_STATUS, HITL_STATUS_REJECTED);
+                    callbackContext.state().put("approval_reject_reason", "审批超时");
+
+                    LlmResponse timeoutResponse = LlmResponse.builder()
+                            .content(Content.fromParts(Part.fromText(
+                                    "❌ 审批超时，操作已取消。")))
+                            .build();
+                    return Optional.of(timeoutResponse);
+                }
+
+                // 继续等待审批
+                LlmResponse waitingResponse = LlmResponse.builder()
+                        .content(Content.fromParts(Part.fromText(
+                                "⏳ 等待审批中...（" + callbackContext.state().get("approval_request_id") + "）")))
+                        .build();
+                return Optional.of(waitingResponse);
+
+            } else if (HITL_STATUS_APPROVED.equals(status)) {
+                // 审批通过：清除状态，继续执行
+                log.info("【HITL】审批通过：requestId={}", callbackContext.state().get("approval_request_id"));
+                callbackContext.state().remove(HITL_STATE_KEY_STATUS);
+                callbackContext.state().remove(HITL_STATE_KEY_REQUEST);
+                callbackContext.state().remove("approval_request_id");
+                callbackContext.state().remove("approval_timeout_time");
+                return Optional.empty();
+
+            } else if (HITL_STATUS_REJECTED.equals(status)) {
+                // 审批拒绝：返回拒绝响应
+                String rejectReason = callbackContext.state().get("approval_reject_reason") != null
+                        ? (String) callbackContext.state().get("approval_reject_reason")
+                        : "未提供拒绝原因";
+                log.info("【HITL】审批拒绝：requestId={}, reason={}",
+                        callbackContext.state().get("approval_request_id"), rejectReason);
+
+                LlmResponse rejectedResponse = LlmResponse.builder()
+                        .content(Content.fromParts(Part.fromText(
+                                "❌ 审批被拒绝。\n原因：" + rejectReason)))
+                        .build();
+                return Optional.of(rejectedResponse);
+            }
+
+            return Optional.empty();
+        });
+
+        log.info("已为 agent[{}] 追加 P0 审批门控（channel={}, timeout={}s, riskLevel={})",
+                ctx.getAgentName(), approvalChannel, approvalTimeoutSeconds, riskLevel);
+    }
+
+    /**
+     * 构建审批请求信息（JSON 格式）
+     */
+    private static String buildApprovalRequest(String requestId, String channel, String riskLevel,
+                                               Map<String, Object> state, long requestTime, long timeoutTime) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\n");
+        sb.append("  \"requestId\": \"").append(requestId).append("\",\n");
+        sb.append("  \"channel\": \"").append(channel).append("\",\n");
+        sb.append("  \"riskLevel\": \"").append(riskLevel).append("\",\n");
+        sb.append("  \"requestTime\": ").append(requestTime).append(",\n");
+        sb.append("  \"timeoutTime\": ").append(timeoutTime).append(",\n");
+        sb.append("  \"context\": {\n");
+
+        // 提取关键上下文信息
+        int count = 0;
+        for (Map.Entry<String, Object> entry : state.entrySet()) {
+            if (count >= 5) break; // 最多包含 5 个上下文项
+            if (entry.getValue() instanceof String strVal && strVal.length() < 200) {
+                sb.append("    \"").append(entry.getKey()).append("\": \"")
+                        .append(strVal.replace("\"", "\\\"")).append("\",\n");
+                count++;
+            }
+        }
+
+        sb.append("    \"_truncated\": ").append(count >= 5).append("\n");
+        sb.append("  }\n");
+        sb.append("}");
+        return sb.toString();
+    }
+
+    /**
+     * 发送审批通知（根据渠道）
+     * <p>
+     * 当前实现：仅记录日志。实际生产环境需要对接具体渠道（飞书/邮件/钉钉等）。
+     */
+    private static void sendApprovalNotification(String requestId, String channel, String approvalRequest) {
+        switch (channel.toLowerCase()) {
+            case "web":
+                log.info("【HITL】Web UI 审批通知：requestId={}", requestId);
+                // TODO: 通过 WebSocket 推送给前端
+                break;
+            case "feishu":
+                log.info("【HITL】飞书审批通知：requestId={}", requestId);
+                // TODO: 调用飞书 API 发送消息
+                break;
+            case "email":
+                log.info("【HITL】邮件审批通知：requestId={}", requestId);
+                // TODO: 调用邮件服务发送审批邮件
+                break;
+            case "dingtalk":
+                log.info("【HITL】钉钉审批通知：requestId={}", requestId);
+                // TODO: 调用钉钉 API 发送消息
+                break;
+            default:
+                log.warn("【HITL】未知审批渠道：{}", channel);
+        }
+    }
+
+    /**
+     * 提供外部 API 调用的审批接口（静态方法，供 Controller 调用）
+     *
+     * @param sessionId 会话 ID
+     * @param approved  是否批准
+     * @param reason    拒绝原因（仅拒绝时需要）
+     */
+    public static void handleApproval(String sessionId, boolean approved, String reason) {
+        // 此方法需要配合 SessionManager 使用，从 session state 中读取/更新审批状态
+        // 实际实现需要注入 SessionManager 或类似的会话管理服务
+        log.info("【HITL】审批处理：sessionId={}, approved={}, reason={}", sessionId, approved, reason);
+        // TODO: 通过 SessionManager 更新 state["approval_status"]
     }
 
 }

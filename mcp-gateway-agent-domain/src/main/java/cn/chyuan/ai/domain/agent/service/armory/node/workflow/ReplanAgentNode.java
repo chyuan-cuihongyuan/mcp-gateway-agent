@@ -105,6 +105,30 @@ public class ReplanAgentNode extends AbstractArmorySupport {
                 ctx -> AgenticWorkflowEnhancer.attachSpanEmitter(ctx, "replan.replanner.cycle", "REPLANNER", null));
         log.info("【A2 OTel】Replan[{}] 四个子 agent 阶段 span 已挂载", currentAgentWorkflow.getName());
 
+        // A3: Replan 自动降级 —— 连续 N 轮无提升/低于阈值时强制退出循环
+        // 挂在 Replanner 上（循环最后一个子 agent），读取 Evaluator 输出的分数进行降级判定
+        boolean degradeEnabled = false;
+        if (Boolean.TRUE.equals(currentAgentWorkflow.getDegradationEnabled())) {
+            String evaluatorOutputKey = resolveOutputKey(requestParameter, evaluatorName, "aiops_evaluation");
+            String scoreRegex = currentAgentWorkflow.getScoreRegex();
+            int patience = (currentAgentWorkflow.getDegradationPatience() != null && currentAgentWorkflow.getDegradationPatience() > 0)
+                    ? currentAgentWorkflow.getDegradationPatience() : 2;
+            int minIter = (currentAgentWorkflow.getDegradationMinIterations() != null && currentAgentWorkflow.getDegradationMinIterations() > 0)
+                    ? currentAgentWorkflow.getDegradationMinIterations() : 2;
+            double threshold = (currentAgentWorkflow.getGateThreshold() != null) ? currentAgentWorkflow.getGateThreshold() : 0.0;
+            String historyKey = "replan:" + currentAgentWorkflow.getName() + ":scores";
+
+            degradeEnabled = dynamicContext.enhanceAgent(replannerName,
+                    ctx -> AgenticWorkflowEnhancer.attachReflexionDegradeDetector(
+                            ctx, evaluatorOutputKey, scoreRegex, historyKey, patience, minIter, threshold));
+            if (!degradeEnabled) {
+                log.warn("Replanner[{}] 无 Builder 缓存，无法挂降级检测", replannerName);
+            } else {
+                log.info("Replan 降级检测已挂载到 Replanner[{}]：evaluatorOutputKey={}, patience={}, minIter={}, threshold={}",
+                        replannerName, evaluatorOutputKey, patience, minIter, threshold);
+            }
+        }
+
         evaluator = dynamicContext.getAgentGroup().get(evaluatorName);  // enhance 覆盖后重新取
 
         int maxIterations = currentAgentWorkflow.getMaxIterations() != null ? currentAgentWorkflow.getMaxIterations() : 2;
@@ -128,10 +152,27 @@ public class ReplanAgentNode extends AbstractArmorySupport {
 
         dynamicContext.getAgentGroup().put(currentAgentWorkflow.getName(), replanWorkflow);
 
-        log.info("动态重规划工作流装配完成: name={}, planner={}, executor={}, evaluator={}, replanner={}, maxIterations={}",
-                currentAgentWorkflow.getName(), plannerName, executorName, evaluatorName, replannerName, maxIterations);
+        log.info("动态重规划工作流装配完成: name={}, planner={}, executor={}, evaluator={}, replanner={}, maxIterations={}, degrade={}",
+                currentAgentWorkflow.getName(), plannerName, executorName, evaluatorName, replannerName, maxIterations, degradeEnabled);
 
         return router(requestParameter, dynamicContext);
+    }
+
+    /** 从配置读取指定 agent 的 outputKey，找不到时返回默认值 */
+    private String resolveOutputKey(ArmoryCommandEntity requestParameter, String agentName, String defaultOutputKey) {
+        try {
+            List<AiAgentConfigTableVO.Module.Agent> agents = requestParameter.getAiAgentConfigTableVO().getModule().getAgents();
+            if (agents != null) {
+                return agents.stream()
+                        .filter(a -> agentName.equals(a.getName()))
+                        .map(AiAgentConfigTableVO.Module.Agent::getOutputKey)
+                        .findFirst()
+                        .orElse(defaultOutputKey);
+            }
+        } catch (Exception e) {
+            log.warn("读取 agent[{}] outputKey 失败，使用默认值: {}", agentName, defaultOutputKey);
+        }
+        return defaultOutputKey;
     }
 
     @Override

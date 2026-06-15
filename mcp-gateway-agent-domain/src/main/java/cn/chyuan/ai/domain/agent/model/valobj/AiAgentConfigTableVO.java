@@ -274,6 +274,42 @@ public class AiAgentConfigTableVO {
              */
             private String queryPredicate;
 
+            // ============================== P0: Human-in-the-Loop 配置 ==============================
+
+            /**
+             * HITL 审批渠道 —— 人工审批的通知方式。
+             * <p>
+             * 可选值：
+             * <ul>
+             *   <li>"web" — Web UI 审批（默认）</li>
+             *   <li>"feishu" — 飞书消息审批</li>
+             *   <li>"email" — 邮件审批</li>
+             *   <li>"dingtalk" — 钉钉消息审批</li>
+             * </ul>
+             * 为空时默认 "web"。
+             */
+            private String approvalChannel = "web";
+
+            /**
+             * HITL 审批超时时间（秒）—— 超过此时间未审批则自动拒绝或跳过。
+             * <p>
+             * 默认 300 秒（5 分钟）。
+             */
+            private Integer approvalTimeoutSeconds = 300;
+
+            /**
+             * HITL 风险等级 —— 决定是否需要人工审批。
+             * <p>
+             * 可选值：
+             * <ul>
+             *   <li>"high" — 高风险操作，必须人工审批</li>
+             *   <li>"medium" — 中风险操作，建议人工审批（可配置自动通过）</li>
+             *   <li>"low" — 低风险操作，自动通过</li>
+             * </ul>
+             * 为空时默认 "medium"。
+             */
+            private String riskLevel = "medium";
+
         }
 
         @Data

@@ -34,7 +34,7 @@ jobs:
                 <id>maven-central</id>
                 <name>Maven Central</name>
                 <url>https://repo.maven.apache.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
+                <mirrorOf>*</mirrorOf>
               </mirror>
             </mirrors>
           </settings>

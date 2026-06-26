@@ -16,6 +16,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 检出跨仓库依赖：agent-rag-observability-server-client 模块
+      - name: 检出 agent-rag-observability-server（跨仓库依赖）
+        uses: actions/checkout@v4
+        with:
+          repository: chyuan-cuihongyuan/agent-rag-observability-server
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+          path: agent-rag-observability-server-deps
+          ref: online
+          fetch-depth: 1
+
       - name: 配置 JDK 17
         uses: actions/setup-java@v4
         with:
@@ -41,10 +51,22 @@ jobs:
           </settings>
           EOF
 
+      # 先构建并安装跨仓库依赖 client 模块（含其依赖 types）
+      - name: 安装 agent-rag-observability-server-client 到本地仓库
+        env:
+          MAVEN_OPTS: -Dfile.encoding=UTF-8
+        run: |
+          cd agent-rag-observability-server-deps
+          mvn -B install -pl agent-rag-observability-server-types,agent-rag-observability-server-client -am -DskipTests -Daether.checksums.forSignature=false -Daether.connector.connectTimeout=30s -Daether.connector.requestTimeout=120s
+
       - name: 编译验证
+        env:
+          MAVEN_OPTS: -Dfile.encoding=UTF-8
         run: mvn -B compile -Daether.checksums.forSignature=false -Daether.connector.connectTimeout=30s -Daether.connector.requestTimeout=120s
 
       - name: 运行测试
+        env:
+          MAVEN_OPTS: -Dfile.encoding=UTF-8
         run: mvn -B test -Daether.checksums.forSignature=false -Daether.connector.connectTimeout=30s -Daether.connector.requestTimeout=120s
 
       - name: 上传测试报告

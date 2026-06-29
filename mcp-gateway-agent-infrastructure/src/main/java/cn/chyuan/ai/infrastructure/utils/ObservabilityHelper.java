@@ -32,7 +32,7 @@ public class ObservabilityHelper {
                     .costTimeMs(costTimeMs).errorMessage(errorMessage)
                     .build();
             observabilityClient.reportToolCall(report);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.debug("observability report failed: {}", e.getMessage());
         }
     }
@@ -68,7 +68,7 @@ public class ObservabilityHelper {
                     .errorMessage(errorMessage)
                     .build();
             observabilityClient.reportAgentDecision(report);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.debug("observability agent decision report failed: {}", e.getMessage());
         }
     }
@@ -95,7 +95,7 @@ public class ObservabilityHelper {
                     .modelVersion(modelVersion)
                     .build();
             observabilityClient.reportChatResult(report);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.debug("observability chat result report failed: {}", e.getMessage());
         }
     }

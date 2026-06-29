@@ -16,7 +16,7 @@ ai:
               completions-path: chat/completions
               embeddings-path: embeddings
             chat-model:
-              model: glm-4-flash
+              model: glm-4.5-flash
               tool-mcp-list:
                 - sse:
                     name: baidu-search

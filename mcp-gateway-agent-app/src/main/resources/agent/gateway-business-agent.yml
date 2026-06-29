@@ -17,7 +17,7 @@ ai:
               completions-path: v1/chat/completions
               embeddings-path: v1/embeddings
             chat-model:
-              model: ${LLM_MODEL:glm-4-flash}
+              model: ${LLM_MODEL:glm-4.5-flash}
               tool-mcp-list:
                 - local:
                     name: yunfanOilToolCallbackProvider

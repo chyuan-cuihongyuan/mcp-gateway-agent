@@ -1,0 +1,89 @@
+server:
+  port: 8091
+  servlet:
+    context-path: /
+
+# 线程池配置
+thread:
+  pool:
+    executor:
+      config:
+        core-pool-size: 20
+        max-pool-size: 50
+        keep-alive-time: 5000
+        block-queue-size: 5000
+        policy: CallerRunsPolicy
+
+# 数据库配置
+spring:
+  config:
+    import:
+      - classpath:agent/only-one-agent.yml
+  datasource:
+    username: ${MYSQL_USERNAME:<your-username>}
+    password: ${MYSQL_PASSWORD:<your-password>}
+    url: ${MYSQL_URL:jdbc:mysql://<your-host>:<port>/<database>?useUnicode=true&characterEncoding=utf8&autoReconnect=true&zeroDateTimeBehavior=convertToNull&serverTimezone=UTC&useSSL=true}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      pool-name: Retail_HikariCP
+      minimum-idle: 15
+      idle-timeout: 180000
+      maximum-pool-size: 25
+      auto-commit: true
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+  # Spring AI OpenAI 配置
+  ai:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${OPENAI_API_KEY:<your-api-key>}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:<your-model>}
+  data:
+    redis:
+      host: ${REDIS_HOST:<your-host>}
+      port: ${REDIS_PORT:6379}
+  # RocketMQ 配置（observability client 依赖需要）
+  rocketmq:
+    name-server: ${ROCKETMQ_NAME_SERVER:<your-host>:9876}
+    producer:
+      group: ${ROCKETMQ_PRODUCER_GROUP:<your-group>}
+      enabled: false
+
+# MyBatis 配置
+mybatis:
+  mapper-locations: classpath:/mybatis/mapper/*.xml
+  config-location:  classpath:/mybatis/config/mybatis-config.xml
+
+# Observability 监控上报配置
+observability:
+  enabled: true
+  mq:
+    topic: observability-trace
+    enabled: false
+  http:
+    url: ${OBSERVABILITY_HTTP_URL:http://<your-host>:8092}
+    auth-key: ${OBSERVABILITY_AUTH_KEY:<your-auth-key>}
+    enabled: true
+    timeout-ms: 100
+
+mcp:
+  session:
+    timeout-minutes: 30
+  cache:
+    tool-config:
+      enabled: true
+      ttl-minutes: 30
+  http:
+    connect-timeout-ms: 3000
+    read-timeout-ms: 30000
+    write-timeout-ms: 30000
+
+# 日志
+logging:
+  level:
+    root: info
+  config: classpath:logback-spring.xml

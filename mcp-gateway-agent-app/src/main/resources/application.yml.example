@@ -1,0 +1,5 @@
+spring:
+  config:
+    name: ai-agent-scaffold-lite-app
+  profiles:
+    active: dev  # 可选: dev / test / prod

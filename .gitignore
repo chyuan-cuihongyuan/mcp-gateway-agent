@@ -39,3 +39,18 @@ build/
 .DS_Store
 /data/
 /mcp-gateway-agent-app/data/
+
+### 文档清理：不提交到 GitHub ###
+doc/
+docs/
+claude.md
+CLAUDE.md
+*.md
+!README.md
+!**/README.md
+
+### 配置文件清理：不提交真实配置到 GitHub ###
+application.yml
+application-dev.yml
+application-prod.yml
+application-test.yml

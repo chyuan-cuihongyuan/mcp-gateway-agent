@@ -15,7 +15,11 @@
 一律以非零退出码报清晰错误，避免 Agent 误操作越界读写文件。
 """
 import os
+import re
 import sys
+
+# Windows 盘符绝对路径（如 C:\evil.pdf / C:/evil.pdf），跨平台显式拒绝
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def guard_path(path, purpose='文件'):
@@ -24,8 +28,9 @@ def guard_path(path, purpose='文件'):
         print(f"错误: {purpose}路径为空，拒绝执行")
         sys.exit(1)
 
-    # 绝对路径（POSIX / 或 Windows 盘符）一律拒绝：脚本只接受工作区相对路径
-    if os.path.isabs(path) or os.path.splitdrive(path)[0]:
+    # 绝对路径（POSIX、Windows 盘符）一律拒绝：脚本只接受工作区相对路径。
+    # 盘符判断独立于 os.name，保证在 Linux 运行时同样拒绝 C:\... 形式的入参。
+    if os.path.isabs(path) or os.path.splitdrive(path)[0] or _WINDOWS_DRIVE_RE.match(path):
         print(f"错误: {purpose}路径必须是工作区内的相对路径，拒绝绝对路径: {path}")
         sys.exit(1)
 

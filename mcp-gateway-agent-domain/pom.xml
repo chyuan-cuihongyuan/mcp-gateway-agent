@@ -109,7 +109,6 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
-                    <compilerVersion>${java.version}</compilerVersion>
                 </configuration>
             </plugin>
             <plugin>

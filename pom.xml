@@ -16,10 +16,10 @@
     </repository>
   </repositories>
   <properties>
-    <java.version>17</java.version>
+    <java.version>21</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <google.adk.version>0.5.0</google.adk.version>
   </properties>
@@ -79,21 +79,6 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>32.1.3-jre</version>
-      </dependency>
-      <dependency>
-        <groupId>dom4j</groupId>
-        <artifactId>dom4j</artifactId>
-        <version>1.6.1</version>
-      </dependency>
-      <dependency>
-        <groupId>com.thoughtworks.xstream</groupId>
-        <artifactId>xstream</artifactId>
-        <version>1.4.10</version>
-      </dependency>
-      <dependency>
-        <groupId>io.jsonwebtoken</groupId>
-        <artifactId>jjwt</artifactId>
-        <version>0.9.1</version>
       </dependency>
       <dependency>
         <groupId>com.auth0</groupId>
@@ -204,7 +189,7 @@
       <dependency>
         <groupId>com.squareup.okhttp3</groupId>
         <artifactId>okhttp</artifactId>
-        <version>4.9.3</version>
+        <version>4.12.0</version>
       </dependency>
       <!-- 工程模块 -->
       <dependency>

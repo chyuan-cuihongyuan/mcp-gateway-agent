@@ -141,7 +141,7 @@ ObservabilityHelper.reportToolCall()      # 上报 traceId + toolName + 耗时 +
 
 ### 环境要求
 
-- JDK 17+
+- JDK 21+
 - Maven 3.8+
 - MySQL 8.x、Redis
 - 可选：`agent-rag-observability-server`（用于链路上报）

@@ -13,7 +13,7 @@ QUERY=$1
 TOP_K=${2:-5}
 
 # 业务 API 地址
-API_URL="http://49.232.169.33:8091/api/v1/documents/search"
+API_URL="http://127.0.0.1:8091/api/v1/documents/search"
 
 # 构建请求体
 REQUEST_BODY="{\"query\":\"$QUERY\",\"topK\":$TOP_K}"

@@ -150,7 +150,7 @@ ObservabilityHelper.reportToolCall()      # 上报 traceId + toolName + 耗时 +
 
 1. **准备配置**
 
-复制 `mcp-gateway-agent-app/src/main/resources/application.yml.example` 为 `application-dev.yml`，配置数据源、Redis、LLM API Key、可观测性地址。默认服务端口 `8777`（`cors.allowed-origins` 默认指向 `http://49.232.169.33:3000`）。
+复制 `mcp-gateway-agent-app/src/main/resources/application.yml.example` 为 `application-dev.yml`，配置数据源、Redis、LLM API Key、可观测性地址。默认服务端口 `8777`（`cors.allowed-origins` 默认指向 `http://127.0.0.1:3000`）。
 
 2. **构建**
 

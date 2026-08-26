@@ -3,7 +3,7 @@
 # 用法: ./query.sh
 
 # 业务 API 地址
-API_URL="http://49.232.169.33:8091/api/v1/query_ai_agent_config_list"
+API_URL="http://127.0.0.1:8091/api/v1/query_ai_agent_config_list"
 
 # 发送请求
 response=$(curl -s -X GET "$API_URL" \

@@ -4,6 +4,7 @@ import sys
 
 import json
 from extract_form_field_info import get_field_info
+from path_guard import guard_path
 from pypdf import PdfReader, PdfWriter
 
 # Fills fillable form fields in a PDF. See forms.md.
@@ -116,7 +117,7 @@ if __name__ == '__main__':
         )
         sys.exit(1)
     monkeypatch_pydpf_method()
-    input_pdf = sys.argv[1]
-    fields_json = sys.argv[2]
-    output_pdf = sys.argv[3]
+    input_pdf = guard_path(sys.argv[1], '输入 PDF')
+    fields_json = guard_path(sys.argv[2], '字段值 JSON')
+    output_pdf = guard_path(sys.argv[3], '输出 PDF')
     fill_pdf_fields(input_pdf, fields_json, output_pdf)

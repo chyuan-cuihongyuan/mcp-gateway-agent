@@ -4,6 +4,7 @@ import sys
 from dataclasses import dataclass
 
 import json
+from path_guard import guard_path
 
 # Script to check that the `fields.json` file that Claude creates when analyzing PDFs
 # does not have overlapping bounding boxes. See forms.md.
@@ -80,7 +81,7 @@ if __name__ == '__main__':
         print('Usage: check_bounding_boxes.py [fields.json]')
         sys.exit(1)
     # Input file should be in the `fields.json` format described in forms.md.
-    with open(sys.argv[1]) as f:
+    with open(guard_path(sys.argv[1], '字段 JSON')) as f:
         messages = get_bounding_box_messages(f)
     for msg in messages:
         print(msg)

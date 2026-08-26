@@ -3,6 +3,7 @@
 import sys
 
 import json
+from path_guard import guard_path
 from pypdf import PdfReader
 
 # Extracts data for the fillable form fields in a PDF and outputs JSON that
@@ -157,4 +158,6 @@ if __name__ == '__main__':
     if len(sys.argv) != 3:
         print('Usage: extract_form_field_info.py [input pdf] [output json]')
         sys.exit(1)
-    write_field_info(sys.argv[1], sys.argv[2])
+    input_pdf = guard_path(sys.argv[1], '输入 PDF')
+    output_json = guard_path(sys.argv[2], '输出 JSON')
+    write_field_info(input_pdf, output_json)

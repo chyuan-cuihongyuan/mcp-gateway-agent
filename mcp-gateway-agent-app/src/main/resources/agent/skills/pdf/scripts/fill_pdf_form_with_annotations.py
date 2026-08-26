@@ -3,6 +3,7 @@
 import sys
 
 import json
+from path_guard import guard_path
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import FreeText
 
@@ -104,8 +105,8 @@ if __name__ == '__main__':
             'Usage: fill_pdf_form_with_annotations.py [input pdf] [fields.json] [output pdf]'
         )
         sys.exit(1)
-    input_pdf = sys.argv[1]
-    fields_json = sys.argv[2]
-    output_pdf = sys.argv[3]
+    input_pdf = guard_path(sys.argv[1], '输入 PDF')
+    fields_json = guard_path(sys.argv[2], '字段 JSON')
+    output_pdf = guard_path(sys.argv[3], '输出 PDF')
 
     fill_pdf_form(input_pdf, fields_json, output_pdf)

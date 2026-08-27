@@ -3,7 +3,8 @@
 import sys
 
 import json
-from path_guard import guard_path
+from pathlib import Path
+from path_guard import ensure_inside_workspace, guard_path
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import FreeText
 
@@ -92,7 +93,7 @@ def fill_pdf_form(input_pdf_path, fields_json_path, output_pdf_path):
         writer.add_annotation(page_number=page_num - 1, annotation=annotation)
 
     # Save the filled PDF
-    with open(output_pdf_path, 'wb') as output:
+    with Path(ensure_inside_workspace(output_pdf_path, '输出 PDF')).open('wb') as output:
         writer.write(output)
 
     print(f'Successfully filled PDF form and saved to {output_pdf_path}')

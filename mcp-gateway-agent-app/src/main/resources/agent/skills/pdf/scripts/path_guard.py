@@ -45,3 +45,23 @@ def guard_path(path, purpose='文件'):
         sys.exit(1)
 
     return resolved
+
+
+def ensure_inside_workspace(resolved_path, purpose='文件'):
+    """写入点二次防御：复核已解析的绝对路径仍位于工作区内，否则非零退出。
+
+    与 guard_path 的分工：guard_path 约束命令行原始入参（拒绝绝对路径形态）；
+    本函数约束经 guard_path 解析后（或内部构造）的绝对路径，供 open() 写入点
+    就地复核，保证即便上游校验被绕过也无法越界写出。返回原路径。
+    """
+    workspace_root = os.path.abspath(os.getcwd())
+    try:
+        inside = os.path.normcase(
+            os.path.commonpath([workspace_root, resolved_path])) == os.path.normcase(workspace_root)
+    except ValueError:
+        # Windows 跨盘符等无公共根情形，commonpath 抛 ValueError → 一律拒绝
+        inside = False
+    if not inside:
+        print(f"错误: {purpose}路径逃逸出工作区目录（写入点复核失败）: {resolved_path}")
+        sys.exit(1)
+    return resolved_path

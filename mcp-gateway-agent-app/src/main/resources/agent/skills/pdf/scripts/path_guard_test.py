@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 try:
     from pypdf import PdfReader, PdfWriter
@@ -25,11 +26,16 @@ except ImportError:  # pragma: no cover - 无 pypdf 时仅跑 guard 单测
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPTS_DIR)
 
-from path_guard import guard_path  # noqa: E402
+from path_guard import ensure_inside_workspace, guard_path  # noqa: E402
 
 PYTHON = sys.executable
 GUARD_ESCAPE_MARK = '逃逸出工作区'
 GUARD_ABSOLUTE_MARK = '拒绝绝对路径'
+
+
+def _ws_write_path(name):
+    """夹具写入点复核：仅允许写入本测试工作目录（与被测守卫同约束，防夹具路径意外逃逸）。"""
+    return ensure_inside_workspace(os.path.abspath(name), '测试夹具')
 
 
 def _make_fillable_form_pdf(path, field_name='name', width=300, height=300):
@@ -51,14 +57,14 @@ def _make_fillable_form_pdf(path, field_name='name', width=300, height=300):
     acroform.update({NameObject('/Fields'): ArrayObject([field_obj])})
     writer._root_object[NameObject('/AcroForm')] = acroform
     writer._root_object[NameObject('/NeedAppearances')] = BooleanObject(True)
-    with open(path, 'wb') as f:
+    with Path(_ws_write_path(path)).open('wb') as f:
         writer.write(f)
 
 
 def _make_blank_pdf(path, width=300, height=300):
     writer = PdfWriter()
     writer.add_blank_page(width=width, height=height)
-    with open(path, 'wb') as f:
+    with Path(_ws_write_path(path)).open('wb') as f:
         writer.write(f)
 
 
@@ -145,7 +151,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
         self._old_cwd = os.getcwd()
         self._workdir = tempfile.mkdtemp(prefix='pdf_guard_ws_')
         os.chdir(self._workdir)
-        with open('fields.json', 'w') as f:
+        with Path(_ws_write_path('fields.json')).open('w') as f:
             json.dump(self.SAMPLE_FIELDS, f)
 
     def tearDown(self):
@@ -173,7 +179,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
     @unittest.skipUnless(PdfWriter is not None, 'pypdf 未安装')
     def test_fill_fillable_fields_success_in_workspace(self):
         _make_fillable_form_pdf('form.pdf')
-        with open('values.json', 'w', encoding='utf-8') as f:
+        with Path(_ws_write_path('values.json')).open('w', encoding='utf-8') as f:
             json.dump([{'field_id': 'name', 'page': 1, 'value': 'Alice'}], f)
         code, out = _run_script('fill_fillable_fields.py',
                                 ['form.pdf', 'values.json', 'filled.pdf'],
@@ -199,7 +205,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
                 'image_height': 100,
             }],
         }
-        with open('annot.json', 'w', encoding='utf-8') as f:
+        with Path(_ws_write_path('annot.json')).open('w', encoding='utf-8') as f:
             json.dump(payload, f)
         code, out = _run_script('fill_pdf_form_with_annotations.py',
                                 ['blank.pdf', 'annot.json', 'annot_out.pdf'],

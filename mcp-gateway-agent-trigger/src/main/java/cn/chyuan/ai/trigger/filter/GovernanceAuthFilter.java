@@ -29,7 +29,7 @@ import java.io.IOException;
 @Slf4j
 public class GovernanceAuthFilter implements Filter {
 
-    public static final String PRINCIPAL_ATTR = "GOVERNANCE_PRINCIPAL";
+    public static final String PRINCIPAL_ATTR = GovernancePrincipal.REQUEST_ATTR;
 
     /** /api-gateway/ 后的网关 ID 路径段 */
     private static final String PATH_PREFIX = "/api-gateway/";

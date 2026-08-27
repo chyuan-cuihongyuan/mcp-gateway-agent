@@ -21,6 +21,9 @@ import java.util.List;
 @AllArgsConstructor
 public class GovernancePrincipal {
 
+    /** 主体写入 Servlet Request Attribute 的键（认证过滤器产出，委派路由/MCP 传输消费；工单 0020 起为跨层单一来源） */
+    public static final String REQUEST_ATTR = "GOVERNANCE_PRINCIPAL";
+
     /** 认证类型 */
     private AuthType authType;
 

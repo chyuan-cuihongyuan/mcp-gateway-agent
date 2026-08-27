@@ -1,4 +1,4 @@
-package cn.chyuan.ai.domain.session.service.message.handler.impl;
+package cn.chyuan.ai.domain.session.service.tool;
 
 import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.governance.service.CelEvaluationService;
@@ -7,12 +7,12 @@ import cn.chyuan.ai.domain.session.adapter.repository.ISessionRepository;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolConfigVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
-import cn.chyuan.ai.domain.session.service.message.handler.IRequestHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -22,16 +22,20 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 返回服务器支持的工具列表
+ * MCP 工具目录服务（工单 0020）
  *
- * <p>工单 0018：tools/list 生效点——CEL 治理规则不放行的工具从清单隐藏。
+ * <p>schema 构建逻辑承接原 ToolsListHandler（SSE 消息树随传输下线删除），
+ * CEL 过滤口径与 0018 一致：不放行的工具从清单隐藏。
  *
  * @author chyuan
- *         2025/12/20 11:29
  */
 @Slf4j
-@Service("toolsListHandler")
-public class ToolsListHandler implements IRequestHandler {
+@Service
+public class McpToolCatalogService implements IMcpToolCatalogService {
+
+    /** 协议映射排序（sortOrder 空视为 0） */
+    private static final Comparator<McpToolProtocolConfigVO.ProtocolMapping> BY_SORT_ORDER =
+            Comparator.comparingInt(mapping -> mapping.getSortOrder() != null ? mapping.getSortOrder() : 0);
 
     @Resource
     private ISessionRepository repository;
@@ -40,30 +44,26 @@ public class ToolsListHandler implements IRequestHandler {
     private ICelEvaluationService celEvaluationService;
 
     @Override
-    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message,
-            GovernancePrincipal principal) {
+    public List<McpSchemaVO.Tool> visibleTools(String gatewayId, GovernancePrincipal principal, String method) {
+        List<McpToolConfigVO> toolConfigs = repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
 
-        // 1. 查询网关（gatewayId）下的工具列表配置
-        List<McpToolConfigVO> mcpToolConfigVOS = repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
-
-        // 2. CEL 治理过滤（工单 0018：不放行的工具不出现在清单；无认证主体的遗留路径不过滤）
         List<McpToolConfigVO> visible = principal == null
-                ? mcpToolConfigVOS
-                : mcpToolConfigVOS.stream()
-                        .filter(tool -> celEvaluationService.isToolAllowed(principal, gatewayId, message.method(),
+                ? toolConfigs
+                : toolConfigs.stream()
+                        .filter(tool -> celEvaluationService.isToolAllowed(principal, gatewayId, method,
                                 tool.getToolName(), CelEvaluationService.TOOL_SOURCE_PROTOCOL))
                         .toList();
 
-        // 3. 构建工具列表
-        List<McpSchemaVO.Tool> tools = buildTools(visible);
-
-        return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), Map.of(
-                "tools", tools), null);
+        return buildTools(visible);
     }
 
     @Override
-    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
-        return handle(gatewayId, message, null);
+    public boolean toolExists(String gatewayId, String toolName) {
+        if (toolName == null || toolName.isBlank()) {
+            return false;
+        }
+        return repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId).stream()
+                .anyMatch(tool -> toolName.equals(tool.getToolName()));
     }
 
     private List<McpSchemaVO.Tool> buildTools(List<McpToolConfigVO> toolConfigs) {
@@ -71,15 +71,10 @@ public class ToolsListHandler implements IRequestHandler {
 
         for (McpToolConfigVO toolConfigVO : toolConfigs) {
             McpToolProtocolConfigVO mcpToolProtocolConfigVO = toolConfigVO.getMcpToolProtocolConfigVO();
-            List<McpToolProtocolConfigVO.ProtocolMapping> configs = normalizeRequestMappings(mcpToolProtocolConfigVO
-                    .getRequestProtocolMappings());
+            List<McpToolProtocolConfigVO.ProtocolMapping> configs = normalizeRequestMappings(
+                    mcpToolProtocolConfigVO == null ? null : mcpToolProtocolConfigVO.getRequestProtocolMappings());
 
-            // 排序
-            configs.sort((o1, o2) -> {
-                int s1 = o1.getSortOrder() != null ? o1.getSortOrder() : 0;
-                int s2 = o2.getSortOrder() != null ? o2.getSortOrder() : 0;
-                return Integer.compare(s1, s2);
-            });
+            configs.sort(BY_SORT_ORDER);
 
             // 父子元素 Map parentPath -> List<Children>
             Map<String, List<McpToolProtocolConfigVO.ProtocolMapping>> childrenMap = new HashMap<>();
@@ -94,12 +89,7 @@ public class ToolsListHandler implements IRequestHandler {
                 }
             }
 
-            // 排序
-            roots.sort((o1, o2) -> {
-                int s1 = o1.getSortOrder() != null ? o1.getSortOrder() : 0;
-                int s2 = o2.getSortOrder() != null ? o2.getSortOrder() : 0;
-                return Integer.compare(s1, s2);
-            });
+            roots.sort(BY_SORT_ORDER);
 
             // 构建输入结构
             Map<String, Object> properties = new LinkedHashMap<>();
@@ -191,12 +181,7 @@ public class ToolsListHandler implements IRequestHandler {
             Map<String, Object> props = new LinkedHashMap<>();
             Set<String> reqs = new LinkedHashSet<>();
 
-            // 排序
-            children.sort((o1, o2) -> {
-                int s1 = o1.getSortOrder() != null ? o1.getSortOrder() : 0;
-                int s2 = o2.getSortOrder() != null ? o2.getSortOrder() : 0;
-                return Integer.compare(s1, s2);
-            });
+            children.sort(BY_SORT_ORDER);
 
             for (McpToolProtocolConfigVO.ProtocolMapping child : children) {
                 // 注意，buildProperty 嵌套递归，一层层的寻找，是否还有孩子元素（children）

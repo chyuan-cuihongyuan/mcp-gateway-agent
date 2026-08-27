@@ -48,6 +48,12 @@
             <groupId>cn.chyuan.ai</groupId>
             <artifactId>mcp-gateway-agent-infrastructure</artifactId>
         </dependency>
+
+        <!-- 官方 MCP 传输类型引用（工单 0020：委派路由直接持有传输提供器；版本随 platform-bom） -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-core</artifactId>
+        </dependency>
         <!-- 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

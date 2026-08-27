@@ -2,26 +2,29 @@
 
 ## 项目概述
 
-MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中心**，基于 Google ADK（Agent Development Kit）0.5.0、Spring AI 1.1.0-M3 与 LangChain4j 1.4.0 构建。它向上对外提供 MCP（Model Context Protocol）SSE 接口与 Agent 对话接口，向下通过可配置的 HTTP 协议映射将 MCP 工具调用转换为对真实业务系统（如 `agent-add-oil`）的 HTTP 调用，并支持从 OpenAPI 规范一键导入协议配置。系统采用 DDD 架构，具备运营配置管理后台与全链路可观测性上报能力。
+MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中心**，基于 Spring Boot 4.1.1 + Spring AI 2.0.1 + MCP Java SDK 2.0（Google ADK 1.7.0）构建。它向上对外提供 MCP（Model Context Protocol）**Streamable HTTP** 接口与 Agent 对话接口，向下通过可配置的 HTTP 协议映射将 MCP 工具调用转换为对真实业务系统（如 `agent-add-oil`）的 HTTP 调用，并支持从 OpenAPI 规范一键导入协议配置。系统采用 DDD 架构，具备运营配置管理后台、虚拟密钥/CEL 工具治理/配额限流的治理面与全链路可观测性上报能力。
 
 ### 核心特性
 
-- **MCP 协议网关**：实现 MCP SSE 会话管理（`/api-gateway/{gatewayId}/mcp/sse`），支持 `initialize` / `tools/list` / `tools/call` 等 JSON-RPC 方法
-- **多智能体装配**：基于 YAML 配置装配智能体（`deepseek-agent`、`zhipu-agent`、`gateway-business-agent`、`parallel_research_app` 等），支持 ReAct 与多智能体协作
+- **MCP 协议网关**：官方 Streamable HTTP 单端点（`/api-gateway/{gatewayId}/mcp`，POST 消息 / GET 监听流 / DELETE 会话终止），支持 `initialize` / `tools/list` / `tools/call` 等 JSON-RPC 方法；旧 SSE 端点已下线（[迁移指南](../docs/03-mcp-gateway-agent/10-SSE下线与StreamableHTTP迁移.md)）
+- **多智能体装配**：基于 YAML 配置装配智能体（`deepseek-agent`、`zhipu-agent`、`gateway-business-agent`、`parallel_research_app` 等），支持 ReAct 与多智能体协作（冻结待迁移，见 issues/0014）
 - **协议映射引擎**：HTTP 协议配置 + 字段映射（parentPath/fieldName → mcpPath/mcpType），将 MCP 工具入参转换为 HTTP 请求
 - **OpenAPI 导入**：从 OpenAPI JSON 解析端点并一键生成网关协议配置
-- **运营后台**：网关/工具/协议/认证的增删改查与分页，网关测试调用
-- **安全与限流**：网关 apiKey 鉴权、限流、过期时间管理
+- **治理面**：vk- 虚拟密钥统一认证（401/403）、CEL 工具可见性与调用拦截（tools/list 隐藏 + tools/call 结构化拒绝）、per-key RPM/日配额限流（429 + 剩余额度）
+- **运营后台**：网关/工具/协议的增删改查与分页，治理对象（密钥/规则/审计）管理，JWT 角色保护
 - **可观测性**：调用过程通过 `ObservabilityHelper` 上报到 `agent-rag-observability-server`，TraceContext 跨服务传递 traceId
 
 ## 使用功能
 
-### 1. MCP 网关接口（McpGatewayController — `/api-gateway`）
+### 1. MCP 网关接口（Streamable HTTP — `/api-gateway/{gatewayId}/mcp`）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api-gateway/{gatewayId}/mcp/sse?api_key=` | 建立 MCP SSE 连接（建立会话） |
-| POST | `/api-gateway/{gatewayId}/mcp/sse?sessionId=&api_key=` | 处理 MCP JSON-RPC 消息 |
+| POST | `/api-gateway/{gatewayId}/mcp` | JSON-RPC 消息（initialize 握手、tools/list、tools/call、ping、通知）；响应头返回 `Mcp-Session-Id` |
+| GET | `/api-gateway/{gatewayId}/mcp` | 服务端推送监听流（携带 `Mcp-Session-Id` 请求头） |
+| DELETE | `/api-gateway/{gatewayId}/mcp` | 终止会话 |
+
+凭证：`Authorization: Bearer <JWT 或 vk- 密钥>`（或兼容 `?api_key=`）。旧 `/mcp/sse` 端点已移除（404）。
 
 ### 2. Agent 服务接口（AgentServiceController — `/api/v1`）
 
@@ -72,24 +75,23 @@ mcp-gateway-agent/
 ### MCP 工具调用链路
 
 ```
-MCP Client
-  │  SSE 连接 → /api-gateway/{gatewayId}/mcp/sse
+MCP Client（Streamable HTTP）
+  │  POST initialize → /api-gateway/{gatewayId}/mcp（官方传输建会话，响应头 Mcp-Session-Id）
   ▼
-McpSessionService.createMcpSession()      # 建立会话
-  │
-MCP Client 发送 JSON-RPC 消息
-  │  POST /api-gateway/{gatewayId}/mcp/sse?sessionId=
+GovernanceAuthFilter / QuotaEnforcementFilter   # 统一认证（401/403）+ per-key 配额（429）
   ▼
-McpMessageService.handleMessage()
-  │  解析 method（tools/call）
+McpGatewayDelegateServlet                       # 委派路由：tools/list CEL 过滤自答、其余委派官方服务器
   ▼
-GenericHttpGateway                        # 按 protocolId 找到 HTTP 协议配置
+GatewayMcpServerRegistry（per-gateway 官方 McpSyncServer）
+  │  tools/call → McpToolInvocationService（CEL 拦截 -32006 + 必填校验）
+  ▼
+GenericHttpGateway                              # 按 protocolId 找到 HTTP 协议配置
   │  字段映射：MCP 入参 → HTTP 请求（headers/url/method/body）
   ▼
 业务系统（agent-add-oil 等）
   │
   ▼
-ObservabilityHelper.reportToolCall()      # 上报 traceId + toolName + 耗时 + 状态
+ObservabilityHelper.reportToolCall()            # 上报 traceId + toolName + 耗时 + 状态
 ```
 
 ### 协议字段映射

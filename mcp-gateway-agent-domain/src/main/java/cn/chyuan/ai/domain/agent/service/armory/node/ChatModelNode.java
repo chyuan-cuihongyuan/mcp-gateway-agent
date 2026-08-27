@@ -9,11 +9,11 @@ import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.ToolMcpCreateS
 import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.client.factory.DefaultMcpClientFactory;
 import cn.chyuan.ai.domain.agent.service.armory.matter.skills.ToolSkillsCreateService;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
+import com.openai.client.OpenAIClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +39,7 @@ public class ChatModelNode extends AbstractArmorySupport {
         log.info("Ai Agent 装配操作 - ChatModelNode");
 
         // 获取上下文对
-        OpenAiApi openAiApi = dynamicContext.getOpenAiApi();
+        OpenAIClient openAIClient = dynamicContext.getOpenAIClient();
 
         // 获取配置对象
         AiAgentConfigTableVO aiAgentConfigTableVO = requestParameter.getAiAgentConfigTableVO();
@@ -66,10 +66,10 @@ public class ChatModelNode extends AbstractArmorySupport {
             }
         }
 
-        // 构建对话模型
+        // 构建对话模型（Spring AI 2.0：openAiApi() → openAiClient()，defaultOptions() → options()）
         ChatModel chatModel = OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder()
+                .openAiClient(openAIClient)
+                .options(OpenAiChatOptions.builder()
                         .model(chatModelConfig.getModel())
                         .toolCallbacks(toolCallbackList)
                         .build())

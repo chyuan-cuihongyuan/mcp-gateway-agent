@@ -52,9 +52,9 @@ public class SSEToolMcpCreateService implements ToolMcpCreateService {
                 .builder(baseUri)
                 .sseEndpoint(sseEndpoint);
 
-        // 使用 HTTP 请求头传递 API Key
+        // 使用 HTTP 请求头传递 API Key（MCP SDK 2.0：customizeRequest → httpRequestCustomizer）
         if (StringUtils.isNotBlank(sseConfig.getApiKey())) {
-            builder.customizeRequest(request -> {
+            builder.httpRequestCustomizer((request, method, uri, body, context) -> {
                 request.header("Authorization", "Bearer " + sseConfig.getApiKey());
             });
         }

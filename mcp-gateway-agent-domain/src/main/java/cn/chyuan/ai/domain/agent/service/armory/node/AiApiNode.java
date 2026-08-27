@@ -6,22 +6,20 @@ import cn.chyuan.ai.domain.agent.model.valobj.AiAgentRegisterVO;
 import cn.chyuan.ai.domain.agent.service.armory.AbstractArmorySupport;
 import cn.chyuan.ai.domain.agent.service.armory.factory.DefaultArmoryFactory;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.ai.openai.api.OpenAiApi;
-import org.springframework.http.MediaType;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import jakarta.annotation.Resource;
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 @Service
 public class AiApiNode extends AbstractArmorySupport {
+
+    /** 官方 openai-java SDK 固定在 baseUrl 后拼接的对话补全路径后缀 */
+    private static final String CHAT_COMPLETIONS_SUFFIX = "chat/completions";
 
     @Resource
     private ChatModelNode chatModelNode;
@@ -33,20 +31,12 @@ public class AiApiNode extends AbstractArmorySupport {
         AiAgentConfigTableVO aiAgentConfigTableVO = requestParameter.getAiAgentConfigTableVO();
         AiAgentConfigTableVO.Module.AiApi aiApiConfig = aiAgentConfigTableVO.getModule().getAiApi();
 
-        // 部分 OpenAI 兼容服务商会用 application/octet-stream 返回 JSON，默认 Jackson 转换器
-        // 仅支持 application/json，补充支持 application/octet-stream 以避免反序列化失败。
-        RestClient.Builder restClientBuilder = RestClient.builder()
-                .messageConverters(this::augmentJacksonConverterForOctetStream);
-
-        OpenAiApi openAiApi = OpenAiApi.builder()
-                .baseUrl(aiApiConfig.getBaseUrl())
+        OpenAIClient openAIClient = OpenAIOkHttpClient.builder()
+                .baseUrl(resolveBaseUrl(aiApiConfig))
                 .apiKey(aiApiConfig.getApiKey())
-                .completionsPath(StringUtils.isNotBlank(aiApiConfig.getCompletionsPath()) ? aiApiConfig.getCompletionsPath() : "v1/chat/completions")
-                .embeddingsPath(StringUtils.isNotBlank(aiApiConfig.getEmbeddingsPath()) ? aiApiConfig.getEmbeddingsPath() : "v1/embeddings")
-                .restClientBuilder(restClientBuilder)
                 .build();
 
-        dynamicContext.setOpenAiApi(openAiApi);
+        dynamicContext.setOpenAIClient(openAIClient);
 
         return router(requestParameter, dynamicContext);
     }
@@ -57,25 +47,29 @@ public class AiApiNode extends AbstractArmorySupport {
     }
 
     /**
-     * 将 RestClient 默认的 Jackson 转换器替换为同时支持 application/octet-stream 的副本，
-     * 以兼容用 octet-stream 返回 JSON 的 OpenAI 兼容服务商。复用原转换器的 ObjectMapper，
-     * 避免影响其它请求的 JSON 解析行为，且不修改共享实例。
+     * Spring AI 2.0 起 openai 模块基于官方 openai-java SDK，客户端只接受 baseUrl，
+     * 固定在其后拼接 /chat/completions。旧配置为 baseUrl + completionsPath 两段式，
+     * 此处将两段折叠为等价的官方 SDK baseUrl（去掉末尾的 chat/completions 后缀），
+     * 保持各 OpenAI 兼容服务商的实际请求地址不变。
+     *
+     * <p>旧实现中的 octet-stream RestClient 兼容 hack 随官方 SDK 自行解析响应而移除；
+     * embeddingsPath 因网关仅构建对话模型不再消费。
      */
-    private void augmentJacksonConverterForOctetStream(List<HttpMessageConverter<?>> converters) {
-        for (int i = 0; i < converters.size(); i++) {
-            HttpMessageConverter<?> converter = converters.get(i);
-            if (converter instanceof MappingJackson2HttpMessageConverter defaultJackson) {
-                MappingJackson2HttpMessageConverter octetStreamAware =
-                        new MappingJackson2HttpMessageConverter(defaultJackson.getObjectMapper());
-                List<MediaType> mediaTypes = new ArrayList<>(defaultJackson.getSupportedMediaTypes());
-                if (!mediaTypes.contains(MediaType.APPLICATION_OCTET_STREAM)) {
-                    mediaTypes.add(MediaType.APPLICATION_OCTET_STREAM);
-                }
-                octetStreamAware.setSupportedMediaTypes(mediaTypes);
-                converters.set(i, octetStreamAware);
-                return;
-            }
+    private String resolveBaseUrl(AiAgentConfigTableVO.Module.AiApi aiApiConfig) {
+        String baseUrl = StringUtils.removeEnd(StringUtils.trimToEmpty(aiApiConfig.getBaseUrl()), "/");
+        String completionsPath = StringUtils.isNotBlank(aiApiConfig.getCompletionsPath())
+                ? aiApiConfig.getCompletionsPath()
+                : "v1/chat/completions";
+
+        if (completionsPath.endsWith(CHAT_COMPLETIONS_SUFFIX)) {
+            String prefix = StringUtils.removeEnd(
+                    completionsPath.substring(0, completionsPath.length() - CHAT_COMPLETIONS_SUFFIX.length()), "/");
+            return prefix.isEmpty() ? baseUrl : baseUrl + "/" + prefix;
         }
+
+        log.warn("completions-path [{}] 不以 chat/completions 结尾，官方 openai-java SDK 不支持自定义补全路径，直接使用 base-url [{}]",
+                completionsPath, baseUrl);
+        return baseUrl;
     }
 
 }

@@ -4,6 +4,7 @@ import cn.chyuan.ai.domain.llm.model.entity.BuildChatModelCommandEntity;
 import cn.chyuan.ai.domain.llm.model.valobj.McpConfigVO;
 import cn.chyuan.ai.domain.llm.service.ILLMService;
 import com.alibaba.fastjson.JSON;
+import com.openai.client.OpenAIClient;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
@@ -14,7 +15,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,7 +36,7 @@ public class LLMService implements ILLMService {
     private final Map<String, ChatModel> chatModelMap = new ConcurrentHashMap<>();
 
     @Resource
-    private OpenAiApi openAiApi;
+    private OpenAIClient openAIClient;
 
     @Value("${spring.ai.openai.chat.options.model}")
     private String model;
@@ -49,10 +49,10 @@ public class LLMService implements ILLMService {
         // mcp 配置
         McpConfigVO mcpConfigVO = commandEntity.getMcpConfigVO();
 
-        // model 配置 + mcp 服务
+        // model 配置 + mcp 服务（Spring AI 2.0：openAiApi() → openAiClient()，defaultOptions() → options()）
         ChatModel chatModel = OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(OpenAiChatOptions.builder()
+                .openAiClient(openAIClient)
+                .options(OpenAiChatOptions.builder()
                         .model(model)
                         .toolCallbacks(buildToolCallback(mcpConfigVO))
                         .build())
@@ -69,9 +69,9 @@ public class LLMService implements ILLMService {
                 .builder(mcpConfigVO.getBaseUri())
                 .sseEndpoint(sseEndPoint);
 
-        // 使用 HTTP 请求头传递 API Key，而不是 URL 参数
+        // 使用 HTTP 请求头传递 API Key，而不是 URL 参数（MCP SDK 2.0：customizeRequest → httpRequestCustomizer）
         if (StringUtils.isNotBlank(mcpConfigVO.getAuthApiKey())) {
-            builder.customizeRequest(request -> {
+            builder.httpRequestCustomizer((request, method, uri, body, context) -> {
                 request.header("Authorization", "Bearer " + mcpConfigVO.getAuthApiKey());
             });
         }

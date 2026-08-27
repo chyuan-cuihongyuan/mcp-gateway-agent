@@ -7,12 +7,12 @@ import cn.chyuan.ai.domain.agent.service.armory.node.RootNode;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import com.google.adk.agents.BaseAgent;
 import com.google.adk.agents.SequentialAgent;
+import com.openai.client.OpenAIClient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
@@ -53,9 +53,9 @@ public class DefaultArmoryFactory {
     public static class DynamicContext {
 
         /**
-         * LLM API
+         * LLM API（Spring AI 2.0 官方 openai-java 客户端）
          */
-        private OpenAiApi openAiApi;
+        private OpenAIClient openAIClient;
 
         /**
          * LLM ChatModel

@@ -1,12 +1,16 @@
 package cn.chyuan.ai.config;
 
-import org.springframework.ai.openai.api.OpenAiApi;
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
  * LLM 配置
+ *
+ * <p>Spring AI 2.0 起 spring-ai-openai 基于官方 openai-java SDK 重写，
+ * 原 OpenAiApi Bean 由官方 OpenAIClient（OkHttp 实现）替代。
  *
  * @author chyuan
  *         2026/4/8 08:04
@@ -24,8 +28,8 @@ public class LLMConfig {
     private String model;
 
     @Bean
-    public OpenAiApi openAiApi() {
-        return OpenAiApi.builder()
+    public OpenAIClient openAIClient() {
+        return OpenAIOkHttpClient.builder()
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .build();

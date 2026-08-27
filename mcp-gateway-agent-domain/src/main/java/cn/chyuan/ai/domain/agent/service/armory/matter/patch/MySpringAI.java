@@ -14,6 +14,7 @@ import io.reactivex.rxjava3.core.Flowable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.StreamingChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import reactor.core.publisher.Flux;
 
@@ -137,7 +138,7 @@ public class MySpringAI extends BaseLlm {
         SpringAIObservabilityHandler.RequestContext context = observabilityHandler.startRequest(model(), "chat");
 
         try {
-            Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
+            Prompt prompt = messageConverter.toLlmPrompt(llmRequest, resolveDefaultOptions());
             observabilityHandler.logRequest(prompt.toString(), model());
 
             ChatResponse chatResponse = chatModel.call(prompt);
@@ -166,7 +167,7 @@ public class MySpringAI extends BaseLlm {
         return Flowable.create(
                 emitter -> {
                     try {
-                        Prompt prompt = messageConverter.toLlmPrompt(llmRequest);
+                        Prompt prompt = messageConverter.toLlmPrompt(llmRequest, resolveDefaultOptions());
                         observabilityHandler.logRequest(prompt.toString(), model());
 
                         Flux<ChatResponse> responseFlux = streamingChatModel.stream(prompt);
@@ -220,6 +221,21 @@ public class MySpringAI extends BaseLlm {
     public BaseLlmConnection connect(LlmRequest llmRequest) {
         throw new UnsupportedOperationException(
                 "Live connection is not supported for Spring AI models.");
+    }
+
+    /**
+     * 返回底层模型自带的默认 ChatOptions（ADK 1.7.0 桥接对齐）：
+     * 作为 Prompt options 的基底，使 OpenAiChatModel 等具体实现拿到
+     * 其期望的具体选项类型，避免 ClassCastException。
+     */
+    private ChatOptions resolveDefaultOptions() {
+        if (chatModel != null) {
+            return chatModel.getOptions();
+        }
+        if (streamingChatModel instanceof ChatModel) {
+            return ((ChatModel) streamingChatModel).getOptions();
+        }
+        return null;
     }
 
     private static String extractModelName(Object model) {

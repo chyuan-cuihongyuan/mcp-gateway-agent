@@ -46,6 +46,16 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Bucket4j Redis 后端（含 Lettuce 集成）+ Resilience4j 熔断（工单 0019 配额限流） -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+        </dependency>
+
         <!-- Fastjson -->
         <dependency>
             <groupId>com.alibaba</groupId>

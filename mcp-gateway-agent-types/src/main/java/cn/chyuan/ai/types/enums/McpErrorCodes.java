@@ -80,6 +80,16 @@ public final class McpErrorCodes {
      */
     public static final int AUTH_REQUIRED = -32008;
 
+    /**
+     * 超出配额 —— per-key RPM/日配额耗尽（治理面配额限流，HTTP 429，含剩余额度信息）
+     */
+    public static final int QUOTA_EXCEEDED = -32009;
+
+    /**
+     * 配额服务不可用 —— Redis 故障，按 0011 决议 fail-closed 拒绝（HTTP 503）
+     */
+    public static final int QUOTA_SERVICE_UNAVAILABLE = -32010;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

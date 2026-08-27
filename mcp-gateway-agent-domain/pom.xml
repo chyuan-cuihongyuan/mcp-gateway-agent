@@ -73,6 +73,11 @@
             <groupId>dev.cel</groupId>
             <artifactId>cel</artifactId>
         </dependency>
+        <!-- Bucket4j 核心（治理面配额限流端口类型，工单 0019） -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j-core</artifactId>
+        </dependency>
         <!-- Micrometer（CEL 拦截计数，工单 0018；版本由 Boot 父 POM 管理） -->
         <dependency>
             <groupId>io.micrometer</groupId>

@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * 统一认证过滤器（工单 0017 / 0011 认证流程）
@@ -72,7 +71,7 @@ public class GovernanceAuthFilter implements Filter {
             int httpStatus = authRequired ? 401 : 403;
             log.warn("治理面认证拒绝 gateway:{} credentialSource:{} reason:{}", gatewayId,
                     credential == null || credential.isBlank() ? "none" : "present", e.getInfo());
-            writeJsonRpcError(httpResponse, httpStatus, Integer.parseInt(e.getCode()), e.getInfo());
+            JsonRpcErrorWriter.write(httpResponse, httpStatus, Integer.parseInt(e.getCode()), e.getInfo());
         }
     }
 
@@ -93,20 +92,5 @@ public class GovernanceAuthFilter implements Filter {
         int slash = rest.indexOf('/');
         String segment = slash > 0 ? rest.substring(0, slash) : rest;
         return segment.isBlank() ? null : segment;
-    }
-
-    private void writeJsonRpcError(HttpServletResponse response, int httpStatus, int jsonRpcCode, String message)
-            throws IOException {
-        response.setStatus(httpStatus);
-        response.setContentType("application/json");
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        String body = "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":" + jsonRpcCode
-                + ",\"message\":\"" + escape(message) + "\",\"data\":{\"httpStatus\":" + httpStatus + "}}}";
-        response.getWriter().write(body);
-        response.getWriter().flush();
-    }
-
-    private String escape(String message) {
-        return message == null ? "" : message.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

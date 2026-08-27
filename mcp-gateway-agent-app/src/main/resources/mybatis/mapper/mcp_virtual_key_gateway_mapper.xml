@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IVirtualKeyGatewayDao">
+
+    <!-- 存量迁移专用：唯一键冲突即跳过（幂等） -->
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO mcp_virtual_key_gateway (key_id, gateway_id)
+        VALUES (#{keyId}, #{gatewayId})
+    </insert>
+
+    <delete id="delete">
+        DELETE FROM mcp_virtual_key_gateway WHERE key_id = #{keyId} AND gateway_id = #{gatewayId}
+    </delete>
+
+    <select id="countGrant" resultType="java.lang.Integer">
+        SELECT count(*) FROM mcp_virtual_key_gateway WHERE key_id = #{keyId} AND gateway_id = #{gatewayId}
+    </select>
+
+    <select id="queryGatewaysByKeyId" resultType="java.lang.String">
+        SELECT gateway_id FROM mcp_virtual_key_gateway WHERE key_id = #{keyId} ORDER BY id
+    </select>
+
+    <select id="queryKeyIdByHash" resultType="java.lang.Long">
+        SELECT id FROM mcp_virtual_key WHERE api_key_hash = #{apiKeyHash}
+    </select>
+
+</mapper>

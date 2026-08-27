@@ -56,8 +56,8 @@ public class McpGatewayControllerTest {
     @Test
     @DisplayName("SSE 连接建立 — 正常 gatewayId 返回 Flux")
     public void testSseConnection_ValidGatewayId() throws Exception {
-        // 准备
-        when(mcpSessionService.createMcpSession(eq(VALID_GATEWAY_ID), anyString()))
+        // 准备（无过滤器上下文 → principal 为 null，节点链走遗留兜底）
+        when(mcpSessionService.createMcpSession(eq(VALID_GATEWAY_ID), anyString(), any()))
                 .thenReturn(Flux.empty());
 
         // 执行
@@ -65,7 +65,7 @@ public class McpGatewayControllerTest {
 
         // 验证
         assertNotNull(result, "SSE 连接应返回非空 Flux");
-        verify(mcpSessionService).createMcpSession(VALID_GATEWAY_ID, "test-api-key");
+        verify(mcpSessionService).createMcpSession(eq(VALID_GATEWAY_ID), eq("test-api-key"), isNull());
     }
 
     @Test
@@ -79,7 +79,7 @@ public class McpGatewayControllerTest {
 
         // 验证 — 应返回包含 error 事件的 Flux
         assertNotNull(result, "即使 gatewayId 无效也应返回 Flux");
-        verify(mcpSessionService, never()).createMcpSession(anyString(), anyString());
+        verify(mcpSessionService, never()).createMcpSession(anyString(), anyString(), any());
     }
 
     @Test
@@ -90,7 +90,7 @@ public class McpGatewayControllerTest {
 
         // 验证
         assertNotNull(result, "空 gatewayId 应返回 Flux");
-        verify(mcpSessionService, never()).createMcpSession(anyString(), anyString());
+        verify(mcpSessionService, never()).createMcpSession(anyString(), anyString(), any());
     }
 
     @Test

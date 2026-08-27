@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IVirtualKeyDao">
+
+    <resultMap id="McpVirtualKeyMap" type="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO">
+        <id column="id" property="id"/>
+        <result column="api_key_hash" property="apiKeyHash"/>
+        <result column="key_name" property="keyName"/>
+        <result column="owner_user_id" property="ownerUserId"/>
+        <result column="tenant_id" property="tenantId"/>
+        <result column="status" property="status"/>
+        <result column="expires_at" property="expiresAt"/>
+        <result column="rpm_limit" property="rpmLimit"/>
+        <result column="daily_request_limit" property="dailyRequestLimit"/>
+        <result column="daily_tool_call_limit" property="dailyToolCallLimit"/>
+        <result column="tpm_limit" property="tpmLimit"/>
+        <result column="daily_cost_limit" property="dailyCostLimit"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="all_columns">
+        id, api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
+        rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
+        created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
+                                     rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit)
+        VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
+                #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit})
+    </insert>
+
+    <!-- 存量迁移专用：唯一键冲突即跳过（幂等） -->
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id">
+        INSERT IGNORE INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, status, expires_at, rpm_limit)
+        VALUES (#{po.apiKeyHash}, #{po.keyName}, #{po.ownerUserId}, #{po.status}, #{po.expiresAt}, #{po.rpmLimit})
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE mcp_virtual_key SET status = #{status}, updated_at = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateMeta" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO">
+        UPDATE mcp_virtual_key
+        SET key_name = #{keyName},
+            owner_user_id = #{ownerUserId},
+            tenant_id = #{tenantId},
+            expires_at = #{expiresAt},
+            rpm_limit = #{rpmLimit},
+            daily_request_limit = #{dailyRequestLimit},
+            daily_tool_call_limit = #{dailyToolCallLimit},
+            tpm_limit = #{tpmLimit},
+            daily_cost_limit = #{dailyCostLimit},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="queryById" resultMap="McpVirtualKeyMap">
+        SELECT <include refid="all_columns"/> FROM mcp_virtual_key WHERE id = #{id}
+    </select>
+
+    <select id="queryByHash" resultMap="McpVirtualKeyMap">
+        SELECT <include refid="all_columns"/> FROM mcp_virtual_key WHERE api_key_hash = #{apiKeyHash}
+    </select>
+
+    <select id="queryPage" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" resultMap="McpVirtualKeyMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_virtual_key
+        <where>
+            <if test="keyName != null and keyName != ''">
+                AND key_name like concat('%', #{keyName}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limitStart}, #{limitCount}
+    </select>
+
+    <select id="queryCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" resultType="java.lang.Long">
+        SELECT count(id)
+        FROM mcp_virtual_key
+        <where>
+            <if test="keyName != null and keyName != ''">
+                AND key_name like concat('%', #{keyName}, '%')
+            </if>
+        </where>
+    </select>
+
+</mapper>

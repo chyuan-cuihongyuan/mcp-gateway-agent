@@ -75,6 +75,11 @@ public final class McpErrorCodes {
      */
     public static final int UNSUPPORTED_PROTOCOL_VERSION = -32007;
 
+    /**
+     * 未认证 —— 缺少调用凭证（治理面统一认证，HTTP 401）
+     */
+    public static final int AUTH_REQUIRED = -32008;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

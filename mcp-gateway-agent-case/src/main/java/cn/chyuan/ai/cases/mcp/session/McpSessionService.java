@@ -2,6 +2,7 @@ package cn.chyuan.ai.cases.mcp.session;
 
 import cn.chyuan.ai.cases.mcp.IMcpSessionService;
 import cn.chyuan.ai.cases.mcp.session.factory.DefaultMcpSessionFactory;
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -22,13 +23,14 @@ public class McpSessionService implements IMcpSessionService {
     private DefaultMcpSessionFactory defaultMcpSessionFactory;
 
     @Override
-    public Flux<ServerSentEvent<String>> createMcpSession(String gatewayId, String apiKey) throws Exception {
+    public Flux<ServerSentEvent<String>> createMcpSession(String gatewayId, String apiKey, GovernancePrincipal principal) throws Exception {
 
         StrategyHandler<String, DefaultMcpSessionFactory.DynamicContext, Flux<ServerSentEvent<String>>> strategyHandler =
                 defaultMcpSessionFactory.strategyHandler();
 
         DefaultMcpSessionFactory.DynamicContext dynamicContext = new DefaultMcpSessionFactory.DynamicContext();
         dynamicContext.setApiKey(apiKey);
+        dynamicContext.setPrincipal(principal);
 
         return strategyHandler.apply(gatewayId, dynamicContext);
     }

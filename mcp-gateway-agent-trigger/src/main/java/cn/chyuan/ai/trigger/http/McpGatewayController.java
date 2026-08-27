@@ -10,9 +10,12 @@ import cn.chyuan.ai.domain.session.service.ISessionManagementService;
 import cn.chyuan.ai.domain.session.service.ISessionMessageService;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.api.response.Response;
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.infrastructure.utils.TraceContext;
 import cn.chyuan.ai.types.exception.AppException;
+import cn.chyuan.ai.types.util.KeyHashUtil;
+import cn.chyuan.ai.trigger.filter.GovernanceRequestContext;
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,7 +77,10 @@ public class McpGatewayController implements IMcpGatewayService {
             log.info("建立 MCP SSE 连接，gatewayId:{}", gatewayId);
             validateId("gatewayId", gatewayId);
 
-            Flux<ServerSentEvent<String>> session = mcpSessionService.createMcpSession(gatewayId, apiKey);
+            // 统一认证过滤器产出的主体（工单 0017；无过滤器上下文时为 null，节点链走遗留校验兜底）
+            GovernancePrincipal principal = GovernanceRequestContext.currentPrincipal();
+
+            Flux<ServerSentEvent<String>> session = mcpSessionService.createMcpSession(gatewayId, apiKey, principal);
             observabilityHelper.reportToolCall(connectTraceId, gatewayId, "sse/connect", "SUCCESS", null, null);
             observabilityHelper.reportAgentDecision(connectTraceId, null, null, gatewayId,
                     "sse/connect", "DIRECT_ANSWER", "general_chat", null, null, null,
@@ -138,7 +144,8 @@ public class McpGatewayController implements IMcpGatewayService {
         TraceContext.setTraceId(sessionId);
 
         try {
-            log.info("处理 MCP SSE 消息，gatewayId:{} apiKey:{} sessionId:{} messageBody:{}", gatewayId, apiKey, sessionId, messageBody);
+            log.info("处理 MCP SSE 消息，gatewayId:{} apiKey:{} sessionId:{} messageBody:{}",
+                    gatewayId, KeyHashUtil.mask(apiKey), sessionId, messageBody);
             validateId("gatewayId", gatewayId);
             validateId("sessionId", sessionId);
             validateMessageBody(messageBody);

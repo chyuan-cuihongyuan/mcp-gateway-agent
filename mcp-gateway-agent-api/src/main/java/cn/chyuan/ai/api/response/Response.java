@@ -19,4 +19,14 @@ public class Response<T> implements Serializable {
     private String info;
     private T data;
 
+    /** 成功响应（code=0000） */
+    public static <T> Response<T> success(T data) {
+        return Response.<T>builder().code("0000").info("成功").data(data).build();
+    }
+
+    /** 失败响应 */
+    public static <T> Response<T> fail(String code, String info) {
+        return Response.<T>builder().code(code).info(info).build();
+    }
+
 }

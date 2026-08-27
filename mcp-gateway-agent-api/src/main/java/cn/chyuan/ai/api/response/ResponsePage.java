@@ -25,4 +25,9 @@ public class ResponsePage<T> implements Serializable {
      */
     private Long total;
 
+    /** 成功分页响应（code=0000） */
+    public static <T> ResponsePage<T> success(T data, Long total) {
+        return ResponsePage.<T>builder().code("0000").info("成功").data(data).total(total).build();
+    }
+
 }

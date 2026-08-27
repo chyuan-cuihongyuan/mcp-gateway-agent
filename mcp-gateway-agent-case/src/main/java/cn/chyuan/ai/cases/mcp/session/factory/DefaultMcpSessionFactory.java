@@ -37,6 +37,9 @@ public class DefaultMcpSessionFactory {
 
         private String apiKey;
 
+        /** 治理面认证主体（统一认证过滤器产出，工单 0017） */
+        private cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal principal;
+
         private SessionConfigVO sessionConfigVO;
     }
 

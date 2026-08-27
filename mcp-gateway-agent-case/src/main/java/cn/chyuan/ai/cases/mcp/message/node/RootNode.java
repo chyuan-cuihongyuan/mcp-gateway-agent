@@ -9,6 +9,7 @@ import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.enums.SessionMessageHandlerMethodEnum;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
 import cn.chyuan.ai.types.exception.AppException;
+import cn.chyuan.ai.types.util.KeyHashUtil;
 import cn.bugstack.wrench.design.framework.tree.StrategyHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +47,8 @@ public class RootNode extends AbstractMcpMessageServiceSupport {
                     // 是（true）否（false）命中限
                     boolean isHit = authRateLimitService.rateLimit(new RateLimitCommandEntity(requestParameter.getGatewayId(), requestParameter.getApiKey()));
                     if (isHit) {
-                        log.warn("消息处理 mcp message RootNode - 命中限流{} {}", requestParameter.getGatewayId(), requestParameter.getApiKey());
+                        log.warn("消息处理 mcp message RootNode - 命中限流{} {}",
+                                requestParameter.getGatewayId(), KeyHashUtil.mask(requestParameter.getApiKey()));
                         throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "fail to auth apikey rateLimiter");
                     }
                 }

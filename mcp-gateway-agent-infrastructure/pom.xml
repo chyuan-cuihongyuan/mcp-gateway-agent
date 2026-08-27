@@ -63,6 +63,16 @@
             <groupId>cn.chyuan.ai</groupId>
             <artifactId>mcp-gateway-agent-domain</artifactId>
         </dependency>
+
+        <!-- 治理面（工单 0017）：JWT 编解码（Nimbus）与 BCrypt（版本随 Boot 父 POM） -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

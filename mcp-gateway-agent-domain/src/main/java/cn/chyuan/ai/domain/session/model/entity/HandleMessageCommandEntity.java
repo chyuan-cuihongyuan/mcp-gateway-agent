@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 /**
  * 处理消息命令实体对象
@@ -20,6 +21,8 @@ public class HandleMessageCommandEntity {
 
     private String gatewayId;
 
+    /** 调用凭证明文，禁止随 toString 进入日志（工单 0017 脱敏要求） */
+    @ToString.Exclude
     private String apiKey;
 
     private String sessionId;

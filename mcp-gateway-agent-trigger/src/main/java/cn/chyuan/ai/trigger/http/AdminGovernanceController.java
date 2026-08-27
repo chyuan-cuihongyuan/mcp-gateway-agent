@@ -1,0 +1,90 @@
+package cn.chyuan.ai.trigger.http;
+
+import cn.chyuan.ai.api.IAdminGovernanceService;
+import cn.chyuan.ai.api.dto.LoginRequestDTO;
+import cn.chyuan.ai.api.dto.LoginResponseDTO;
+import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
+import cn.chyuan.ai.api.dto.VirtualKeyResponseDTO;
+import cn.chyuan.ai.api.dto.VirtualKeyUpdateRequestDTO;
+import cn.chyuan.ai.api.response.Response;
+import cn.chyuan.ai.api.response.ResponsePage;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * admin 治理面控制台接口（工单 0017：/admin/v1/*）
+ *
+ * <p>登录免 JWT（AdminJwtAuthFilter 白名单）；其余接口由过滤器做
+ * JWT 认证 + 角色约束（ADMIN 读写 / READONLY 仅查）。
+ *
+ * @author chyuan
+ */
+@Slf4j
+@RestController
+@RequestMapping("/admin/v1")
+public class AdminGovernanceController {
+
+    @Resource
+    private IAdminGovernanceService adminGovernanceService;
+
+    /** 登录：签发 JWT（免认证路径） */
+    @PostMapping("/auth/login")
+    public Response<LoginResponseDTO> login(@RequestBody LoginRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.login(requestDTO));
+    }
+
+    /** 创建虚拟密钥 —— 明文凭证仅本次响应返回一次 */
+    @PostMapping("/virtual-keys")
+    public Response<VirtualKeyResponseDTO> createVirtualKey(@RequestBody VirtualKeyCreateRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.createVirtualKey(requestDTO));
+    }
+
+    @PutMapping("/virtual-keys/{id}")
+    public Response<VirtualKeyResponseDTO> updateVirtualKey(@PathVariable Long id,
+            @RequestBody VirtualKeyUpdateRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.updateVirtualKey(id, requestDTO));
+    }
+
+    @DeleteMapping("/virtual-keys/{id}")
+    public Response<Void> revokeVirtualKey(@PathVariable Long id) {
+        adminGovernanceService.revokeVirtualKey(id);
+        return Response.success(null);
+    }
+
+    @PostMapping("/virtual-keys/{id}/grants")
+    public Response<Void> grantGateway(@PathVariable Long id, @RequestParam String gatewayId) {
+        adminGovernanceService.grantGateway(id, gatewayId);
+        return Response.success(null);
+    }
+
+    @DeleteMapping("/virtual-keys/{id}/grants")
+    public Response<Void> revokeGrantGateway(@PathVariable Long id, @RequestParam String gatewayId) {
+        adminGovernanceService.revokeGrantGateway(id, gatewayId);
+        return Response.success(null);
+    }
+
+    @GetMapping("/virtual-keys/{id}")
+    public Response<VirtualKeyResponseDTO> getVirtualKey(@PathVariable Long id) {
+        return Response.success(adminGovernanceService.getVirtualKey(id));
+    }
+
+    @GetMapping("/virtual-keys")
+    public ResponsePage<List<VirtualKeyResponseDTO>> pageVirtualKeys(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false, defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return adminGovernanceService.pageVirtualKeys(keyword, page, size);
+    }
+
+    @GetMapping("/audit-logs")
+    public ResponsePage<List<cn.chyuan.ai.api.dto.AuditLogResponseDTO>> pageAuditLogs(
+            @RequestParam(required = false, defaultValue = "") String resourceType,
+            @RequestParam(required = false, defaultValue = "") String resourceId,
+            @RequestParam(required = false, defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return adminGovernanceService.pageAuditLogs(resourceType, resourceId, page, size);
+    }
+}

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IAuditLogDao">
+
+    <resultMap id="McpAuditLogMap" type="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO">
+        <id column="id" property="id"/>
+        <result column="actor" property="actor"/>
+        <result column="action" property="action"/>
+        <result column="resource_type" property="resourceType"/>
+        <result column="resource_id" property="resourceId"/>
+        <result column="before_json" property="beforeJson"/>
+        <result column="after_json" property="afterJson"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_audit_log (actor, action, resource_type, resource_id, before_json, after_json)
+        VALUES (#{actor}, #{action}, #{resourceType}, #{resourceId}, #{beforeJson}, #{afterJson})
+    </insert>
+
+    <select id="queryPage" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" resultMap="McpAuditLogMap">
+        SELECT id, actor, action, resource_type, resource_id, before_json, after_json, created_at
+        FROM mcp_audit_log
+        <where>
+            <if test="resourceType != null and resourceType != ''">
+                AND resource_type = #{resourceType}
+            </if>
+            <if test="resourceId != null and resourceId != ''">
+                AND resource_id = #{resourceId}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limitStart}, #{limitCount}
+    </select>
+
+    <select id="queryCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" resultType="java.lang.Long">
+        SELECT count(id)
+        FROM mcp_audit_log
+        <where>
+            <if test="resourceType != null and resourceType != ''">
+                AND resource_type = #{resourceType}
+            </if>
+            <if test="resourceId != null and resourceId != ''">
+                AND resource_id = #{resourceId}
+            </if>
+        </where>
+    </select>
+
+</mapper>

@@ -1,0 +1,236 @@
+package cn.chyuan.ai.domain.governance.service;
+
+import cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity;
+import cn.chyuan.ai.domain.governance.model.entity.LoginCommandEntity;
+import cn.chyuan.ai.domain.governance.model.entity.VirtualKeyCommandEntity;
+import cn.chyuan.ai.domain.governance.adapter.repository.IAuditLogRepository;
+import cn.chyuan.ai.domain.governance.adapter.repository.IVirtualKeyRepository;
+import cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO;
+import cn.chyuan.ai.types.enums.McpErrorCodes;
+import cn.chyuan.ai.types.exception.AppException;
+import cn.chyuan.ai.types.util.KeyHashUtil;
+import com.alibaba.fastjson.JSON;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 虚拟密钥管理服务（工单 0017 / 0011 决议）
+ *
+ * <p>CRUD 均写审计日志（0011 决策：变更留痕）；
+ * 变更后即时失效认证缓存（同实例写路径失效，跨实例最迟 30s TTL）。
+ *
+ * @author chyuan
+ */
+@Slf4j
+@Service
+public class VirtualKeyService implements IVirtualKeyService {
+
+    private static final String RESOURCE_TYPE = "VIRTUAL_KEY";
+
+    @Resource
+    private IVirtualKeyRepository repository;
+
+    @Resource
+    private GovernanceAuthService governanceAuthService;
+
+    @Resource
+    private IAuditService auditService;
+
+    @Override
+    public VirtualKeyVO create(VirtualKeyCommandEntity command) {
+        String credential = KeyHashUtil.generateVirtualKey();
+        String hash = KeyHashUtil.sha256Hex(credential);
+
+        VirtualKeyVO vo = VirtualKeyVO.builder()
+                .keyName(command.getKeyName())
+                .ownerUserId(command.getOwnerUserId())
+                .tenantId(command.getTenantId())
+                .status("ACTIVE")
+                .expiresAt(command.getExpiresAt())
+                .rpmLimit(command.getRpmLimit())
+                .dailyRequestLimit(command.getDailyRequestLimit())
+                .dailyToolCallLimit(command.getDailyToolCallLimit())
+                .tpmLimit(command.getTpmLimit())
+                .dailyCostLimit(command.getDailyCostLimit())
+                .build();
+
+        VirtualKeyVO saved = repository.insert(hash, vo);
+        saved.setPlaintextOnce(credential);
+        saved.setMaskedKey(KeyHashUtil.mask(credential));
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("CREATE_KEY")
+                .resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(saved.getId()))
+                .afterJson(snapshot(saved))
+                .build());
+
+        log.info("创建虚拟密钥 id:{} name:{}", saved.getId(), saved.getKeyName());
+        return saved;
+    }
+
+    @Override
+    public VirtualKeyVO update(VirtualKeyCommandEntity command) {
+        VirtualKeyVO existing = requireKey(command.getId());
+        VirtualKeyVO vo = VirtualKeyVO.builder()
+                .id(command.getId())
+                .keyName(command.getKeyName())
+                .ownerUserId(command.getOwnerUserId())
+                .tenantId(command.getTenantId())
+                .status(existing.getStatus())
+                .expiresAt(command.getExpiresAt())
+                .rpmLimit(command.getRpmLimit())
+                .dailyRequestLimit(command.getDailyRequestLimit())
+                .dailyToolCallLimit(command.getDailyToolCallLimit())
+                .tpmLimit(command.getTpmLimit())
+                .dailyCostLimit(command.getDailyCostLimit())
+                .build();
+
+        repository.updateMeta(command.getId(), vo);
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("UPDATE_KEY")
+                .resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(command.getId()))
+                .beforeJson(snapshot(existing))
+                .afterJson(snapshot(vo))
+                .build());
+
+        return getById(command.getId());
+    }
+
+    @Override
+    public void revoke(Long id) {
+        VirtualKeyVO existing = requireKey(id);
+        repository.updateStatus(id, "REVOKED");
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("REVOKE_KEY")
+                .resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(id))
+                .beforeJson(snapshot(existing))
+                .build());
+
+        // 认证缓存兜底失效（状态变更影响全部缓存副本）
+        governanceAuthService.invalidateAll();
+    }
+
+    @Override
+    public void grant(Long id, String gatewayId) {
+        requireKey(id);
+        if (!repository.existsGrant(id, gatewayId)) {
+            repository.insertGrant(id, gatewayId);
+        }
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("GRANT")
+                .resourceType("GRANT")
+                .resourceId(id + ":" + gatewayId)
+                .afterJson("{\"gatewayId\":\"" + gatewayId + "\"}")
+                .build());
+
+        governanceAuthService.invalidateAll();
+    }
+
+    @Override
+    public void revokeGrant(Long id, String gatewayId) {
+        requireKey(id);
+        repository.deleteGrant(id, gatewayId);
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("REVOKE_GRANT")
+                .resourceType("GRANT")
+                .resourceId(id + ":" + gatewayId)
+                .beforeJson("{\"gatewayId\":\"" + gatewayId + "\"}")
+                .build());
+
+        governanceAuthService.invalidateAll();
+    }
+
+    @Override
+    public VirtualKeyVO getById(Long id) {
+        VirtualKeyVO vo = repository.findById(id);
+        if (vo != null) {
+            vo.setMaskedKey("id-" + id + "/****");
+        }
+        return vo;
+    }
+
+    @Override
+    public List<String> getGrants(Long id) {
+        return repository.queryGrants(id);
+    }
+
+    @Override
+    public List<VirtualKeyVO> page(String keyword, int page, int size) {
+        List<VirtualKeyVO> list = repository.queryPage(keyword, Math.max(page - 1, 0) * size, size);
+        list.forEach(vo -> vo.setMaskedKey("id-" + vo.getId() + "/****"));
+        return list;
+    }
+
+    @Override
+    public long count(String keyword) {
+        return repository.count(keyword);
+    }
+
+    @Override
+    public int migrateLegacyKeys() {
+        List<IVirtualKeyRepository.LegacyAuthRecord> records = repository.queryLegacyAuthRecords();
+        int migrated = 0;
+        for (IVirtualKeyRepository.LegacyAuthRecord record : records) {
+            if (record.apiKey() == null || record.apiKey().isBlank()) {
+                continue;
+            }
+            String hash = KeyHashUtil.sha256Hex(record.apiKey());
+            // 每小时限次 → RPM 换算（向上取整，等价或略收紧）
+            Integer rpm = record.rateLimitPerHour() == null ? null
+                    : (int) Math.ceil(record.rateLimitPerHour() / 60.0);
+            String status = record.status() != null && record.status() == 1 ? "ACTIVE" : "DISABLED";
+            String keyName = "migrated:" + record.gatewayId() + ":" + KeyHashUtil.mask(record.apiKey());
+
+            int n = repository.migrateLegacy(hash, keyName, status, rpm, record.expireTime(), record.gatewayId());
+            migrated += n;
+        }
+        if (migrated > 0) {
+            auditService.record(AuditCommandEntity.builder()
+                    .actor("system")
+                    .action("MIGRATE")
+                    .resourceType(RESOURCE_TYPE)
+                    .resourceId("legacy-gw-keys")
+                    .afterJson("{\"migrated\":" + migrated + ",\"total\":" + records.size() + "}")
+                    .build());
+            log.info("存量 gw- 密钥等价迁移完成：本次迁移 {} 条 / 扫描 {} 条", migrated, records.size());
+        }
+        return migrated;
+    }
+
+    private VirtualKeyVO requireKey(Long id) {
+        VirtualKeyVO vo = repository.findById(id);
+        if (vo == null) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "虚拟密钥不存在：" + id);
+        }
+        return vo;
+    }
+
+    /** 审计快照（脱敏：不含哈希） */
+    private String snapshot(VirtualKeyVO vo) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", vo.getId());
+        map.put("keyName", vo.getKeyName());
+        map.put("status", vo.getStatus());
+        map.put("rpmLimit", vo.getRpmLimit());
+        map.put("dailyRequestLimit", vo.getDailyRequestLimit());
+        map.put("dailyToolCallLimit", vo.getDailyToolCallLimit());
+        return JSON.toJSONString(map);
+    }
+}

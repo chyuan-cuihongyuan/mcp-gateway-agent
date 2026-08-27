@@ -58,6 +58,17 @@ mybatis:
   mapper-locations: classpath:/mybatis/mapper/*.xml
   config-location:  classpath:/mybatis/config/mybatis-config.xml
 
+# 治理面（工单 0011/0017）
+governance:
+  cache:
+    ttl-seconds: 30        # key/规则元数据缓存 TTL（热更新最迟生效时延）
+  jwt:
+    ttl-seconds: 7200      # admin 登录 JWT 有效期（默认 2h）
+    jwks-url:              # 远程 JWKS 校验源（未配置时用内嵌签发，重启后旧 token 失效）
+# 环境变量（admin 用户引导，仅首次建库生效）：
+#   GOVERNANCE_ADMIN_PASSWORD=<初始密码>
+# 建表：resources/sql/governance-schema.sql（幂等可重复执行）
+
 # Observability 监控上报配置
 observability:
   enabled: true

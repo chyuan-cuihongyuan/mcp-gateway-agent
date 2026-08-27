@@ -1,6 +1,7 @@
 target/
 __pycache__/
 *.pyc
+.mimosa/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

@@ -1,5 +1,8 @@
 package cn.chyuan.ai.domain.session.service.message.handler.impl;
 
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
+import cn.chyuan.ai.domain.governance.service.CelEvaluationService;
+import cn.chyuan.ai.domain.governance.service.ICelEvaluationService;
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionRepository;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolConfigVO;
@@ -21,6 +24,8 @@ import java.util.Set;
 /**
  * 返回服务器支持的工具列表
  *
+ * <p>工单 0018：tools/list 生效点——CEL 治理规则不放行的工具从清单隐藏。
+ *
  * @author chyuan
  *         2025/12/20 11:29
  */
@@ -31,17 +36,34 @@ public class ToolsListHandler implements IRequestHandler {
     @Resource
     private ISessionRepository repository;
 
+    @Resource
+    private ICelEvaluationService celEvaluationService;
+
     @Override
-    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
+    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message,
+            GovernancePrincipal principal) {
 
         // 1. 查询网关（gatewayId）下的工具列表配置
         List<McpToolConfigVO> mcpToolConfigVOS = repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
 
-        // 2. 构建工具列表
-        List<McpSchemaVO.Tool> tools = buildTools(mcpToolConfigVOS);
+        // 2. CEL 治理过滤（工单 0018：不放行的工具不出现在清单；无认证主体的遗留路径不过滤）
+        List<McpToolConfigVO> visible = principal == null
+                ? mcpToolConfigVOS
+                : mcpToolConfigVOS.stream()
+                        .filter(tool -> celEvaluationService.isToolAllowed(principal, gatewayId, message.method(),
+                                tool.getToolName(), CelEvaluationService.TOOL_SOURCE_PROTOCOL))
+                        .toList();
+
+        // 3. 构建工具列表
+        List<McpSchemaVO.Tool> tools = buildTools(visible);
 
         return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), Map.of(
                 "tools", tools), null);
+    }
+
+    @Override
+    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
+        return handle(gatewayId, message, null);
     }
 
     private List<McpSchemaVO.Tool> buildTools(List<McpToolConfigVO> toolConfigs) {

@@ -1,5 +1,6 @@
 package cn.chyuan.ai.domain.session.model.entity;
 
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,10 @@ public class HandleMessageCommandEntity {
     /** 调用凭证明文，禁止随 toString 进入日志（工单 0017 脱敏要求） */
     @ToString.Exclude
     private String apiKey;
+
+    /** 统一认证主体（工单 0018：CEL 求值输入；无过滤器上下文为 null） */
+    @ToString.Exclude
+    private GovernancePrincipal principal;
 
     private String sessionId;
 

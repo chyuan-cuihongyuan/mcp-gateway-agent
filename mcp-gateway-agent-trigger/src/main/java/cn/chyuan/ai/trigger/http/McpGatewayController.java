@@ -151,6 +151,8 @@ public class McpGatewayController implements IMcpGatewayService {
             validateMessageBody(messageBody);
 
             HandleMessageCommandEntity commandEntity = new HandleMessageCommandEntity(gatewayId, apiKey, sessionId, messageBody);
+            // 统一认证过滤器产出的主体（工单 0018：CEL 治理输入；无过滤器上下文为 null）
+            commandEntity.setPrincipal(GovernanceRequestContext.currentPrincipal());
             ResponseEntity<Void> responseEntity = mcpMessageService.handleMessage(commandEntity);
 
             int costMs = (int) (System.currentTimeMillis() - start);

@@ -1,6 +1,9 @@
 package cn.chyuan.ai.trigger.http;
 
 import cn.chyuan.ai.api.IAdminGovernanceService;
+import cn.chyuan.ai.api.dto.AuditLogResponseDTO;
+import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
+import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
@@ -80,11 +83,50 @@ public class AdminGovernanceController {
     }
 
     @GetMapping("/audit-logs")
-    public ResponsePage<List<cn.chyuan.ai.api.dto.AuditLogResponseDTO>> pageAuditLogs(
+    public ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(
             @RequestParam(required = false, defaultValue = "") String resourceType,
             @RequestParam(required = false, defaultValue = "") String resourceId,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return adminGovernanceService.pageAuditLogs(resourceType, resourceId, page, size);
+    }
+
+    // ---- CEL 工具治理规则（工单 0018）----
+
+    /** 仅校验表达式（不落库）：data 为 null 表示合法，否则为错误原因 */
+    @GetMapping("/cel-rules/validate")
+    public Response<String> validateCelExpression(@RequestParam String expression) {
+        return Response.success(adminGovernanceService.validateCelExpression(expression));
+    }
+
+    /** 创建规则：保存时编译校验，非法表达式返回错误原因 */
+    @PostMapping("/cel-rules")
+    public Response<CelRuleResponseDTO> createCelRule(@RequestBody CelRuleUpsertRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.createCelRule(requestDTO));
+    }
+
+    @PutMapping("/cel-rules/{id}")
+    public Response<CelRuleResponseDTO> updateCelRule(@PathVariable Long id,
+            @RequestBody CelRuleUpsertRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.updateCelRule(id, requestDTO));
+    }
+
+    @DeleteMapping("/cel-rules/{id}")
+    public Response<Void> deleteCelRule(@PathVariable Long id) {
+        adminGovernanceService.deleteCelRule(id);
+        return Response.success(null);
+    }
+
+    @GetMapping("/cel-rules/{id}")
+    public Response<CelRuleResponseDTO> getCelRule(@PathVariable Long id) {
+        return Response.success(adminGovernanceService.getCelRule(id));
+    }
+
+    @GetMapping("/cel-rules")
+    public ResponsePage<List<CelRuleResponseDTO>> pageCelRules(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false, defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return adminGovernanceService.pageCelRules(keyword, page, size);
     }
 }

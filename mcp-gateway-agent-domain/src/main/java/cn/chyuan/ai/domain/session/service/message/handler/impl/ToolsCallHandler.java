@@ -1,5 +1,8 @@
 package cn.chyuan.ai.domain.session.service.message.handler.impl;
 
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
+import cn.chyuan.ai.domain.governance.service.CelEvaluationService;
+import cn.chyuan.ai.domain.governance.service.ICelEvaluationService;
 import cn.chyuan.ai.domain.session.adapter.port.ISessionPort;
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionRepository;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
@@ -18,6 +21,9 @@ import java.util.Map;
 /**
  * 执行指定的工具调用
  *
+ * <p>工单 0018：tools/call 生效点——CEL 治理规则不放行的调用返回结构化拒绝，
+ * 错误码 -32006（无权限）与 -32003（工具不存在）可区分。
+ *
  * @author chyuan
  *         2025/12/20 11:30
  */
@@ -31,8 +37,12 @@ public class ToolsCallHandler implements IRequestHandler {
     @Resource
     private ISessionPort port;
 
+    @Resource
+    private ICelEvaluationService celEvaluationService;
+
     @Override
-    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
+    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message,
+            GovernancePrincipal principal) {
         try {
             // 1. 转换参数
             McpSchemaVO.CallToolRequest callToolRequest = McpSchemaVO.unmarshalFrom(message.params(),
@@ -53,8 +63,14 @@ public class ToolsCallHandler implements IRequestHandler {
             McpToolProtocolConfigVO mcpToolProtocolConfigVO = repository.queryMcpGatewayProtocolConfig(gatewayId,
                     toolName);
             if (null == mcpToolProtocolConfigVO) {
-                throw new AppException(ResponseCode.METHOD_NOT_FOUND.getCode(),
-                        "工具未找到: " + toolName);
+                throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "工具未找到: " + toolName);
+            }
+
+            // 2.5 CEL 治理拦截（工单 0018：无权限与工具不存在以错误码区分）
+            if (!celEvaluationService.isToolAllowed(principal, gatewayId, message.method(), toolName,
+                    CelEvaluationService.TOOL_SOURCE_PROTOCOL)) {
+                throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS,
+                        "无权限：工具被治理规则拒绝调用: " + toolName);
             }
 
             // 参数校验：检查必填参数是否存在
@@ -84,17 +100,31 @@ public class ToolsCallHandler implements IRequestHandler {
                     "isError", false), null);
 
         } catch (AppException e) {
-            // 业务异常返回标准 MCP 错误
+            // 业务异常返回标准 MCP 错误；数值码（McpErrorCodes）原样透传以区分错误类型
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,
-                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INVALID_PARAMS, e.getMessage(), null));
+                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(jsonRpcErrorCode(e), e.getMessage(), null));
         } catch (Exception e) {
             log.error("工具调用异常: gatewayId={}", gatewayId, e);
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,
                     new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INTERNAL_ERROR, "内部错误: " + e.getMessage(), null));
+        }
+    }
+
+    @Override
+    public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
+        return handle(gatewayId, message, null);
+    }
+
+    /** AppException 携带 JSON-RPC 数值码时透传（-32006 无权限 / -32003 不存在），否则按非法参数 */
+    private static int jsonRpcErrorCode(AppException e) {
+        try {
+            return Integer.parseInt(e.getCode());
+        } catch (NumberFormatException ignore) {
+            return McpErrorCodes.INVALID_PARAMS;
         }
     }
 

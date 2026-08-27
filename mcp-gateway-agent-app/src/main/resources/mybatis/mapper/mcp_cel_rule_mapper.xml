@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.ICelRuleDao">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_cel_rule (rule_name, expression, scope_type, gateway_id, virtual_key_id, status)
+        VALUES (#{ruleName}, #{expression}, #{scopeType}, #{gatewayId}, #{virtualKeyId},
+                COALESCE(#{status}, 'ACTIVE'))
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_cel_rule
+        SET rule_name      = #{ruleName},
+            expression     = #{expression},
+            scope_type     = #{scopeType},
+            gateway_id     = #{gatewayId},
+            virtual_key_id = #{virtualKeyId},
+            status         = #{status}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_cel_rule WHERE id = #{id}
+    </delete>
+
+    <select id="queryAllActive" resultType="cn.chyuan.ai.infrastructure.dao.po.McpCelRulePO">
+        SELECT id, rule_name AS ruleName, expression, scope_type AS scopeType,
+               gateway_id AS gatewayId, virtual_key_id AS virtualKeyId, status,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM mcp_cel_rule
+        WHERE status = 'ACTIVE'
+        ORDER BY id
+    </select>
+
+    <select id="queryById" resultType="cn.chyuan.ai.infrastructure.dao.po.McpCelRulePO">
+        SELECT id, rule_name AS ruleName, expression, scope_type AS scopeType,
+               gateway_id AS gatewayId, virtual_key_id AS virtualKeyId, status,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM mcp_cel_rule
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryByPage" resultType="cn.chyuan.ai.infrastructure.dao.po.McpCelRulePO">
+        SELECT id, rule_name AS ruleName, expression, scope_type AS scopeType,
+               gateway_id AS gatewayId, virtual_key_id AS virtualKeyId, status,
+               created_at AS createdAt, updated_at AS updatedAt
+        FROM mcp_cel_rule
+        <where>
+            <if test="keyword != null and keyword != ''">
+                rule_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="java.lang.Long">
+        SELECT count(*) FROM mcp_cel_rule
+        <where>
+            <if test="keyword != null and keyword != ''">
+                rule_name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+    </select>
+
+</mapper>

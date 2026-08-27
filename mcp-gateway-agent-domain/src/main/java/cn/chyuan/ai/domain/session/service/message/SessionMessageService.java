@@ -1,5 +1,6 @@
 package cn.chyuan.ai.domain.session.service.message;
 
+import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.session.model.entity.HandleMessageCommandEntity;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.enums.SessionMessageHandlerMethodEnum;
@@ -30,6 +31,18 @@ public class SessionMessageService implements ISessionMessageService {
 
     @Override
     public McpSchemaVO.JSONRPCResponse processHandlerMessage(String gatewayId, McpSchemaVO.JSONRPCMessage message) {
+        return processHandlerMessage(gatewayId, message, null);
+    }
+
+    @Override
+    public McpSchemaVO.JSONRPCResponse processHandlerMessage(HandleMessageCommandEntity commandEntity) {
+        return processHandlerMessage(commandEntity.getGatewayId(), commandEntity.getJsonrpcMessage(),
+                commandEntity.getPrincipal());
+    }
+
+    @Override
+    public McpSchemaVO.JSONRPCResponse processHandlerMessage(String gatewayId, McpSchemaVO.JSONRPCMessage message,
+            GovernancePrincipal principal) {
 
         if (message instanceof McpSchemaVO.JSONRPCResponse response) {
             log.info("收到结果消息");
@@ -52,8 +65,8 @@ public class SessionMessageService implements ISessionMessageService {
                 throw new AppException(METHOD_NOT_FOUND.getCode(), METHOD_NOT_FOUND.getInfo());
             }
 
-            // 使用枚举策略模式处理请求
-            return requestHandler.handle(gatewayId, request);
+            // 使用枚举策略模式处理请求（带认证主体，工单 0018 CEL 治理输入）
+            return requestHandler.handle(gatewayId, request, principal);
         }
 
         if (message instanceof McpSchemaVO.JSONRPCNotification notification) {
@@ -62,11 +75,6 @@ public class SessionMessageService implements ISessionMessageService {
 
         return null;
 
-    }
-
-    @Override
-    public McpSchemaVO.JSONRPCResponse processHandlerMessage(HandleMessageCommandEntity commandEntity) {
-        return processHandlerMessage(commandEntity.getGatewayId(), commandEntity.getJsonrpcMessage());
     }
 
 }

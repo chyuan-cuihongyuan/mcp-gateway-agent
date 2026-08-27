@@ -2,6 +2,8 @@ package cn.chyuan.ai.cases.admin.governance;
 
 import cn.chyuan.ai.api.IAdminGovernanceService;
 import cn.chyuan.ai.api.dto.AuditLogResponseDTO;
+import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
+import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
@@ -11,9 +13,11 @@ import cn.chyuan.ai.api.response.ResponsePage;
 import cn.chyuan.ai.domain.governance.adapter.repository.IAuditLogRepository;
 import cn.chyuan.ai.domain.governance.model.entity.LoginCommandEntity;
 import cn.chyuan.ai.domain.governance.model.entity.VirtualKeyCommandEntity;
+import cn.chyuan.ai.domain.governance.model.valobj.CelRuleVO;
 import cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO;
 import cn.chyuan.ai.domain.governance.service.IAdminAuthService;
 import cn.chyuan.ai.domain.governance.service.IAuditService;
+import cn.chyuan.ai.domain.governance.service.ICelRuleService;
 import cn.chyuan.ai.domain.governance.service.IVirtualKeyService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +49,9 @@ public class AdminGovernanceService implements IAdminGovernanceService {
 
     @Resource
     private IAuditService auditService;
+
+    @Resource
+    private ICelRuleService celRuleService;
 
     @Override
     public LoginResponseDTO login(LoginRequestDTO requestDTO) {
@@ -157,6 +164,68 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .toList();
         long total = auditService.count(resourceType, resourceId);
         return ResponsePage.success(list, total);
+    }
+
+    @Override
+    public ResponsePage<List<CelRuleResponseDTO>> pageCelRules(String keyword, int page, int size) {
+        List<CelRuleResponseDTO> list = celRuleService.page(keyword, page, size).stream()
+                .map(this::toCelRuleDto)
+                .toList();
+        return ResponsePage.success(list, celRuleService.count(keyword));
+    }
+
+    @Override
+    public CelRuleResponseDTO createCelRule(CelRuleUpsertRequestDTO requestDTO) {
+        return toCelRuleDto(celRuleService.create(toCelRuleCommand(null, requestDTO)));
+    }
+
+    @Override
+    public CelRuleResponseDTO updateCelRule(Long id, CelRuleUpsertRequestDTO requestDTO) {
+        return toCelRuleDto(celRuleService.update(toCelRuleCommand(id, requestDTO)));
+    }
+
+    @Override
+    public void deleteCelRule(Long id) {
+        celRuleService.delete(id);
+    }
+
+    @Override
+    public CelRuleResponseDTO getCelRule(Long id) {
+        return toCelRuleDto(celRuleService.getById(id));
+    }
+
+    @Override
+    public String validateCelExpression(String expression) {
+        return celRuleService.validateExpression(expression);
+    }
+
+    private CelRuleVO toCelRuleCommand(Long id, CelRuleUpsertRequestDTO dto) {
+        return CelRuleVO.builder()
+                .id(id)
+                .ruleName(dto.getRuleName())
+                .expression(dto.getExpression())
+                .scopeType(dto.getScopeType())
+                .gatewayId(dto.getGatewayId())
+                .virtualKeyId(dto.getVirtualKeyId())
+                .status(dto.getStatus() == null || dto.getStatus().isBlank() ? "ACTIVE" : dto.getStatus())
+                .build();
+    }
+
+    private CelRuleResponseDTO toCelRuleDto(CelRuleVO vo) {
+        if (vo == null) {
+            return null;
+        }
+        return CelRuleResponseDTO.builder()
+                .id(vo.getId())
+                .ruleName(vo.getRuleName())
+                .expression(vo.getExpression())
+                .scopeType(vo.getScopeType())
+                .gatewayId(vo.getGatewayId())
+                .virtualKeyId(vo.getVirtualKeyId())
+                .status(vo.getStatus())
+                .createdAt(formatDate(vo.getCreatedAt()))
+                .updatedAt(formatDate(vo.getUpdatedAt()))
+                .build();
     }
 
     private VirtualKeyCommandEntity toCommand(VirtualKeyCreateRequestDTO dto) {

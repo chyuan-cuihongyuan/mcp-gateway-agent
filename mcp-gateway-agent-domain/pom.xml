@@ -68,6 +68,16 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
+        <!-- Google CEL-Java（治理面工具规则编译与求值，工单 0018） -->
+        <dependency>
+            <groupId>dev.cel</groupId>
+            <artifactId>cel</artifactId>
+        </dependency>
+        <!-- Micrometer（CEL 拦截计数，工单 0018；版本由 Boot 父 POM 管理） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
         <!-- Jackson Core for session MCP schema -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

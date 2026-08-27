@@ -32,7 +32,8 @@ public class MessageHandlerNode extends AbstractMcpMessageServiceSupport {
         log.info("消息处理 mcp message MessageHandlerNode:{}", requestParameter);
 
         McpSchemaVO.JSONRPCResponse jsonrpcResponse = serviceMessageService
-                .processHandlerMessage(requestParameter.getGatewayId(), requestParameter.getJsonrpcMessage());
+                .processHandlerMessage(requestParameter.getGatewayId(), requestParameter.getJsonrpcMessage(),
+                        requestParameter.getPrincipal());
 
         if (null != jsonrpcResponse) {
             String responseJson = objectMapper.writeValueAsString(jsonrpcResponse);

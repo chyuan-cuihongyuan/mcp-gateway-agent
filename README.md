@@ -2,13 +2,12 @@
 
 ## 项目概述
 
-MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中心**，基于 Spring Boot 4.1.1 + Spring AI 2.0.1 + MCP Java SDK 2.0（Google ADK 1.7.0）构建。它向上对外提供 MCP（Model Context Protocol）**Streamable HTTP** 接口与 Agent 对话接口，向下通过可配置的 HTTP 协议映射将 MCP 工具调用转换为对真实业务系统（如 `agent-add-oil`）的 HTTP 调用，并支持从 OpenAPI 规范一键导入协议配置。系统采用 DDD 架构，具备运营配置管理后台、虚拟密钥/CEL 工具治理/配额限流的治理面与全链路可观测性上报能力。
+MCP Gateway Agent 是整个 Agent 体系的**纯 MCP 协议代理 + 治理平面**，基于 Spring Boot 4.1.1 + Spring AI 2.0.1 + MCP Java SDK 2.0 构建。它向上对外提供 MCP（Model Context Protocol）**Streamable HTTP** 接口，向下通过可配置的 HTTP 协议映射将 MCP 工具调用转换为对真实业务系统（如 `agent-add-oil`）的 HTTP 调用，并支持从 OpenAPI 规范一键导入协议配置。系统采用 DDD 架构，具备运营配置管理后台、虚拟密钥/CEL 工具治理/配额限流的治理面与全链路可观测性上报能力。agent 对话宿主已删除（工单 0022，归档说明见 [../docs/03-mcp-gateway-agent/13-agent宿主删除与归档.md](../docs/03-mcp-gateway-agent/13-agent宿主删除与归档.md)），智能体能力由 aggregation-support-agent 承担。
 
 ### 核心特性
 
 - **MCP 协议网关**：官方 Streamable HTTP 单端点（`/api-gateway/{gatewayId}/mcp`，POST 消息 / GET 监听流 / DELETE 会话终止），支持 `initialize` / `tools/list` / `tools/call` 等 JSON-RPC 方法；旧 SSE 端点已下线（[迁移指南](../docs/03-mcp-gateway-agent/10-SSE下线与StreamableHTTP迁移.md)）
 - **外部 MCP 挂接**：管理员经 `/admin/v1/external-attaches` 配置外部 MCP server（streamable HTTP / stdio），其工具以 `attachName_toolName` 前缀并入网关清单并可透传调用，连接状态可观测、上游工具漂移自动刷新（[工具联邦](../docs/03-mcp-gateway-agent/11-外部MCP挂接与工具联邦.md)）
-- **多智能体装配**：基于 YAML 配置装配智能体（`deepseek-agent`、`zhipu-agent`、`gateway-business-agent`、`parallel_research_app` 等），支持 ReAct 与多智能体协作（冻结待迁移，见 issues/0014）
 - **协议映射引擎**：HTTP 协议配置 + 字段映射（parentPath/fieldName → mcpPath/mcpType），将 MCP 工具入参转换为 HTTP 请求
 - **OpenAPI 导入**：从 OpenAPI JSON 解析端点并一键生成网关协议配置
 - **治理面**：vk- 虚拟密钥统一认证（401/403）、CEL 工具可见性与调用拦截（tools/list 隐藏 + tools/call 结构化拒绝）、per-key RPM/日配额限流（429 + 剩余额度）
@@ -27,16 +26,9 @@ MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中�
 
 凭证：`Authorization: Bearer <JWT 或 vk- 密钥>`（或兼容 `?api_key=`）。旧 `/mcp/sse` 端点已移除（404）。
 
-### 2. Agent 服务接口（AgentServiceController — `/api/v1`）
+agent 对话接口（`/api/v1/*`）已随 agent 宿主删除整体下线（404），见 [归档说明](../docs/03-mcp-gateway-agent/13-agent宿主删除与归档.md)。
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/query_ai_agent_config_list` | 查询智能体配置列表 |
-| POST | `/api/v1/create_session` | 创建会话 |
-| POST | `/api/v1/chat` | 同步对话 |
-| POST | `/api/v1/chat_stream` | 流式对话（SSE） |
-
-### 3. 运营管理接口（AdminController — `/admin`）
+### 2. 运营管理接口（AdminController — `/admin`）
 
 | 分组 | 接口 |
 |------|------|
@@ -44,19 +36,8 @@ MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中�
 | 网关工具 | `save_gateway_tool_config`、`query_gateway_tool_list[_by_gateway_id]`、`query_gateway_tool_page`、`delete_gateway_tool_config` |
 | 网关协议 | `save_gateway_protocol`、`import_gateway_protocol`、`analysis_protocol`、`query_gateway_protocol_list[_by_gateway_id]`、`query_gateway_protocol_page`、`delete_gateway_protocol` |
 | 网关认证 | `save_gateway_auth`、`query_gateway_auth_list[_by_gateway_id]`、`query_gateway_auth_page`、`delete_gateway_auth` |
-| 测试 | `test_call_gateway`（API Key 脱敏日志） |
-
-### 4. 智能体配置
-
-位于 `mcp-gateway-agent-app/src/main/resources/agent/*.yml`：
-
-| 配置 | 说明 |
-|------|------|
-| `zhipu-agent.yml` | 智谱 GLM 智能体 |
-| `deepseek-agent.yml` | DeepSeek 智能体 |
-| `gateway-business-agent.yml` | 网关业务智能体（调用 MCP 工具） |
-| `parallel_research_app.yml` | 并行研究多智能体 |
-| `only-one-agent.yml` / `demo.yml` / `test-agent.yml` | 单智能体与测试用例 |
+| 测试 | `test_call_gateway`（LLM 链路验证调用，API Key 脱敏日志） |
+| 治理面 | 虚拟密钥/CEL 规则/审计（`/admin/v1/*`，0017/0018）；外部挂接（`/admin/v1/external-attaches`，0021） |
 
 ## 设计思路
 
@@ -67,10 +48,10 @@ mcp-gateway-agent/
 ├── mcp-gateway-agent-api/              # API 层：服务接口、DTO、Response
 ├── mcp-gateway-agent-types/            # 类型层：常量、枚举、异常
 ├── mcp-gateway-agent-case/            # 用例层：admin/mcp 用例接口
-├── mcp-gateway-agent-domain/          # 领域层：核心业务（agent/session/gateway/protocol/auth）
+├── mcp-gateway-agent-domain/          # 领域层：核心业务（session/gateway/protocol/auth/governance/externalattach/llm）
 ├── mcp-gateway-agent-infrastructure/ # 基础设施层：DAO、Redis、GenericHttpGateway、可观测性
-├── mcp-gateway-agent-trigger/         # 触发器层：HTTP Controller、异常处理
-└── mcp-gateway-agent-app/             # 应用层：启动配置、智能体装配、YAML 配置
+├── mcp-gateway-agent-trigger/         # 触发器层：HTTP Controller/Servlet、异常处理
+└── mcp-gateway-agent-app/             # 应用层：启动配置
 ```
 
 ### MCP 工具调用链路
@@ -110,13 +91,11 @@ ObservabilityHelper.reportToolCall()            # 上报 traceId + toolName + �
 
 | 技术 | 版本 | 说明 |
 |------|------|------|
-| Spring Boot | 3.4.3 | 应用框架 |
-| Java | 17 | 编程语言 |
-| Google ADK | 0.5.0 | Agent Development Kit |
-| Spring AI | 1.1.0-M3 | AI 集成框架 |
-| LangChain4j | 1.4.0 | LLM 应用框架 |
-| spring-ai-agent-utils | 0.4.2 | Agent 工具 |
-| xfg-wrench-design-framework | 3.0.0 | 设计模式脚手架 |
+| Spring Boot | 4.1.1 | 应用框架（0016 升级） |
+| Java | 21 | 编程语言 |
+| Spring AI | 2.0.1 | LLM 集成（admin LLM 验证）+ MCP 客户端 |
+| MCP Java SDK | 2.0.0 | Streamable HTTP 协议（服务器/客户端） |
+| xfg-wrench-design-framework | 3.0.0（净化版） | 设计模式脚手架 |
 
 ### 数据存储与中间件
 
@@ -171,20 +150,12 @@ java -Dspring.profiles.active=dev \
 ### 验证服务
 
 ```bash
-# 查询智能体列表
-curl http://localhost:8777/api/v1/query_ai_agent_config_list
-
 # initialize 握手（Streamable HTTP 单端点，响应头返回 Mcp-Session-Id）
 curl -D - http://localhost:8777/api-gateway/gateway_001/mcp \
      -H "Authorization: Bearer <your-vk-key>" \
      -H "Content-Type: application/json" \
      -H "Accept: application/json, text/event-stream" \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
-
-# 创建会话
-curl -X POST http://localhost:8777/api/v1/create_session \
-     -H "Content-Type: application/json" \
-     -d '{"agentId":"<agentId>","userId":"<userId>"}'
 ```
 
 ### 运营后台
@@ -209,14 +180,12 @@ mcp-gateway-agent/
 ├── mcp-gateway-agent-trigger/
 │   └── src/main/java/cn/chyuan/ai/trigger/
 │       ├── http/McpGatewayDelegateServlet.java  # Streamable HTTP 委派路由（0020）
-│       ├── http/AgentServiceController.java     # Agent 对话
 │       ├── http/AdminController.java            # 运营管理
 │       ├── http/AdminGovernanceController.java  # 治理面（0017/0018）
 │       ├── http/AdminExternalAttachController.java # 外部 MCP 挂接管理（0021）
 │       └── filter/                              # 统一认证 / 配额 / admin JWT 过滤器
 ├── mcp-gateway-agent-app/
 │   └── src/main/resources/
-│       ├── agent/*.yml           # 智能体装配配置
 │       ├── mybatis/mapper/*.xml   # Mapper
 │       ├── application.yml.example
 │       └── logback-spring.xml

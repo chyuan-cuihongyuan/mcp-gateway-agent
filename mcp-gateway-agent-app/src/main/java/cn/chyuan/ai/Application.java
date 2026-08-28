@@ -1,30 +1,19 @@
 package cn.chyuan.ai;
 
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.server.MyTestMcpService;
-import cn.chyuan.ai.domain.agent.service.armory.matter.mcp.server.YunfanOilBusinessTools;
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.tool.method.MethodToolCallbackProvider;
-import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 
+/**
+ * MCP 网关应用入口（纯 MCP 协议代理 + 治理平面，工单 0022：agent 宿主已删除）
+ *
+ * @author chyuan
+ *         2026/1/20 08:23
+ */
 @SpringBootApplication
-@Configurable
 public class Application {
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class);
-    }
-
-    @Bean("myToolCallbackProvider")
-    public ToolCallbackProvider testTools(MyTestMcpService testService) {
-        return MethodToolCallbackProvider.builder().toolObjects(testService).build();
-    }
-
-    @Bean("yunfanOilToolCallbackProvider")
-    public ToolCallbackProvider yunfanOilTools(YunfanOilBusinessTools yunfanOilBusinessTools) {
-        return MethodToolCallbackProvider.builder().toolObjects(yunfanOilBusinessTools).build();
     }
 
 }

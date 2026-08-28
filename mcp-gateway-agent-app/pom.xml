@@ -95,39 +95,12 @@
             <artifactId>micrometer-core</artifactId>
         </dependency>
 
-        <!-- spring ai & google adk begin -->
-
-        <dependency>
-            <groupId>com.google.adk</groupId>
-            <artifactId>google-adk</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.adk</groupId>
-            <artifactId>google-adk-dev</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.adk</groupId>
-            <artifactId>google-adk-spring-ai</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-openai</artifactId>
-        </dependency>
-        <!-- Spring AI 2.0 的 openai 模块基于官方 openai-java SDK 重写，OkHttp 客户端实现需显式引入 -->
+        <!-- admin LLM 验证（0012 决议保留）：LLMConfig 手工构建官方 openai-java 客户端，
+             OkHttp 实现需显式引入；spring-ai 相关构件由 domain（spring-ai-openai/spring-ai-mcp）传递提供 -->
         <dependency>
             <groupId>com.openai</groupId>
             <artifactId>openai-java-client-okhttp</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
-        </dependency>
-
-        <!-- spring ai & google adk end -->
 
         <!-- 工程模块；启动依赖 trigger->domain, infrastructure-->
         <dependency>

@@ -16,9 +16,6 @@ thread:
 
 # 数据库配置
 spring:
-  config:
-    import:
-      - classpath:agent/only-one-agent.yml
   datasource:
     username: ${MYSQL_USERNAME:<your-username>}
     password: ${MYSQL_PASSWORD:<your-password>}

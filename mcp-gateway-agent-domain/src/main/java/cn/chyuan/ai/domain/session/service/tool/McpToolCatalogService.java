@@ -1,5 +1,6 @@
 package cn.chyuan.ai.domain.session.service.tool;
 
+import cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort;
 import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.governance.service.CelEvaluationService;
 import cn.chyuan.ai.domain.governance.service.ICelEvaluationService;
@@ -9,11 +10,13 @@ import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolConfigVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,10 +25,15 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * MCP 工具目录服务（工单 0020）
+ * MCP 工具目录服务（工单 0020 / 0021 外部挂接并入）
  *
  * <p>schema 构建逻辑承接原 ToolsListHandler（SSE 消息树随传输下线删除），
  * CEL 过滤口径与 0018 一致：不放行的工具从清单隐藏。
+ *
+ * <p>0021：外部 MCP 挂接（streamable HTTP/stdio）的上游工具以
+ * {@code attachName_toolName} 并入清单，CEL 以 tool.source=EXTERNAL 求值；
+ * 连接失败的挂接自动跳过（可观测状态经 admin API 呈现）。
+ * 协议映射工具与外部工具重名时协议映射优先。
  *
  * @author chyuan
  */
@@ -43,6 +51,10 @@ public class McpToolCatalogService implements IMcpToolCatalogService {
     @Resource
     private ICelEvaluationService celEvaluationService;
 
+    /** 外部挂接端口（可选注入：单测/切片可缺省，仅协议来源生效） */
+    @Autowired(required = false)
+    private IExternalMcpAttachPort externalMcpAttachPort;
+
     @Override
     public List<McpSchemaVO.Tool> visibleTools(String gatewayId, GovernancePrincipal principal, String method) {
         List<McpToolConfigVO> toolConfigs = repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId);
@@ -54,7 +66,9 @@ public class McpToolCatalogService implements IMcpToolCatalogService {
                                 tool.getToolName(), CelEvaluationService.TOOL_SOURCE_PROTOCOL))
                         .toList();
 
-        return buildTools(visible);
+        List<McpSchemaVO.Tool> tools = new ArrayList<>(buildTools(visible));
+        tools.addAll(externalTools(gatewayId, principal, method, tools));
+        return tools;
     }
 
     @Override
@@ -62,8 +76,45 @@ public class McpToolCatalogService implements IMcpToolCatalogService {
         if (toolName == null || toolName.isBlank()) {
             return false;
         }
-        return repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId).stream()
+        boolean protocolExists = repository.queryMcpGatewayToolConfigListByGatewayId(gatewayId).stream()
                 .anyMatch(tool -> toolName.equals(tool.getToolName()));
+        if (protocolExists) {
+            return true;
+        }
+        return externalMcpAttachPort != null && externalMcpAttachPort.isExternalTool(gatewayId, toolName);
+    }
+
+    /** 外部挂接工具（CEL 按 EXTERNAL 来源求值；重名跳过并告警——协议映射优先） */
+    private List<McpSchemaVO.Tool> externalTools(String gatewayId, GovernancePrincipal principal,
+            String method, List<McpSchemaVO.Tool> protocolTools) {
+        if (externalMcpAttachPort == null) {
+            return List.of();
+        }
+        List<McpSchemaVO.Tool> external;
+        try {
+            external = externalMcpAttachPort.listAttachedTools(gatewayId);
+        } catch (Exception e) {
+            log.warn("外部挂接工具清单获取失败（跳过外部来源）: gatewayId={}, reason={}", gatewayId, e.getMessage());
+            return List.of();
+        }
+        if (external.isEmpty()) {
+            return List.of();
+        }
+        Set<String> protocolNames = new HashSet<>();
+        protocolTools.forEach(tool -> protocolNames.add(tool.name()));
+
+        List<McpSchemaVO.Tool> visible = new ArrayList<>();
+        for (McpSchemaVO.Tool tool : external) {
+            if (protocolNames.contains(tool.name())) {
+                log.warn("外部工具与协议映射工具重名，保留协议映射: gatewayId={}, tool={}", gatewayId, tool.name());
+                continue;
+            }
+            if (principal == null || celEvaluationService.isToolAllowed(principal, gatewayId, method,
+                    tool.name(), CelEvaluationService.TOOL_SOURCE_EXTERNAL)) {
+                visible.add(tool);
+            }
+        }
+        return visible;
     }
 
     private List<McpSchemaVO.Tool> buildTools(List<McpToolConfigVO> toolConfigs) {

@@ -7,6 +7,7 @@ MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中�
 ### 核心特性
 
 - **MCP 协议网关**：官方 Streamable HTTP 单端点（`/api-gateway/{gatewayId}/mcp`，POST 消息 / GET 监听流 / DELETE 会话终止），支持 `initialize` / `tools/list` / `tools/call` 等 JSON-RPC 方法；旧 SSE 端点已下线（[迁移指南](../docs/03-mcp-gateway-agent/10-SSE下线与StreamableHTTP迁移.md)）
+- **外部 MCP 挂接**：管理员经 `/admin/v1/external-attaches` 配置外部 MCP server（streamable HTTP / stdio），其工具以 `attachName_toolName` 前缀并入网关清单并可透传调用，连接状态可观测、上游工具漂移自动刷新（[工具联邦](../docs/03-mcp-gateway-agent/11-外部MCP挂接与工具联邦.md)）
 - **多智能体装配**：基于 YAML 配置装配智能体（`deepseek-agent`、`zhipu-agent`、`gateway-business-agent`、`parallel_research_app` 等），支持 ReAct 与多智能体协作（冻结待迁移，见 issues/0014）
 - **协议映射引擎**：HTTP 协议配置 + 字段映射（parentPath/fieldName → mcpPath/mcpType），将 MCP 工具入参转换为 HTTP 请求
 - **OpenAPI 导入**：从 OpenAPI JSON 解析端点并一键生成网关协议配置
@@ -173,8 +174,12 @@ java -Dspring.profiles.active=dev \
 # 查询智能体列表
 curl http://localhost:8777/api/v1/query_ai_agent_config_list
 
-# 建立 MCP SSE 连接
-curl "http://localhost:8777/api-gateway/gateway_001/mcp/sse?api_key=<your-api-key>"
+# initialize 握手（Streamable HTTP 单端点，响应头返回 Mcp-Session-Id）
+curl -D - http://localhost:8777/api-gateway/gateway_001/mcp \
+     -H "Authorization: Bearer <your-vk-key>" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
 
 # 创建会话
 curl -X POST http://localhost:8777/api/v1/create_session \
@@ -197,15 +202,18 @@ mcp-gateway-agent/
 ├── mcp-gateway-agent-infrastructure/
 │   └── src/main/java/cn/chyuan/ai/infrastructure/
 │       ├── dao/                 # MyBatis DAO
-│       ├── gateway/             # GenericHttpGateway 协议执行
+│       ├── externalattach/      # ExternalMcpAttachRegistry 外部 MCP 挂接客户端（0021）
+│       ├── gateway/             # GenericHttpGateway 协议执行 + streamable 网关注册表
 │       ├── redis/
 │       └── utils/                # ObservabilityHelper、TraceContext
 ├── mcp-gateway-agent-trigger/
-│   └── src/main/java/cn/chyuan/ai/trigger/http/
-│       ├── McpGatewayController.java    # MCP SSE 网关
-│       ├── AgentServiceController.java  # Agent 对话
-│       ├── AdminController.java         # 运营管理
-│       └── GlobalExceptionHandler.java
+│   └── src/main/java/cn/chyuan/ai/trigger/
+│       ├── http/McpGatewayDelegateServlet.java  # Streamable HTTP 委派路由（0020）
+│       ├── http/AgentServiceController.java     # Agent 对话
+│       ├── http/AdminController.java            # 运营管理
+│       ├── http/AdminGovernanceController.java  # 治理面（0017/0018）
+│       ├── http/AdminExternalAttachController.java # 外部 MCP 挂接管理（0021）
+│       └── filter/                              # 统一认证 / 配额 / admin JWT 过滤器
 ├── mcp-gateway-agent-app/
 │   └── src/main/resources/
 │       ├── agent/*.yml           # 智能体装配配置

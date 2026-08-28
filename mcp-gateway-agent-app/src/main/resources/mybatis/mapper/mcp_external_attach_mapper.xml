@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IExternalAttachDao">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_external_attach (gateway_id, attach_name, transport_type, endpoint, api_key,
+                                         command, args, env, request_timeout_ms, status, connect_status)
+        VALUES (#{gatewayId}, #{attachName}, #{transportType}, #{endpoint}, #{apiKey},
+                #{command}, #{args}, #{env}, #{requestTimeoutMs}, #{status}, 'UNKNOWN')
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_external_attach
+        SET transport_type      = #{transportType},
+            endpoint            = #{endpoint},
+            api_key             = #{apiKey},
+            command             = #{command},
+            args                = #{args},
+            env                 = #{env},
+            request_timeout_ms  = #{requestTimeoutMs},
+            status              = #{status},
+            connect_status      = 'UNKNOWN',
+            connect_error       = NULL,
+            connect_time        = NULL
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_external_attach WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultType="cn.chyuan.ai.infrastructure.dao.po.McpExternalAttachPO">
+        SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
+               endpoint, api_key AS apiKey, command, args, env,
+               request_timeout_ms AS requestTimeoutMs, status,
+               connect_status AS connectStatus, connect_error AS connectError, connect_time AS connectTime,
+               create_time AS createTime, update_time AS updateTime
+        FROM mcp_external_attach
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryByGatewayId" resultType="cn.chyuan.ai.infrastructure.dao.po.McpExternalAttachPO">
+        SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
+               endpoint, api_key AS apiKey, command, args, env,
+               request_timeout_ms AS requestTimeoutMs, status,
+               connect_status AS connectStatus, connect_error AS connectError, connect_time AS connectTime,
+               create_time AS createTime, update_time AS updateTime
+        FROM mcp_external_attach
+        WHERE gateway_id = #{gatewayId}
+        ORDER BY id
+    </select>
+
+    <update id="updateConnectStatus">
+        UPDATE mcp_external_attach
+        SET connect_status = #{connectStatus},
+            connect_error  = #{connectError},
+            connect_time   = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

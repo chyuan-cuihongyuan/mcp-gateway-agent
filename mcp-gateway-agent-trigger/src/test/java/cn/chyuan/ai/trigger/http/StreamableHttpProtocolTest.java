@@ -1,5 +1,7 @@
 package cn.chyuan.ai.trigger.http;
 
+import cn.chyuan.ai.domain.externalattach.adapter.repository.IExternalAttachRepository;
+import cn.chyuan.ai.domain.externalattach.model.valobj.ExternalAttachVO;
 import cn.chyuan.ai.domain.governance.adapter.repository.ICelRuleRepository;
 import cn.chyuan.ai.domain.governance.model.valobj.CelRuleVO;
 import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
@@ -17,6 +19,7 @@ import cn.chyuan.ai.domain.session.service.tool.IMcpToolCatalogService;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolInvocationService;
 import cn.chyuan.ai.domain.session.service.tool.McpToolCatalogService;
 import cn.chyuan.ai.domain.session.service.tool.McpToolInvocationService;
+import cn.chyuan.ai.infrastructure.externalattach.ExternalMcpAttachRegistry;
 import cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.observability.client.ObservabilityClient;
@@ -87,7 +90,17 @@ import static org.mockito.Mockito.verify;
 class StreamableHttpProtocolTest {
 
     private static final String GATEWAY_ID = "gateway_business";
+
+    /** 联邦测试的上游网关（0021：gateway_business 经外部挂接连接它） */
+    private static final String UPSTREAM_GATEWAY_ID = "gateway_upstream";
+
     private static final String VALID_KEY = "vk-test-key";
+
+    @jakarta.annotation.Resource
+    private ExternalMcpAttachRegistry attachRegistry;
+
+    @jakarta.annotation.Resource
+    private GatewayMcpServerRegistry gatewayServerRegistry;
 
     @LocalServerPort
     private int port;
@@ -99,6 +112,11 @@ class StreamableHttpProtocolTest {
     @BeforeEach
     void resetFakes() {
         FakeQuotaService.deny = false;
+        FakeSessionRepository.resetUpstreamTools();
+        FakeExternalAttachRepository.endpoint = null;
+        // 挂接配置/客户端与网关规格全部失效，保证用例间目录互不串扰
+        attachRegistry.evictGateway(GATEWAY_ID);
+        attachRegistry.evictGateway(UPSTREAM_GATEWAY_ID);
     }
 
     private McpSyncClient mcpClient() {
@@ -161,6 +179,48 @@ class StreamableHttpProtocolTest {
         assertThat(result.isError()).isFalse();
         assertThat(result.content()).isNotEmpty();
         assertThat(result.content().get(0).toString()).contains("payload-from-" + toolName);
+    }
+
+    // ------------------------------------------------------------------
+    // 外部挂接联邦（工单 0021 主场景：真实 streamable HTTP 客户端挂上游网关）
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("外部挂接联邦 — 上游工具 ext_ 前缀并入清单、tools/call 透传、漂移后刷新可见可调")
+    void externalAttachFederatesUpstreamGatewayTools() {
+        FakeExternalAttachRepository.endpoint =
+                "http://127.0.0.1:" + port + "/api-gateway/" + UPSTREAM_GATEWAY_ID + "/mcp";
+
+        try (McpSyncClient client = mcpClient()) {
+            // 1. 握手（构建网关条目时经挂接客户端连接上游并拉取工具清单）
+            McpSchema.InitializeResult init = client.initialize();
+            assertThat(init.serverInfo().name()).isEqualTo("gateway-business-test");
+
+            // 2. tools/list：上游工具以 ext_ 前缀并入（命名沿用 attachName_tool 规则）
+            McpSchema.ListToolsResult tools = client.listTools();
+            assertThat(tools.tools()).extracting(McpSchema.Tool::name)
+                    .contains("business_order_query", "ext_upstream_time_query")
+                    .doesNotContain("upstream_time_query");
+
+            // 3. tools/call：透传上游并返回上游载荷
+            McpSchema.CallToolResult result = client.callTool(
+                    new McpSchema.CallToolRequest("ext_upstream_time_query", Map.of("orderId", "u-1")));
+            assertThat(result.isError()).isFalse();
+            assertThat(result.content().get(0).toString()).contains("payload-from-upstream_time_query");
+
+            // 4. 漂移：上游新增工具（模拟 admin 保存 → requestRefresh）→ 挂接失效后新工具可见、可调
+            FakeSessionRepository.addUpstreamTool("upstream_extra_tool");
+            gatewayServerRegistry.requestRefresh(UPSTREAM_GATEWAY_ID);
+            attachRegistry.evictAttach(1L, GATEWAY_ID);
+
+            McpSchema.ListToolsResult after = client.listTools();
+            assertThat(after.tools()).extracting(McpSchema.Tool::name).contains("ext_upstream_extra_tool");
+
+            McpSchema.CallToolResult drifted = client.callTool(
+                    new McpSchema.CallToolRequest("ext_upstream_extra_tool", Map.of("orderId", "u-2")));
+            assertThat(drifted.isError()).isFalse();
+            assertThat(drifted.content().get(0).toString()).contains("payload-from-upstream_extra_tool");
+        }
     }
 
     // ------------------------------------------------------------------
@@ -289,6 +349,11 @@ class StreamableHttpProtocolTest {
         }
 
         @Bean
+        IExternalAttachRepository externalAttachRepository() {
+            return new FakeExternalAttachRepository();
+        }
+
+        @Bean
         ISessionPort sessionPort() {
             return (httpConfig, params) -> "payload-from-" + extractToolName(httpConfig.getHttpUrl());
         }
@@ -350,20 +415,24 @@ class StreamableHttpProtocolTest {
 
         @Bean
         McpToolCatalogService toolCatalogService(ISessionRepository sessionRepository,
-                CelEvaluationService celEvaluationService) {
+                CelEvaluationService celEvaluationService,
+                cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort externalAttachPort) {
             McpToolCatalogService service = new McpToolCatalogService();
             ReflectionTestUtils.setField(service, "repository", sessionRepository);
             ReflectionTestUtils.setField(service, "celEvaluationService", celEvaluationService);
+            ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalAttachPort);
             return service;
         }
 
         @Bean
         McpToolInvocationService toolInvocationService(ISessionRepository sessionRepository,
-                ISessionPort sessionPort, CelEvaluationService celEvaluationService) {
+                ISessionPort sessionPort, CelEvaluationService celEvaluationService,
+                cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort externalAttachPort) {
             McpToolInvocationService service = new McpToolInvocationService();
             ReflectionTestUtils.setField(service, "repository", sessionRepository);
             ReflectionTestUtils.setField(service, "port", sessionPort);
             ReflectionTestUtils.setField(service, "celEvaluationService", celEvaluationService);
+            ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalAttachPort);
             return service;
         }
 
@@ -396,6 +465,17 @@ class StreamableHttpProtocolTest {
             ReflectionTestUtils.setField(registry, "observabilityHelper", observabilityHelper);
             ReflectionTestUtils.setField(registry, "requestTimeoutMs", 60000L);
             ReflectionTestUtils.setField(registry, "toolSpecRefreshSeconds", 300L);
+            return registry;
+        }
+
+        @Bean
+        ExternalMcpAttachRegistry externalMcpAttachRegistry(IExternalAttachRepository externalAttachRepository,
+                org.springframework.beans.factory.ObjectProvider<GatewayMcpServerRegistry> gatewayRegistryProvider) {
+            ExternalMcpAttachRegistry registry = new ExternalMcpAttachRegistry();
+            ReflectionTestUtils.setField(registry, "attachRepository", externalAttachRepository);
+            ReflectionTestUtils.setField(registry, "gatewayServerRegistryProvider", gatewayRegistryProvider);
+            ReflectionTestUtils.setField(registry, "configCacheSeconds", 60L);
+            ReflectionTestUtils.setField(registry, "failedRetrySeconds", 1L);
             return registry;
         }
 
@@ -444,10 +524,13 @@ class StreamableHttpProtocolTest {
         }
     }
 
-    /** 网关配置 + 三来源工具 + CEL 拒绝工具的内存仓储 */
+    /** 网关配置 + 三来源工具 + CEL 拒绝工具的内存仓储（上游网关工具列表可变，供漂移场景） */
     static class FakeSessionRepository implements ISessionRepository {
 
         private final Map<String, List<McpToolConfigVO>> toolsByGateway = new ConcurrentHashMap<>();
+
+        /** 上游网关工具（CopyOnWrite：漂移用例动态追加） */
+        private static final CopyOnWriteArrayList<McpToolConfigVO> upstreamTools = new CopyOnWriteArrayList<>();
 
         FakeSessionRepository() {
             toolsByGateway.put(GATEWAY_ID, List.of(
@@ -455,16 +538,26 @@ class StreamableHttpProtocolTest {
                     tool("local_report_generator", "本地报表生成（协议映射 → 本地服务）"),
                     tool("external_weather_lookup", "外部天气查询（协议映射 → 外部系统）"),
                     tool("secret_tool", "治理规则不放行的工具")));
+            resetUpstreamTools();
+        }
+
+        static void resetUpstreamTools() {
+            upstreamTools.clear();
+            upstreamTools.add(tool("upstream_time_query", "上游时间查询"));
+        }
+
+        static void addUpstreamTool(String toolName) {
+            upstreamTools.add(tool(toolName, "上游漂移新增工具"));
         }
 
         @Override
         public McpGatewayConfigVO queryMcpGatewayConfigByGatewayId(String gatewayId) {
-            if (!GATEWAY_ID.equals(gatewayId)) {
+            if (!GATEWAY_ID.equals(gatewayId) && !UPSTREAM_GATEWAY_ID.equals(gatewayId)) {
                 return null;
             }
             return McpGatewayConfigVO.builder()
-                    .gatewayId(GATEWAY_ID)
-                    .gatewayName("gateway-business-test")
+                    .gatewayId(gatewayId)
+                    .gatewayName(GATEWAY_ID.equals(gatewayId) ? "gateway-business-test" : "gateway-upstream-test")
                     .gatewayDesc("streamable HTTP 协议级测试网关")
                     .version("9.9.9")
                     .build();
@@ -472,6 +565,9 @@ class StreamableHttpProtocolTest {
 
         @Override
         public List<McpToolConfigVO> queryMcpGatewayToolConfigListByGatewayId(String gatewayId) {
+            if (UPSTREAM_GATEWAY_ID.equals(gatewayId)) {
+                return new ArrayList<>(upstreamTools);
+            }
             return toolsByGateway.getOrDefault(gatewayId, List.of());
         }
 
@@ -563,6 +659,59 @@ class StreamableHttpProtocolTest {
                 return new QuotaVerdict(false, true, 0L, 7L);
             }
             return new QuotaVerdict(true, true, 99L, 0L);
+        }
+    }
+
+    /** 外部挂接配置假仓储：endpoint 置空时无挂接（存量用例语义不变），置值后 gateway_business 挂接上游网关 */
+    static class FakeExternalAttachRepository implements IExternalAttachRepository {
+
+        /** 挂接端点（null = 未配置挂接）；联邦用例在 @BeforeEach 后按随机端口赋值 */
+        static volatile String endpoint;
+
+        private static ExternalAttachVO attach() {
+            return ExternalAttachVO.builder()
+                    .id(1L)
+                    .gatewayId(GATEWAY_ID)
+                    .attachName("ext")
+                    .transportType(ExternalAttachVO.TRANSPORT_STREAMABLE_HTTP)
+                    .endpoint(endpoint)
+                    .apiKey(VALID_KEY)
+                    .requestTimeoutMs(10_000)
+                    .status(1)
+                    .build();
+        }
+
+        @Override
+        public Long insert(ExternalAttachVO attach) {
+            return 1L;
+        }
+
+        @Override
+        public boolean update(ExternalAttachVO attach) {
+            return true;
+        }
+
+        @Override
+        public boolean deleteById(Long id) {
+            return true;
+        }
+
+        @Override
+        public ExternalAttachVO findById(Long id) {
+            return endpoint == null ? null : attach();
+        }
+
+        @Override
+        public List<ExternalAttachVO> findByGatewayId(String gatewayId) {
+            if (endpoint != null && GATEWAY_ID.equals(gatewayId)) {
+                return List.of(attach());
+            }
+            return List.of();
+        }
+
+        @Override
+        public boolean updateConnectStatus(Long id, String connectStatus, String connectError) {
+            return true;
         }
     }
 

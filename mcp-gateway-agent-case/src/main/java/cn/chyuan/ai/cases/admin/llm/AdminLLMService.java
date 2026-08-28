@@ -46,7 +46,8 @@ public class AdminLLMService implements IAdminLLMService {
         String gatewayId = requestDTO.getGatewayId();
 
         String baseUrl = "http://localhost:" + port;
-        String sseEndpoint = baseUrlContextPath + "/api-gateway/" + gatewayId + "/mcp/sse";
+        // 工单 0021：SSE 端点下线，MCP 端点改 streamable HTTP 单端点
+        String mcpEndpoint = baseUrlContextPath + "/api-gateway/" + gatewayId + "/mcp";
 
         // 获取对话模型
         ChatModel chatModel = llmService.getChatModel(gatewayId);
@@ -56,7 +57,7 @@ public class AdminLLMService implements IAdminLLMService {
 
             McpConfigVO mcpConfigVO = McpConfigVO.builder()
                     .baseUri(baseUrl)
-                    .sseEndpoint(sseEndpoint)
+                    .mcpEndpoint(mcpEndpoint)
                     .authApiKey(requestDTO.getAuthApiKey())
                     .timeout(requestDTO.getTimeout())
                     .build();

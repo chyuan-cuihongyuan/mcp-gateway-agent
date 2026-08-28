@@ -1,5 +1,6 @@
 package cn.chyuan.ai.domain.session.service.tool;
 
+import cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort;
 import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.governance.service.ICelEvaluationService;
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionRepository;
@@ -22,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +39,10 @@ class McpToolCatalogServiceTest {
 
     @Mock
     private ICelEvaluationService celEvaluationService;
+
+    /** 外部挂接端口（工单 0021：仅新增用例注入，存量用例保持端口缺失语义） */
+    @Mock
+    private IExternalMcpAttachPort externalMcpAttachPort;
 
     private McpToolCatalogService service;
 
@@ -174,6 +180,90 @@ class McpToolCatalogServiceTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> city = ((Map<String, Object>) queryProps.get("properties"));
         assertThat(city).containsKey("city");
+    }
+
+    @Test
+    @DisplayName("外部挂接并入（0021）— 前缀命名工具追加在协议工具之后")
+    void externalAttachedToolsMergedWithPrefixNaming() {
+        ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalMcpAttachPort);
+        when(repository.queryMcpGatewayToolConfigListByGatewayId("gateway_business"))
+                .thenReturn(List.of(toolConfig("agent_order_query")));
+        when(externalMcpAttachPort.listAttachedTools("gateway_business"))
+                .thenReturn(List.of(externalTool("ext_weather_lookup")));
+
+        List<McpSchemaVO.Tool> tools = service.visibleTools("gateway_business", null, "tools/list");
+
+        assertThat(tools).extracting(McpSchemaVO.Tool::name)
+                .containsExactly("agent_order_query", "ext_weather_lookup");
+    }
+
+    @Test
+    @DisplayName("外部挂接并入（0021）— CEL 以 tool.source=EXTERNAL 求值，不放行则隐藏")
+    void externalAttachedToolsFilteredByCelWithExternalSource() {
+        ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalMcpAttachPort);
+        when(repository.queryMcpGatewayToolConfigListByGatewayId("gateway_business"))
+                .thenReturn(List.of());
+        when(externalMcpAttachPort.listAttachedTools("gateway_business"))
+                .thenReturn(List.of(externalTool("ext_weather_lookup"), externalTool("ext_secret_lookup")));
+        GovernancePrincipal principal = GovernancePrincipal.builder()
+                .authType(GovernancePrincipal.AuthType.VIRTUAL_KEY).virtualKeyId(42L).build();
+        when(celEvaluationService.isToolAllowed(principal, "gateway_business", "tools/list",
+                "ext_weather_lookup", "EXTERNAL")).thenReturn(true);
+        when(celEvaluationService.isToolAllowed(principal, "gateway_business", "tools/list",
+                "ext_secret_lookup", "EXTERNAL")).thenReturn(false);
+
+        List<McpSchemaVO.Tool> tools = service.visibleTools("gateway_business", principal, "tools/list");
+
+        assertThat(tools).extracting(McpSchemaVO.Tool::name).containsExactly("ext_weather_lookup");
+        verify(celEvaluationService, never()).isToolAllowed(any(), anyString(), anyString(),
+                anyString(), eq("PROTOCOL"));
+    }
+
+    @Test
+    @DisplayName("外部挂接并入（0021）— 与协议映射工具重名时协议映射优先")
+    void externalToolNameCollisionKeepsProtocolTool() {
+        ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalMcpAttachPort);
+        when(repository.queryMcpGatewayToolConfigListByGatewayId("gateway_business"))
+                .thenReturn(List.of(toolConfig("agent_order_query")));
+        when(externalMcpAttachPort.listAttachedTools("gateway_business"))
+                .thenReturn(List.of(externalTool("agent_order_query")));
+
+        List<McpSchemaVO.Tool> tools = service.visibleTools("gateway_business", null, "tools/list");
+
+        assertThat(tools).extracting(McpSchemaVO.Tool::name).containsExactly("agent_order_query");
+    }
+
+    @Test
+    @DisplayName("外部挂接故障（0021）— 端口异常仅跳过外部来源，协议工具不受影响")
+    void externalPortFailureDegradesToProtocolToolsOnly() {
+        ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalMcpAttachPort);
+        when(repository.queryMcpGatewayToolConfigListByGatewayId("gateway_business"))
+                .thenReturn(List.of(toolConfig("agent_order_query")));
+        when(externalMcpAttachPort.listAttachedTools("gateway_business"))
+                .thenThrow(new IllegalStateException("upstream down"));
+
+        List<McpSchemaVO.Tool> tools = service.visibleTools("gateway_business", null, "tools/list");
+
+        assertThat(tools).extracting(McpSchemaVO.Tool::name).containsExactly("agent_order_query");
+    }
+
+    @Test
+    @DisplayName("toolExists（0021）— 协议未命中时咨询外部挂接端口")
+    void toolExistsConsultsExternalPortAfterProtocolMiss() {
+        ReflectionTestUtils.setField(service, "externalMcpAttachPort", externalMcpAttachPort);
+        when(repository.queryMcpGatewayToolConfigListByGatewayId("gateway_business"))
+                .thenReturn(List.of(toolConfig("agent_order_query")));
+        when(externalMcpAttachPort.isExternalTool("gateway_business", "ext_weather_lookup")).thenReturn(true);
+        when(externalMcpAttachPort.isExternalTool("gateway_business", "ext_ghost")).thenReturn(false);
+
+        assertThat(service.toolExists("gateway_business", "agent_order_query")).isTrue();
+        assertThat(service.toolExists("gateway_business", "ext_weather_lookup")).isTrue();
+        assertThat(service.toolExists("gateway_business", "ext_ghost")).isFalse();
+    }
+
+    private McpSchemaVO.Tool externalTool(String name) {
+        return new McpSchemaVO.Tool(name, "外部挂接工具",
+                new McpSchemaVO.JsonSchema("object", Map.of(), null, null, null, null));
     }
 
     private McpToolConfigVO toolConfig(String toolName) {

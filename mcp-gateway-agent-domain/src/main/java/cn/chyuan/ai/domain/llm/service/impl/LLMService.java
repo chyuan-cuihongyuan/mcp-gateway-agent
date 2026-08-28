@@ -7,7 +7,7 @@ import com.alibaba.fastjson.JSON;
 import com.openai.client.OpenAIClient;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
+import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -63,27 +63,26 @@ public class LLMService implements ILLMService {
     }
 
     public ToolCallback[] buildToolCallback(McpConfigVO mcpConfigVO) {
-        String sseEndPoint = mcpConfigVO.getSseEndpoint();
-
-        HttpClientSseClientTransport.Builder builder = HttpClientSseClientTransport
+        // 工单 0021：SSE 客户端传输下线，改官方 streamable HTTP 客户端
+        HttpClientStreamableHttpTransport.Builder builder = HttpClientStreamableHttpTransport
                 .builder(mcpConfigVO.getBaseUri())
-                .sseEndpoint(sseEndPoint);
+                .endpoint(mcpConfigVO.getMcpEndpoint());
 
-        // 使用 HTTP 请求头传递 API Key，而不是 URL 参数（MCP SDK 2.0：customizeRequest → httpRequestCustomizer）
+        // 使用 HTTP 请求头传递 API Key（MCP SDK 2.0：customizeRequest → httpRequestCustomizer）
         if (StringUtils.isNotBlank(mcpConfigVO.getAuthApiKey())) {
             builder.httpRequestCustomizer((request, method, uri, body, context) -> {
                 request.header("Authorization", "Bearer " + mcpConfigVO.getAuthApiKey());
             });
         }
 
-        HttpClientSseClientTransport sseClientTransport = builder.build();
+        HttpClientStreamableHttpTransport streamableTransport = builder.build();
 
         McpSyncClient mcpSyncClient = McpClient
-                .sync(sseClientTransport)
+                .sync(streamableTransport)
                 .requestTimeout(Duration.ofMillis(mcpConfigVO.getTimeout())).build();
         var initialize = mcpSyncClient.initialize();
 
-        log.info("tool sse mcp initialize {}", initialize);
+        log.info("tool streamable http mcp initialize {}", initialize);
 
         return new SyncMcpToolCallbackProvider(mcpSyncClient).getToolCallbacks();
     }

@@ -87,11 +87,22 @@ public class GatewayMcpServerRegistry {
         return entry.transport();
     }
 
-    /** 立即失效网关条目（下一次访问重建；会话随 closeGracefully 终止）。预留 admin 删除网关配置的接线点（0021 外部挂接时一并接） */
+    /** 立即失效网关条目（下一次访问重建；会话随 closeGracefully 终止）。admin 保存/删除网关配置的接线点（工单 0021 接入） */
     public void evict(String gatewayId) {
         GatewayServerEntry entry = servers.remove(gatewayId);
         if (entry != null) {
             closeQuietly(gatewayId, entry);
+        }
+    }
+
+    /**
+     * 标记网关条目过期（下一次访问活体刷新工具规格，会话保活）。
+     * admin 工具配置/外部挂接变更、上游挂接工具漂移通知走此口径——避免误杀在途会话。
+     */
+    public void requestRefresh(String gatewayId) {
+        GatewayServerEntry entry = servers.get(gatewayId);
+        if (entry != null) {
+            entry.markRefreshNeeded();
         }
     }
 
@@ -308,11 +319,16 @@ public class GatewayMcpServerRegistry {
         }
 
         boolean isStale(long refreshSeconds) {
-            return System.currentTimeMillis() - refreshedAt >= refreshSeconds * 1000;
+            return refreshedAt <= 0
+                    || System.currentTimeMillis() - refreshedAt >= refreshSeconds * 1000;
         }
 
         void markRefreshed() {
             refreshedAt = System.currentTimeMillis();
+        }
+
+        void markRefreshNeeded() {
+            refreshedAt = 0;
         }
     }
 }

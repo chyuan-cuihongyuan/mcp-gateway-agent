@@ -74,3 +74,26 @@ CREATE TABLE IF NOT EXISTS mcp_audit_log (
   KEY idx_resource (resource_type, resource_id),
   KEY idx_created (created_at)
 ) COMMENT '治理面审计日志';
+
+-- 6. 外部 MCP 挂接配置（工单 0021：streamable HTTP / stdio 客户端挂接）
+CREATE TABLE IF NOT EXISTS mcp_external_attach (
+  id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+  gateway_id       VARCHAR(64)  NOT NULL COMMENT '挂接归属网关',
+  attach_name      VARCHAR(64)  NOT NULL COMMENT '挂接名（外部工具前缀：{attach_name}_{tool_name}）',
+  transport_type   VARCHAR(16)  NOT NULL COMMENT 'STREAMABLE_HTTP / STDIO',
+  endpoint         VARCHAR(512) NULL COMMENT 'STREAMABLE_HTTP 的上游 MCP 端点（完整 URL）',
+  api_key          VARCHAR(512) NULL COMMENT 'STREAMABLE_HTTP 的 Bearer 凭证（上游网关虚拟密钥或上游服务凭证）',
+  command          VARCHAR(512) NULL COMMENT 'STDIO 的可执行命令',
+  args             VARCHAR(2048) NULL COMMENT 'STDIO 命令参数（JSON 数组字符串）',
+  env              VARCHAR(2048) NULL COMMENT 'STDIO 环境变量（JSON 对象字符串）',
+  request_timeout_ms INT        NOT NULL DEFAULT 30000 COMMENT '上游请求超时（毫秒）',
+  status           INT          NOT NULL DEFAULT 1 COMMENT '0-禁用，1-启用',
+  connect_status   VARCHAR(16)  NOT NULL DEFAULT 'UNKNOWN' COMMENT 'UNKNOWN / CONNECTED / FAILED（运行期回写，连接失败可观测）',
+  connect_error    VARCHAR(1024) NULL COMMENT '最近一次连接失败原因',
+  connect_time     DATETIME     NULL COMMENT '最近一次连接状态变更时间',
+  create_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_gateway_attach (gateway_id, attach_name),
+  KEY idx_gateway (gateway_id)
+) COMMENT '外部 MCP server 挂接配置';
+

@@ -83,21 +83,11 @@ public class AiAgentConfigTableVO {
             @Data
             public static class ToolMcp {
 
-                private SSEServerParameters sse;
+                /** SSE 挂接配置已随工单 0021 移除（客户端传输统一 streamable HTTP/stdio） */
 
                 private StdioServerParameters stdio;
 
                 private LocalParameters local;
-
-                @Data
-                public static class SSEServerParameters {
-                    private String name;
-                    private String baseUri;
-                    private String sseEndpoint;
-                    private String apiKey;
-                    private Integer requestTimeout = 3000;
-
-                }
 
                 @Data
                 public static class StdioServerParameters {

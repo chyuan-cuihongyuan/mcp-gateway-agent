@@ -30,8 +30,11 @@ public class CelEvaluationService implements ICelEvaluationService {
     /** 配额剩余未知占位（0011 约定 NULL→-1；0019 接入真实计数） */
     static final int QUOTA_UNKNOWN = -1;
 
-    /** 工具来源：数据库协议映射配置的工具（LOCAL/EXTERNAL 由 0021/0022 引入） */
+    /** 工具来源：数据库协议映射配置的工具（LOCAL 由 0022 引入） */
     public static final String TOOL_SOURCE_PROTOCOL = "PROTOCOL";
+
+    /** 工具来源：外部 MCP 挂接透传的工具（工单 0021，CEL 变量 mcp.tool.source=EXTERNAL） */
+    public static final String TOOL_SOURCE_EXTERNAL = "EXTERNAL";
 
     /** CEL 程序求值适配（cel-java 运行时 API 唯一触点；Program 不可变线程安全，可重复求值） */
     @FunctionalInterface

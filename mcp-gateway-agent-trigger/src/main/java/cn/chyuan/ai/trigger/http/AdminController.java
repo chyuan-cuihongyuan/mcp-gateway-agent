@@ -49,6 +49,10 @@ public class AdminController implements IAdminService {
         @Resource
         private IAdminLLMService adminLLMService;
 
+        /** 网关官方 MCP 服务器注册表（工单 0021：admin 配置变更即时生效接线） */
+        @Resource
+        private cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry gatewayMcpServerRegistry;
+
         @RequestMapping(value = "save_gateway_config", method = RequestMethod.POST)
         @Override
         public Response<GatewayConfigResponseDTO> saveGatewayConfig(
@@ -67,6 +71,8 @@ public class AdminController implements IAdminService {
                                                         .build())
                                         .build();
                         adminGatewayService.saveGatewayConfig(commandEntity);
+                        // serverInfo 取自网关配置：整体失效重建（0020 预留 evict 接线点，0021 接入）
+                        gatewayMcpServerRegistry.evict(requestDTO.getGatewayId());
                         log.info("保存网关配置完成 gatewayId: {}", requestDTO.getGatewayId());
                         return Response.<GatewayConfigResponseDTO>builder()
                                         .code(ResponseCode.SUCCESS.getCode())
@@ -101,6 +107,8 @@ public class AdminController implements IAdminService {
                                                         .build())
                                         .build();
                         adminGatewayService.saveGatewayToolConfig(commandEntity);
+                        // 工具规格随下次请求活体刷新（保会话；与 TTL 刷新同链路）
+                        gatewayMcpServerRegistry.requestRefresh(requestDTO.getGatewayId());
                         log.info("保存网关工具配置完成 gatewayId: {}", requestDTO.getGatewayId());
                         return Response.<GatewayConfigResponseDTO>builder()
                                         .code(ResponseCode.SUCCESS.getCode())
@@ -451,6 +459,8 @@ public class AdminController implements IAdminService {
                 try {
                         log.info("删除网关工具配置开始 gatewayId: {} toolId: {}", gatewayId, toolId);
                         adminGatewayService.deleteGatewayToolConfig(toolId);
+                        // 工具规格随下次请求活体刷新（保会话；与 TTL 刷新同链路）
+                        gatewayMcpServerRegistry.requestRefresh(gatewayId);
                         log.info("删除网关工具配置完成 gatewayId: {} toolId: {}", gatewayId, toolId);
                         return Response.<GatewayConfigResponseDTO>builder()
                                         .code(ResponseCode.SUCCESS.getCode())

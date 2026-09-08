@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IPromptResourceDao">
+
+    <resultMap id="PromptMap" type="cn.chyuan.ai.infrastructure.dao.po.McpPromptPO">
+        <id column="id" property="id"/>
+        <result column="gateway_id" property="gatewayId"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="arguments_json" property="argumentsJson"/>
+        <result column="template" property="template"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="ResourceMap" type="cn.chyuan.ai.infrastructure.dao.po.McpResourcePO">
+        <id column="id" property="id"/>
+        <result column="gateway_id" property="gatewayId"/>
+        <result column="uri" property="uri"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="mime_type" property="mimeType"/>
+        <result column="content" property="content"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insertPrompt" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_prompt (gateway_id, name, description, arguments_json, template, status)
+        VALUES (#{gatewayId}, #{name}, #{description}, #{argumentsJson}, #{template}, #{status})
+    </insert>
+
+    <update id="updatePrompt">
+        UPDATE mcp_prompt
+        SET description = #{description}, arguments_json = #{argumentsJson},
+            template = #{template}, status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deletePrompt">
+        DELETE FROM mcp_prompt WHERE id = #{id}
+    </delete>
+
+    <select id="queryPromptById" resultMap="PromptMap">
+        SELECT * FROM mcp_prompt WHERE id = #{id}
+    </select>
+
+    <select id="queryPrompt" resultMap="PromptMap">
+        SELECT * FROM mcp_prompt WHERE gateway_id = #{gatewayId} AND name = #{name}
+    </select>
+
+    <select id="queryPrompts" resultMap="PromptMap">
+        SELECT * FROM mcp_prompt WHERE gateway_id = #{gatewayId} ORDER BY id
+    </select>
+
+    <insert id="insertResource" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_resource (gateway_id, uri, name, description, mime_type, content, status)
+        VALUES (#{gatewayId}, #{uri}, #{name}, #{description}, #{mimeType}, #{content}, #{status})
+    </insert>
+
+    <update id="updateResource">
+        UPDATE mcp_resource
+        SET name = #{name}, description = #{description}, mime_type = #{mimeType},
+            content = #{content}, status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteResource">
+        DELETE FROM mcp_resource WHERE id = #{id}
+    </delete>
+
+    <select id="queryResourceById" resultMap="ResourceMap">
+        SELECT * FROM mcp_resource WHERE id = #{id}
+    </select>
+
+    <select id="queryResource" resultMap="ResourceMap">
+        SELECT * FROM mcp_resource WHERE gateway_id = #{gatewayId} AND uri = #{uri}
+    </select>
+
+    <select id="queryResources" resultMap="ResourceMap">
+        SELECT * FROM mcp_resource WHERE gateway_id = #{gatewayId} ORDER BY id
+    </select>
+
+</mapper>

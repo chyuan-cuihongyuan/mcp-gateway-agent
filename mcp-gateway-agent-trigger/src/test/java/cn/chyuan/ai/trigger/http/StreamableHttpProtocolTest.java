@@ -501,7 +501,7 @@ class StreamableHttpProtocolTest {
         McpGatewayDelegateServlet mcpGatewayDelegateServlet(GatewayMcpServerRegistry registry,
                 IMcpToolCatalogService toolCatalogService, ObservabilityHelper observabilityHelper) {
             return new McpGatewayDelegateServlet(registry, toolCatalogService, null,
-                    observabilityHelper, null, null, 64 * 1024, 30L);
+                    observabilityHelper, null, null, null, 64 * 1024, 30L);
         }
 
         @Bean

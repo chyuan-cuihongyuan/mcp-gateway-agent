@@ -4,6 +4,9 @@ import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
 import cn.chyuan.ai.domain.session.model.valobj.SessionMetaVO;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolCatalogService;
+import cn.chyuan.ai.domain.promptresource.model.valobj.PromptVO;
+import cn.chyuan.ai.domain.promptresource.model.valobj.ResourceVO;
+import cn.chyuan.ai.domain.promptresource.service.PromptResourceService;
 import cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO;
 import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry;
@@ -72,6 +75,10 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     private final IUsageLedgerService usageLedgerService;
     /** 配额服务（工单 0054：batch 按条目数补计；null 防御切片装配） */
     private final cn.chyuan.ai.domain.governance.service.IQuotaService quotaService;
+
+    /** 本地 Prompt/Resource 域服务（工单 0053；null 防御切片装配） */
+    private final cn.chyuan.ai.domain.promptresource.service.PromptResourceService promptResourceService;
+
     private final long sessionTimeoutMinutes;
 
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
@@ -94,6 +101,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             ObservabilityHelper observabilityHelper,
             IUsageLedgerService usageLedgerService,
             cn.chyuan.ai.domain.governance.service.IQuotaService quotaService,
+            PromptResourceService promptResourceService,
             int maxBodyBytes,
             long sessionTimeoutMinutes) {
         this.registry = registry;
@@ -102,6 +110,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         this.observabilityHelper = observabilityHelper;
         this.usageLedgerService = usageLedgerService;
         this.quotaService = quotaService;
+        this.promptResourceService = promptResourceService;
         this.maxBodyBytes = maxBodyBytes;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
@@ -207,6 +216,13 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             return;
         }
 
+        if (mcpMethod != null && switch (mcpMethod) {
+            case "prompts/list", "prompts/get", "resources/list", "resources/read" -> true;
+            default -> false;
+        }) {
+            handlePromptResourceMethod(request, response, gatewayId, root, mcpMethod);
+            return;
+        }
         if (mcpMethod != null && "tools/list".equals(mcpMethod)) {
             handleToolsList(request, response, gatewayId, root);
             return;
@@ -368,6 +384,99 @@ public class McpGatewayDelegateServlet extends HttpServlet {
                     "initialize未建立会话(httpStatus=" + wrapper.status() + ")");
             recordUsage(request, gatewayId, "initialize", "FAIL", costMs);
         }
+    }
+
+
+    /**
+     * prompts/resources 四方法生效点（工单 0053）：CEL 裁剪/门槛 + 本地内容自答
+     * （上游透传为已知边界，记于工单 0053 Resolution 与地图雾项）。
+     */
+    private void handlePromptResourceMethod(HttpServletRequest request, HttpServletResponse response,
+            String gatewayId, JsonNode root, String mcpMethod) throws IOException {
+        long start = System.currentTimeMillis();
+        GovernancePrincipal principal = principalOf(request);
+        ObjectNode responseBody = objectMapper.createObjectNode();
+        responseBody.put("jsonrpc", "2.0");
+        responseBody.set("id", idOf(root));
+        String status = "SUCCESS";
+        try {
+            ObjectNode result = responseBody.putObject("result");
+            switch (mcpMethod) {
+                case "prompts/list" -> {
+                    ArrayNode prompts = result.putArray("prompts");
+                    for (PromptVO prompt : promptResourceService.visiblePrompts(gatewayId, principal)) {
+                        ObjectNode node = prompts.addObject();
+                        node.put("name", prompt.getName());
+                        node.put("description", prompt.getDescription());
+                        attachArguments(node.putArray("arguments"), prompt.getArgumentsJson());
+                    }
+                }
+                case "prompts/get" -> {
+                    String name = root.path("params").path("name").asText(null);
+                    java.util.Map<String, String> arguments = new java.util.HashMap<>();
+                    root.path("params").path("arguments").fields()
+                            .forEachRemaining(e -> arguments.put(e.getKey(), e.getValue().asText()));
+                    var rendered = promptResourceService.getPrompt(gatewayId, name, arguments, principal);
+                    result.put("description", rendered.prompt().getDescription());
+                    ObjectNode message = result.putArray("messages").addObject();
+                    message.put("role", "user");
+                    message.putObject("content").put("type", "text").put("text", rendered.renderedText());
+                }
+                case "resources/list" -> {
+                    ArrayNode resources = result.putArray("resources");
+                    for (ResourceVO resource : promptResourceService.visibleResources(gatewayId, principal)) {
+                        ObjectNode node = resources.addObject();
+                        node.put("uri", resource.getUri());
+                        node.put("name", resource.getName());
+                        node.put("description", resource.getDescription());
+                        node.put("mimeType", resource.getMimeType());
+                    }
+                }
+                case "resources/read" -> {
+                    String uri = root.path("params").path("uri").asText(null);
+                    ResourceVO resource = promptResourceService.readResource(gatewayId, uri, principal);
+                    ObjectNode content = result.putArray("contents").addObject();
+                    content.put("uri", resource.getUri());
+                    content.put("mimeType", resource.getMimeType());
+                    content.put("text", resource.getContent());
+                }
+                default -> throw new AppException(McpErrorCodes.METHOD_NOT_FOUND, "未知方法: " + mcpMethod);
+            }
+            writeJsonResult(response, responseBody);
+        } catch (AppException e) {
+            status = "FAIL";
+            writeJsonRpcError(response, HttpServletResponse.SC_OK,
+                    jsonRpcErrorCode(e), e.getInfo(), idOf(root));
+        } catch (Exception e) {
+            status = "FAIL";
+            writeJsonRpcError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    McpErrorCodes.INTERNAL_ERROR, "内部错误: " + e.getMessage(), idOf(root));
+        } finally {
+            recordUsage(request, gatewayId, mcpMethod, status,
+                    (int) (System.currentTimeMillis() - start));
+        }
+    }
+
+    private void attachArguments(ArrayNode arguments, String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.isBlank()) {
+            return;
+        }
+        try {
+            JsonNode declared = objectMapper.readTree(argumentsJson);
+            if (declared.isArray()) {
+                declared.forEach(arguments::add);
+            }
+        } catch (Exception ignore) {
+            // 声明非法按无参呈现
+        }
+    }
+
+    private void writeJsonResult(HttpServletResponse response, ObjectNode body) throws IOException {
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write(objectMapper.writeValueAsString(body));
+        response.getWriter().flush();
     }
 
     /** tools/list 生效点：CEL 过滤后以 application/json 自答（官方传输对 request 走 SSE 回包，无法在响应侧过滤） */

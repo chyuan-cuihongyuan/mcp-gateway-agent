@@ -5,6 +5,8 @@ import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
+import cn.chyuan.ai.api.dto.UsageDailyResponseDTO;
+import cn.chyuan.ai.api.dto.UsageLogResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyUpdateRequestDTO;
@@ -52,4 +54,17 @@ public interface IAdminGovernanceService {
     String validateCelExpression(String expression);
 
     ResponsePage<List<CelRuleResponseDTO>> pageCelRules(String keyword, int page, int size);
+
+    // ---- 用量账本（工单 0046）----
+
+    /** 用量明细分页（时间/密钥/工具/状态/流量类型过滤；密钥哈希只回前 8 位摘要） */
+    ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(String fromDate, String toDate,
+            Long virtualKeyId, String toolOrModel, String status, String trafficType,
+            String channelId, int page, int size);
+
+    /** 用量日聚合明细（区间内全部维度行） */
+    List<UsageDailyResponseDTO> dailyUsageDetail(String fromDate, String toDate);
+
+    /** 用量按日汇总（仪表盘趋势） */
+    List<UsageDailyResponseDTO> dailyUsageTotals(String fromDate, String toDate);
 }

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IUsageDao">
+
+    <resultMap id="McpUsageLogMap" type="cn.chyuan.ai.infrastructure.dao.po.McpUsageLogPO">
+        <id column="id" property="id"/>
+        <result column="request_id" property="requestId"/>
+        <result column="virtual_key_id" property="virtualKeyId"/>
+        <result column="api_key_hash" property="apiKeyHash"/>
+        <result column="gateway_id" property="gatewayId"/>
+        <result column="traffic_type" property="trafficType"/>
+        <result column="tool_or_model" property="toolOrModel"/>
+        <result column="channel_id" property="channelId"/>
+        <result column="status" property="status"/>
+        <result column="duration_ms" property="durationMs"/>
+        <result column="prompt_tokens" property="promptTokens"/>
+        <result column="completion_tokens" property="completionTokens"/>
+        <result column="client_ip" property="clientIp"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <resultMap id="McpUsageDailyMap" type="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
+        <id column="id" property="id"/>
+        <result column="stat_date" property="statDate"/>
+        <result column="virtual_key_id" property="virtualKeyId"/>
+        <result column="tool_or_model" property="toolOrModel"/>
+        <result column="channel_id" property="channelId"/>
+        <result column="call_count" property="callCount"/>
+        <result column="fail_count" property="failCount"/>
+        <result column="total_duration_ms" property="totalDurationMs"/>
+        <result column="token_sum" property="tokenSum"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="log_query_conditions">
+        <where>
+            <if test="fromDate != null and fromDate != ''">
+                AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+            </if>
+            <if test="toDate != null and toDate != ''">
+                AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+            </if>
+            <if test="virtualKeyId != null">
+                AND virtual_key_id = #{virtualKeyId}
+            </if>
+            <if test="toolOrModel != null and toolOrModel != ''">
+                AND tool_or_model like concat(#{toolOrModel}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="trafficType != null and trafficType != ''">
+                AND traffic_type = #{trafficType}
+            </if>
+            <if test="channelId != null and channelId != ''">
+                AND channel_id = #{channelId}
+            </if>
+        </where>
+    </sql>
+
+    <insert id="insertLog" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageLogPO"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_usage_log (request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
+                                   tool_or_model, channel_id, status, duration_ms, prompt_tokens,
+                                   completion_tokens, client_ip, session_id, created_at)
+        VALUES (#{requestId}, #{virtualKeyId}, #{apiKeyHash}, #{gatewayId}, #{trafficType},
+                #{toolOrModel}, #{channelId}, #{status}, #{durationMs}, #{promptTokens},
+                #{completionTokens}, #{clientIp}, #{sessionId}, NOW())
+    </insert>
+
+    <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
+        INSERT INTO mcp_usage_daily (stat_date, virtual_key_id, tool_or_model, channel_id,
+                                     call_count, fail_count, total_duration_ms, token_sum)
+        VALUES (#{statDate}, #{virtualKeyId}, #{toolOrModel}, #{channelId},
+                #{callCount}, #{failCount}, #{totalDurationMs}, #{tokenSum})
+        ON DUPLICATE KEY UPDATE
+            call_count = call_count + VALUES(call_count),
+            fail_count = fail_count + VALUES(fail_count),
+            total_duration_ms = total_duration_ms + VALUES(total_duration_ms),
+            token_sum = token_sum + VALUES(token_sum),
+            updated_at = NOW()
+    </insert>
+
+    <select id="pageLogs" parameterType="map" resultMap="McpUsageLogMap">
+        SELECT id, request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
+               tool_or_model, channel_id, status, duration_ms, prompt_tokens,
+               completion_tokens, client_ip, session_id, created_at
+        FROM mcp_usage_log
+        <include refid="log_query_conditions"/>
+        ORDER BY id DESC
+        LIMIT #{limitStart}, #{limitCount}
+    </select>
+
+    <select id="countLogs" parameterType="map" resultType="java.lang.Long">
+        SELECT count(id)
+        FROM mcp_usage_log
+        <include refid="log_query_conditions"/>
+    </select>
+
+    <select id="dailyDetail" resultMap="McpUsageDailyMap">
+        SELECT id, stat_date, virtual_key_id, tool_or_model, channel_id,
+               call_count, fail_count, total_duration_ms, token_sum, updated_at
+        FROM mcp_usage_daily
+        <where>
+            <if test="fromDate != null and fromDate != ''">
+                AND stat_date &gt;= #{fromDate}
+            </if>
+            <if test="toDate != null and toDate != ''">
+                AND stat_date &lt;= #{toDate}
+            </if>
+        </where>
+        ORDER BY stat_date ASC, call_count DESC
+    </select>
+
+    <select id="dailyTotals" resultMap="McpUsageDailyMap">
+        SELECT NULL AS id, stat_date, 0 AS virtual_key_id, '' AS tool_or_model, '' AS channel_id,
+               SUM(call_count) AS call_count, SUM(fail_count) AS fail_count,
+               SUM(total_duration_ms) AS total_duration_ms, SUM(token_sum) AS token_sum,
+               NULL AS updated_at
+        FROM mcp_usage_daily
+        <where>
+            <if test="fromDate != null and fromDate != ''">
+                AND stat_date &gt;= #{fromDate}
+            </if>
+            <if test="toDate != null and toDate != ''">
+                AND stat_date &lt;= #{toDate}
+            </if>
+        </where>
+        GROUP BY stat_date
+        ORDER BY stat_date ASC
+    </select>
+
+</mapper>

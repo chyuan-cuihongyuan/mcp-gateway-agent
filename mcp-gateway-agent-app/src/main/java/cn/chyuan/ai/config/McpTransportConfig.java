@@ -2,6 +2,7 @@ package cn.chyuan.ai.config;
 
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolCatalogService;
+import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.trigger.http.McpGatewayDelegateServlet;
@@ -28,10 +29,12 @@ public class McpTransportConfig {
             IMcpToolCatalogService toolCatalogService,
             ObjectProvider<ISessionMetaRepository> sessionMetaRepository,
             ObservabilityHelper observabilityHelper,
+            IUsageLedgerService usageLedgerService,
             @Value("${mcp.session.timeout-minutes:30}") long sessionTimeoutMinutes) {
         ServletRegistrationBean<McpGatewayDelegateServlet> registration = new ServletRegistrationBean<>(
                 new McpGatewayDelegateServlet(registry, toolCatalogService,
-                        sessionMetaRepository.getIfAvailable(), observabilityHelper, sessionTimeoutMinutes),
+                        sessionMetaRepository.getIfAvailable(), observabilityHelper,
+                        usageLedgerService, sessionTimeoutMinutes),
                 "/api-gateway/*");
         // 官方 streamable 传输对 POST 请求与 GET 监听流使用 startAsync
         registration.setAsyncSupported(true);

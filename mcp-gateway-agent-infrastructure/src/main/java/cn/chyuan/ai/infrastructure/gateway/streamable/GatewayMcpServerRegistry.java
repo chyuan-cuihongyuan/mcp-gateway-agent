@@ -6,6 +6,8 @@ import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpGatewayConfigVO;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolCatalogService;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolInvocationService;
+import cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO;
+import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.infrastructure.utils.TraceContext;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
@@ -67,6 +69,9 @@ public class GatewayMcpServerRegistry {
 
     @Resource
     private ObservabilityHelper observabilityHelper;
+
+    @Resource
+    private IUsageLedgerService usageLedgerService;
 
     /** 官方服务器请求处理超时 */
     @Value("${mcp.server.request-timeout-ms:60000}")
@@ -200,23 +205,46 @@ public class GatewayMcpServerRegistry {
         TraceContext.setTraceId(sessionId);
         try {
             Object payload = toolInvocationService.invoke(gatewayId, toolName, request.arguments(), principal);
-            reportInvocation(sessionId, gatewayId, toolName, "SUCCESS",
-                    (int) (System.currentTimeMillis() - start), null);
+            int cost = (int) (System.currentTimeMillis() - start);
+            reportInvocation(sessionId, gatewayId, toolName, "SUCCESS", cost, null);
+            recordUsage(sessionId, gatewayId, toolName, principal, "SUCCESS", cost);
             return new McpSchema.CallToolResult(
                     List.of(new McpSchema.TextContent(payload == null ? "" : String.valueOf(payload))),
                     false, null, null);
         } catch (AppException e) {
-            reportInvocation(sessionId, gatewayId, toolName, "FAIL",
-                    (int) (System.currentTimeMillis() - start), e.getInfo());
+            int cost = (int) (System.currentTimeMillis() - start);
+            reportInvocation(sessionId, gatewayId, toolName, "FAIL", cost, e.getInfo());
+            recordUsage(sessionId, gatewayId, toolName, principal, "FAIL", cost);
             throw new McpError(new McpSchema.JSONRPCResponse.JSONRPCError(
                     jsonRpcErrorCode(e), e.getMessage(), null));
         } catch (Exception e) {
-            reportInvocation(sessionId, gatewayId, toolName, "FAIL",
-                    (int) (System.currentTimeMillis() - start), e.getMessage());
+            int cost = (int) (System.currentTimeMillis() - start);
+            reportInvocation(sessionId, gatewayId, toolName, "FAIL", cost, e.getMessage());
+            recordUsage(sessionId, gatewayId, toolName, principal, "FAIL", cost);
             throw new McpError(new McpSchema.JSONRPCResponse.JSONRPCError(
                     McpErrorCodes.INTERNAL_ERROR, "内部错误: " + e.getMessage(), null));
         } finally {
             TraceContext.clear();
+        }
+    }
+
+    /** 用量账本落账（工单 0046：tools/call 全量含 CEL 拒绝；异步不阻断） */
+    private void recordUsage(String sessionId, String gatewayId, String toolName,
+            GovernancePrincipal principal, String status, int costMs) {
+        try {
+            usageLedgerService.record(UsageRecordVO.builder()
+                    .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())
+                    .apiKeyHash(principal == null ? null : principal.getApiKeyHash())
+                    .gatewayId(gatewayId)
+                    .trafficType("MCP")
+                    .toolOrModel(toolName)
+                    .status(status)
+                    .durationMs(costMs)
+                    .clientIp(principal == null ? null : principal.getClientIp())
+                    .sessionId(sessionId)
+                    .build());
+        } catch (Exception e) {
+            log.warn("用量落账提交失败 tool={}：{}", toolName, e.getMessage());
         }
     }
 

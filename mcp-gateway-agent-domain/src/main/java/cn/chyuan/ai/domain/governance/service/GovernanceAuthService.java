@@ -144,6 +144,7 @@ public class GovernanceAuthService implements IGovernanceAuthService {
                 .ownerUserId(vo.getOwnerUserId())
                 .tenantId(vo.getTenantId())
                 .roles(List.of())
+                .clientIp(clientIp)
                 .rpmLimit(vo.getRpmLimit())
                 .dailyRequestLimit(vo.getDailyRequestLimit())
                 .dailyToolCallLimit(vo.getDailyToolCallLimit())

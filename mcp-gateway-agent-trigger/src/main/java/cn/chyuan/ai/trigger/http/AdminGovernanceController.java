@@ -6,6 +6,8 @@ import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
+import cn.chyuan.ai.api.dto.UsageDailyResponseDTO;
+import cn.chyuan.ai.api.dto.UsageLogResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyUpdateRequestDTO;
@@ -89,6 +91,40 @@ public class AdminGovernanceController {
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return adminGovernanceService.pageAuditLogs(resourceType, resourceId, page, size);
+    }
+
+    // ---- 用量账本（工单 0046）----
+
+    /** 用量明细分页（时间/密钥/工具/状态/流量类型过滤；读操作不记审计） */
+    @GetMapping("/usage/logs")
+    public ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate,
+            @RequestParam(required = false) Long virtualKeyId,
+            @RequestParam(required = false, defaultValue = "") String toolOrModel,
+            @RequestParam(required = false, defaultValue = "") String status,
+            @RequestParam(required = false, defaultValue = "") String trafficType,
+            @RequestParam(required = false, defaultValue = "") String channelId,
+            @RequestParam(required = false, defaultValue = "1") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return adminGovernanceService.pageUsageLogs(fromDate, toDate, virtualKeyId,
+                toolOrModel, status, trafficType, channelId, page, size);
+    }
+
+    /** 用量日聚合明细（区间内全部维度行，对账/明细页用） */
+    @GetMapping("/usage/daily")
+    public Response<List<UsageDailyResponseDTO>> dailyUsageDetail(
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate) {
+        return Response.success(adminGovernanceService.dailyUsageDetail(fromDate, toDate));
+    }
+
+    /** 用量按日汇总（趋势图数据源） */
+    @GetMapping("/usage/daily/totals")
+    public Response<List<UsageDailyResponseDTO>> dailyUsageTotals(
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate) {
+        return Response.success(adminGovernanceService.dailyUsageTotals(fromDate, toDate));
     }
 
     // ---- CEL 工具治理规则（工单 0018）----

@@ -42,6 +42,9 @@ public class GovernancePrincipal {
     /** 角色（JWT 认证来自 roles claim；vk 认证为空） */
     private List<String> roles;
 
+    /** 来源 IP（认证过滤器提取，用量账本/CEL client.ip 消费，工单 0045/0046） */
+    private String clientIp;
+
     /** 每分钟请求限额（NULL 不限，-1 表示未知） */
     private Integer rpmLimit;
 

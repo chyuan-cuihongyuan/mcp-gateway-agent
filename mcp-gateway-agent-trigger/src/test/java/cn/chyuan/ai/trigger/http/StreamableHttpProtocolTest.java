@@ -455,6 +455,12 @@ class StreamableHttpProtocolTest {
         }
 
         @Bean
+        cn.chyuan.ai.domain.usage.service.IUsageLedgerService usageLedgerService() {
+            // 用量账本落账 mock：分片上下文无 DB，record() 仅吞掉（后续流量面票在此断言）
+            return org.mockito.Mockito.mock(cn.chyuan.ai.domain.usage.service.IUsageLedgerService.class);
+        }
+
+        @Bean
         GatewayMcpServerRegistry gatewayMcpServerRegistry(ISessionRepository sessionRepository,
                 IMcpToolCatalogService toolCatalogService, IMcpToolInvocationService toolInvocationService,
                 ObservabilityHelper observabilityHelper) {
@@ -483,7 +489,7 @@ class StreamableHttpProtocolTest {
         McpGatewayDelegateServlet mcpGatewayDelegateServlet(GatewayMcpServerRegistry registry,
                 IMcpToolCatalogService toolCatalogService, ObservabilityHelper observabilityHelper) {
             return new McpGatewayDelegateServlet(registry, toolCatalogService, null,
-                    observabilityHelper, 30L);
+                    observabilityHelper, null, 30L);
         }
 
         @Bean

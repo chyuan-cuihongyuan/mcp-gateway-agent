@@ -4,6 +4,8 @@ import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
 import cn.chyuan.ai.domain.session.model.valobj.SessionMetaVO;
 import cn.chyuan.ai.domain.session.service.tool.IMcpToolCatalogService;
+import cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO;
+import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry;
 import cn.chyuan.ai.infrastructure.utils.ObservabilityHelper;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
@@ -66,6 +68,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     private final GatewayMcpServerRegistry registry;
     private final IMcpToolCatalogService toolCatalogService;
     private final ObservabilityHelper observabilityHelper;
+    private final IUsageLedgerService usageLedgerService;
     private final long sessionTimeoutMinutes;
 
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
@@ -86,11 +89,13 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             IMcpToolCatalogService toolCatalogService,
             ISessionMetaRepository sessionMetaRepository,
             ObservabilityHelper observabilityHelper,
+            IUsageLedgerService usageLedgerService,
             long sessionTimeoutMinutes) {
         this.registry = registry;
         this.toolCatalogService = toolCatalogService;
         this.sessionMetaRepository = sessionMetaRepository;
         this.observabilityHelper = observabilityHelper;
+        this.usageLedgerService = usageLedgerService;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
         log.info("Streamable HTTP 委派路由已初始化: sessionTimeoutMinutes={}", sessionTimeoutMinutes);
@@ -227,9 +232,11 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         String sessionId = wrapper.capturedSessionId();
         if (sessionId != null && wrapper.status() < HttpServletResponse.SC_BAD_REQUEST) {
             reportConnect(sessionId, gatewayId, "SUCCESS", costMs, null);
+            recordUsage(request, gatewayId, "initialize", "SUCCESS", costMs);
         } else {
             reportConnect(connectTraceId, gatewayId, "FAIL", costMs,
                     "initialize未建立会话(httpStatus=" + wrapper.status() + ")");
+            recordUsage(request, gatewayId, "initialize", "FAIL", costMs);
         }
     }
 
@@ -256,9 +263,13 @@ public class McpGatewayDelegateServlet extends HttpServlet {
 
             reportListInvocation(request, gatewayId, "SUCCESS",
                     (int) (System.currentTimeMillis() - start), null);
+            recordUsage(request, gatewayId, "tools/list", "SUCCESS",
+                    (int) (System.currentTimeMillis() - start));
         } catch (Exception e) {
             reportListInvocation(request, gatewayId, "FAIL",
                     (int) (System.currentTimeMillis() - start), e.getMessage());
+            recordUsage(request, gatewayId, "tools/list", "FAIL",
+                    (int) (System.currentTimeMillis() - start));
             writeJsonRpcError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     McpErrorCodes.INTERNAL_ERROR, "内部错误: " + e.getMessage(), idOf(root));
         }
@@ -411,7 +422,32 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         observabilityHelper.reportAgentDecision(sessionId, sessionId, null, gatewayId,
                 "tools/call", "TOOL_CALL", "tool_invocation", null, null, null,
                 1, 0, "FAIL", 0, null, message);
+        recordUsage(request, gatewayId, toolNameOf(root), "FAIL", 0);
         writeJsonRpcError(response, HttpServletResponse.SC_OK, jsonRpcCode, message, idOf(root));
+    }
+
+    /** 用量账本落账（工单 0046：tools/list、initialize、未知工具失败；已知工具在 registry wrapper 内落账） */
+    private void recordUsage(HttpServletRequest request, String gatewayId, String toolOrModel,
+            String status, int costMs) {
+        if (usageLedgerService == null) {
+            return;
+        }
+        try {
+            GovernancePrincipal principal = principalOf(request);
+            usageLedgerService.record(UsageRecordVO.builder()
+                    .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())
+                    .apiKeyHash(principal == null ? null : principal.getApiKeyHash())
+                    .gatewayId(gatewayId)
+                    .trafficType("MCP")
+                    .toolOrModel(toolOrModel)
+                    .status(status)
+                    .durationMs(costMs)
+                    .clientIp(principal == null ? null : principal.getClientIp())
+                    .sessionId(request.getHeader(SESSION_HEADER))
+                    .build());
+        } catch (Exception e) {
+            log.warn("用量落账提交失败 gateway={} tool={}：{}", gatewayId, toolOrModel, e.getMessage());
+        }
     }
 
     private void writeSessionNotFound(HttpServletRequest request, HttpServletResponse response) throws IOException {

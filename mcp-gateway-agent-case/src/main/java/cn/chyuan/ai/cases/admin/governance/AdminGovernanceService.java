@@ -6,6 +6,8 @@ import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
+import cn.chyuan.ai.api.dto.UsageDailyResponseDTO;
+import cn.chyuan.ai.api.dto.UsageLogResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyUpdateRequestDTO;
@@ -19,6 +21,10 @@ import cn.chyuan.ai.domain.governance.service.IAdminAuthService;
 import cn.chyuan.ai.domain.governance.service.IAuditService;
 import cn.chyuan.ai.domain.governance.service.ICelRuleService;
 import cn.chyuan.ai.domain.governance.service.IVirtualKeyService;
+import cn.chyuan.ai.domain.usage.model.valobj.DailyUsageVO;
+import cn.chyuan.ai.domain.usage.model.valobj.UsageQueryVO;
+import cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO;
+import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -52,6 +58,9 @@ public class AdminGovernanceService implements IAdminGovernanceService {
 
     @Resource
     private ICelRuleService celRuleService;
+
+    @Resource
+    private IUsageLedgerService usageLedgerService;
 
     @Override
     public LoginResponseDTO login(LoginRequestDTO requestDTO) {
@@ -198,6 +207,78 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     @Override
     public String validateCelExpression(String expression) {
         return celRuleService.validateExpression(expression);
+    }
+
+    // ---- 用量账本（工单 0046）----
+
+    @Override
+    public ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(String fromDate, String toDate,
+            Long virtualKeyId, String toolOrModel, String status, String trafficType,
+            String channelId, int page, int size) {
+        UsageQueryVO query = UsageQueryVO.builder()
+                .fromDate(blankToNull(fromDate))
+                .toDate(blankToNull(toDate))
+                .virtualKeyId(virtualKeyId)
+                .toolOrModel(blankToNull(toolOrModel))
+                .status(blankToNull(status))
+                .trafficType(blankToNull(trafficType))
+                .channelId(blankToNull(channelId))
+                .build();
+        List<UsageLogResponseDTO> list = usageLedgerService.page(query, page, size).stream()
+                .map(this::toUsageDto)
+                .toList();
+        return ResponsePage.success(list, usageLedgerService.count(query));
+    }
+
+    @Override
+    public List<UsageDailyResponseDTO> dailyUsageDetail(String fromDate, String toDate) {
+        return usageLedgerService.dailyDetail(blankToNull(fromDate), blankToNull(toDate)).stream()
+                .map(this::toDailyDto)
+                .toList();
+    }
+
+    @Override
+    public List<UsageDailyResponseDTO> dailyUsageTotals(String fromDate, String toDate) {
+        return usageLedgerService.dailyTotals(blankToNull(fromDate), blankToNull(toDate)).stream()
+                .map(this::toDailyDto)
+                .toList();
+    }
+
+    private UsageLogResponseDTO toUsageDto(UsageRecordVO vo) {
+        return UsageLogResponseDTO.builder()
+                .requestId(vo.getRequestId())
+                .virtualKeyId(vo.getVirtualKeyId())
+                .apiKeyHashPrefix(vo.getApiKeyHash() == null ? null
+                        : vo.getApiKeyHash().substring(0, Math.min(8, vo.getApiKeyHash().length())))
+                .gatewayId(vo.getGatewayId())
+                .trafficType(vo.getTrafficType())
+                .toolOrModel(vo.getToolOrModel())
+                .channelId(vo.getChannelId())
+                .status(vo.getStatus())
+                .durationMs(vo.getDurationMs())
+                .promptTokens(vo.getPromptTokens())
+                .completionTokens(vo.getCompletionTokens())
+                .clientIp(vo.getClientIp())
+                .sessionId(vo.getSessionId())
+                .createdAt(formatDate(vo.getCreatedAt()))
+                .build();
+    }
+
+    private UsageDailyResponseDTO toDailyDto(DailyUsageVO vo) {
+        return UsageDailyResponseDTO.builder()
+                .statDate(vo.getStatDate())
+                .virtualKeyId(vo.getVirtualKeyId())
+                .toolOrModel(vo.getToolOrModel())
+                .channelId(vo.getChannelId())
+                .callCount(vo.getCallCount())
+                .failCount(vo.getFailCount())
+                .totalDurationMs(vo.getTotalDurationMs())
+                .tokenSum(vo.getTokenSum())
+                .build();
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private CelRuleVO toCelRuleCommand(Long id, CelRuleUpsertRequestDTO dto) {

@@ -145,4 +145,27 @@ public class CelRuleServiceTest {
         verify(repository, never()).update(any(CelRuleVO.class));
         verify(repository, never()).deleteById(99L);
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("dry-run（0048）— PASS/DENY/COMPILE_ERROR/RUNTIME_ERROR 四态")
+    void dryRunOutcomes() {
+        // PASS / DENY
+        org.junit.jupiter.api.Assertions.assertEquals("PASS",
+                service.dryRun("mcp.tool.name == 't1'", java.util.Map.of(
+                        "mcp", java.util.Map.of("tool", java.util.Map.of("name", "t1", "source", "LOCAL", "target", "LOCAL")),
+                        "auth", java.util.Map.of(), "key", java.util.Map.of(),
+                        "jwt", java.util.Map.of(), "client", java.util.Map.of())).outcome());
+        org.junit.jupiter.api.Assertions.assertEquals("DENIED",
+                service.dryRun("mcp.tool.name == 'other'", java.util.Map.of(
+                        "mcp", java.util.Map.of("tool", java.util.Map.of("name", "t1", "source", "LOCAL", "target", "LOCAL")),
+                        "auth", java.util.Map.of(), "key", java.util.Map.of(),
+                        "jwt", java.util.Map.of(), "client", java.util.Map.of())).outcome());
+        // 编译错误（未声明顶层变量）
+        org.junit.jupiter.api.Assertions.assertEquals("COMPILE_ERROR", service.dryRun("undeclared.var == 1", null).outcome());
+        // 运行时错误（结果非布尔）
+        org.junit.jupiter.api.Assertions.assertEquals("RUNTIME_ERROR", service.dryRun("mcp.tool.name", java.util.Map.of(
+                "mcp", java.util.Map.of("tool", java.util.Map.of("name", "t1", "source", "LOCAL", "target", "LOCAL")),
+                "auth", java.util.Map.of(), "key", java.util.Map.of(),
+                "jwt", java.util.Map.of(), "client", java.util.Map.of())).outcome());
+    }
 }

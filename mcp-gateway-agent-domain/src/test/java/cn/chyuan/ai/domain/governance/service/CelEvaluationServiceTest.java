@@ -195,4 +195,39 @@ public class CelEvaluationServiceTest {
         return meterRegistry.counter("governance.cel.denied", "gateway", "gw-1", "method", "tools/call").count()
                 + meterRegistry.counter("governance.cel.denied", "gateway", "gw-1", "method", "tools/list").count();
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("0048 扩展变量 — jwt.sub/jwt.roles/client.ip/mcp.tool.target 可用")
+    void extendedVariablesEvaluate() {
+        cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal jwt = cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal.builder()
+                .authType(cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal.AuthType.JWT)
+                .ownerUserId("user-1").roles(java.util.List.of("admin")).clientIp("10.1.2.3").build();
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                service.isToolAllowed(jwt, "gateway_business", "tools/call", "oil_applyRefund",
+                        cn.chyuan.ai.domain.governance.service.CelEvaluationService.TOOL_SOURCE_EXTERNAL));
+
+        // 直接对变量工厂断言绑定值（dry-run 与运行求值共用同一工厂）
+        java.util.Map<String, Object> vars = cn.chyuan.ai.domain.governance.service.CelVariables.of(
+                jwt, "gateway_business", "tools/call", "oil_applyRefund",
+                cn.chyuan.ai.domain.governance.service.CelEvaluationService.TOOL_SOURCE_EXTERNAL);
+        org.junit.jupiter.api.Assertions.assertEquals("user-1",
+                ((java.util.Map<?, ?>) vars.get("jwt")).get("sub"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of("admin"),
+                ((java.util.Map<?, ?>) vars.get("jwt")).get("roles"));
+        org.junit.jupiter.api.Assertions.assertEquals("10.1.2.3",
+                ((java.util.Map<?, ?>) vars.get("client")).get("ip"));
+        java.util.Map<?, ?> tool = (java.util.Map<?, ?>) ((java.util.Map<?, ?>) vars.get("mcp")).get("tool");
+        org.junit.jupiter.api.Assertions.assertEquals("oil", tool.get("target"), "EXTERNAL 工具 target=挂接渠道名");
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("0048 缺主体不抛错 — 空形绑定（vk/匿名）")
+    void extendedVariablesSafeForNullPrincipal() {
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() ->
+                cn.chyuan.ai.domain.governance.service.CelVariables.of(null, "g", "tools/list", null, null));
+        java.util.Map<String, Object> vars = cn.chyuan.ai.domain.governance.service.CelVariables.of(
+                null, "g", "tools/list", null, null);
+        org.junit.jupiter.api.Assertions.assertEquals("", ((java.util.Map<?, ?>) vars.get("jwt")).get("sub"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(), ((java.util.Map<?, ?>) vars.get("jwt")).get("roles"));
+    }
 }

@@ -33,10 +33,12 @@ import java.util.List;
 @Service
 public class CelRuleService implements ICelRuleService {
 
-    /** 顶层变量名（0011 CEL 变量面的三个命名空间） */
+    /** 顶层变量名（0011 CEL 变量面的三个命名空间 + 0048 扩展 jwt/client） */
     static final String VAR_AUTH = "auth";
     static final String VAR_KEY = "key";
     static final String VAR_MCP = "mcp";
+    static final String VAR_JWT = "jwt";
+    static final String VAR_CLIENT = "client";
 
     @Resource
     private ICelRuleRepository repository;
@@ -215,6 +217,34 @@ public class CelRuleService implements ICelRuleService {
                 .addVar(VAR_AUTH, SimpleType.DYN)
                 .addVar(VAR_KEY, SimpleType.DYN)
                 .addVar(VAR_MCP, SimpleType.DYN)
+                .addVar(VAR_JWT, SimpleType.DYN)
+                .addVar(VAR_CLIENT, SimpleType.DYN)
                 .build();
+    }
+
+    @Override
+    public DryRunResult dryRun(String expression, java.util.Map<String, Object> variables) {
+        if (expression == null || expression.isBlank()) {
+            return DryRunResult.compileError("表达式不能为空");
+        }
+        CelValidationResult compiled;
+        try {
+            compiled = cel.compile(expression);
+        } catch (Exception e) {
+            return DryRunResult.compileError(e.getMessage() == null ? "表达式编译失败" : e.getMessage());
+        }
+        if (compiled.hasError()) {
+            return DryRunResult.compileError(compiled.getIssueString());
+        }
+        try {
+            Object result = cel.createProgram(compiled.getAst())
+                    .eval(variables == null ? java.util.Map.of() : variables);
+            if (result instanceof Boolean b) {
+                return b ? DryRunResult.pass() : DryRunResult.denied();
+            }
+            return DryRunResult.runtimeError("表达式结果非布尔: " + result);
+        } catch (Exception e) {
+            return DryRunResult.runtimeError(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+        }
     }
 }

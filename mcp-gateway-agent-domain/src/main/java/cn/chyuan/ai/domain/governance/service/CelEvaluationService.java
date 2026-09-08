@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -118,29 +117,10 @@ public class CelEvaluationService implements ICelEvaluationService {
                 .toList();
     }
 
-    /** 0011 CEL 变量面绑定（auth.* / key.quota.* / mcp.*） */
+    /** 0011 CEL 变量面绑定 + 0048 扩展（jwt.* / client.ip / mcp.tool.target） */
     private Map<String, Object> buildVariables(GovernancePrincipal principal, String gatewayId,
             String method, String toolName, String toolSource) {
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("auth", Map.of(
-                "key_id", principal.getVirtualKeyId() != null ? principal.getVirtualKeyId() : 0L,
-                "owner_user_id", orEmpty(principal.getOwnerUserId()),
-                "tenant_id", orEmpty(principal.getTenantId()),
-                "roles", principal.getRoles() != null ? principal.getRoles() : List.of(),
-                "auth_type", authTypeName(principal)));
-        variables.put("key", Map.of("quota", Map.of(
-                "rpm_limit", principal.getRpmLimit() != null ? (long) principal.getRpmLimit() : QUOTA_UNKNOWN,
-                "daily_request_remaining", QUOTA_UNKNOWN,
-                "daily_tool_call_remaining", QUOTA_UNKNOWN)));
-        variables.put("mcp", Map.of(
-                "gateway", Map.of("id", orEmpty(gatewayId)),
-                "method", orEmpty(method),
-                "tool", Map.of("name", orEmpty(toolName), "source", orEmpty(toolSource))));
-        return variables;
-    }
-
-    private String authTypeName(GovernancePrincipal principal) {
-        return principal.getAuthType() == null ? "ANONYMOUS" : principal.getAuthType().name();
+        return CelVariables.of(principal, gatewayId, method, toolName, toolSource);
     }
 
     private String orEmpty(String value) {

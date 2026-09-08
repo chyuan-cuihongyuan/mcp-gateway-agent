@@ -63,12 +63,12 @@ public class GovernanceFilterConfig {
         return registration;
     }
 
-    /** 全局流量面认证（/v1 OpenAI 兼容面，order 10；A2A 面 0066 复用同一注册） */
+    /** 全局流量面认证（/v1 OpenAI 兼容面 + /a2a 任务面，order 10；card 发现面 /.well-known 免认证） */
     @Bean
     public FilterRegistrationBean<GlobalTrafficAuthFilter> globalTrafficAuthFilter() {
         FilterRegistrationBean<GlobalTrafficAuthFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new GlobalTrafficAuthFilter(governanceAuthService));
-        registration.addUrlPatterns("/v1/*");
+        registration.addUrlPatterns("/v1/*", "/a2a/*");
         registration.setOrder(10);
         registration.setName("globalTrafficAuthFilter");
         return registration;

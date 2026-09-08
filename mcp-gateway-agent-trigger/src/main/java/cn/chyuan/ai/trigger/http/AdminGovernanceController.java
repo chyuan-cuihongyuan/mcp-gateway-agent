@@ -76,6 +76,12 @@ public class AdminGovernanceController {
         return Response.success(adminGovernanceService.getVirtualKey(id));
     }
 
+    /** 轮换密钥（工单 0049）—— 新明文凭证仅本次响应返回一次；旧钥进入宽限期并存 */
+    @PostMapping("/virtual-keys/{id}/regenerate")
+    public Response<VirtualKeyResponseDTO> regenerateVirtualKey(@PathVariable Long id) {
+        return Response.success(adminGovernanceService.regenerateVirtualKey(id));
+    }
+
     @GetMapping("/virtual-keys")
     public ResponsePage<List<VirtualKeyResponseDTO>> pageVirtualKeys(
             @RequestParam(required = false, defaultValue = "") String keyword,

@@ -60,6 +60,18 @@ public class McpVirtualKeyPO extends BasePagePO {
     /** IP/CIDR 白名单 JSON 数组字符串（空/NULL=不限，工单 0045） */
     private String ipAllowList;
 
+    /** 累计轮换次数（工单 0049） */
+    private Integer rotationCount;
+
+    /** 上次轮换时间（工单 0049） */
+    private Date lastRotationAt;
+
+    /** 前代凭证哈希（宽限期内可认证，工单 0049） */
+    private String prevKeyHash;
+
+    /** 宽限期截止（工单 0049） */
+    private Date graceUntil;
+
     private Date createdAt;
 
     private Date updatedAt;

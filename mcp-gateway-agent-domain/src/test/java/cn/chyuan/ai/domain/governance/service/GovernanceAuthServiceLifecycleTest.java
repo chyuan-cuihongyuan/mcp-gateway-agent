@@ -133,4 +133,14 @@ public class GovernanceAuthServiceLifecycleTest {
                 .status("ACTIVE")
                 .rpmLimit(60);
     }
+
+    @Test
+    @DisplayName("宽限双密钥（0049）— 前代哈希在宽限期内由认证口径返回即可认证（SQL 保证，服务层零特判）")
+    void testGracePeriodHandledByQuery() {
+        // 宽限语义落在 queryByHash 的 SQL（api_key_hash=? OR prev_key_hash=? AND grace_until>NOW()），
+        // 服务层只见 VO：仓储返回即认证通过 —— 断言主链路无需感知代际
+        mockKey(activeKey().build());
+        assertNotNull(service.authenticate(GATEWAY, CREDENTIAL, "1.2.3.4"));
+        verify(virtualKeyRepository).findByHash(KeyHashUtil.sha256Hex(CREDENTIAL));
+    }
 }

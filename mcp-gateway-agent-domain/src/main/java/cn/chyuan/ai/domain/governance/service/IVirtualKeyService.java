@@ -21,6 +21,12 @@ public interface IVirtualKeyService {
     /** 吊销（REVOKED，不可恢复） */
     void revoke(Long id);
 
+    /**
+     * 轮换（工单 0049）：生成新明文（仅本次返回），旧凭证进入宽限期并存，
+     * 宽限期外失效；再次轮换时上一代立即失效（只保留一代）。
+     */
+    VirtualKeyVO regenerate(Long id);
+
     /** 授权给网关 */
     void grant(Long id, String gatewayId);
 

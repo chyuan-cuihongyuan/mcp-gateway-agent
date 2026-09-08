@@ -67,6 +67,11 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
     }
 
     @Override
+    public void rotateKey(Long id, String newKeyHash, Date graceUntil) {
+        virtualKeyDao.rotateKey(id, newKeyHash, graceUntil);
+    }
+
+    @Override
     public boolean existsGrant(Long keyId, String gatewayId) {
         Integer count = virtualKeyGatewayDao.countGrant(keyId, gatewayId);
         return count != null && count > 0;
@@ -162,6 +167,8 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .expiresAt(po.getExpiresAt())
                 .lastActiveAt(po.getLastActiveAt())
                 .ipAllowList(parseIpList(po.getIpAllowList()))
+                .rotationCount(po.getRotationCount())
+                .lastRotationAt(po.getLastRotationAt())
                 .rpmLimit(po.getRpmLimit())
                 .dailyRequestLimit(po.getDailyRequestLimit())
                 .dailyToolCallLimit(po.getDailyToolCallLimit())

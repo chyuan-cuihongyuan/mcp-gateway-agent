@@ -30,6 +30,9 @@ public interface IAdminGovernanceService {
 
     void revokeVirtualKey(Long id);
 
+    /** 轮换密钥（工单 0049）：新明文仅本次返回，旧钥进入宽限期 */
+    VirtualKeyResponseDTO regenerateVirtualKey(Long id);
+
     void grantGateway(Long id, String gatewayId);
 
     void revokeGrantGateway(Long id, String gatewayId);

@@ -17,6 +17,8 @@
         <result column="daily_cost_limit" property="dailyCostLimit"/>
         <result column="last_active_at" property="lastActiveAt"/>
         <result column="ip_allow_list" property="ipAllowList"/>
+        <result column="rotation_count" property="rotationCount"/>
+        <result column="last_rotation_at" property="lastRotationAt"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -24,7 +26,7 @@
     <sql id="all_columns">
         id, api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
         rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
-        last_active_at, ip_allow_list, created_at, updated_at
+        last_active_at, ip_allow_list, rotation_count, last_rotation_at, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id">
@@ -67,12 +69,29 @@
         UPDATE mcp_virtual_key SET last_active_at = NOW() WHERE id = #{id}
     </update>
 
+    <!-- 轮换：换新哈希、前代哈希入宽限期（只保留一代，工单 0049） -->
+    <update id="rotateKey">
+        UPDATE mcp_virtual_key
+        SET prev_key_hash = api_key_hash,
+            api_key_hash = #{newKeyHash},
+            grace_until = #{graceUntil},
+            rotation_count = rotation_count + 1,
+            last_rotation_at = NOW(),
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
     <select id="queryById" resultMap="McpVirtualKeyMap">
         SELECT <include refid="all_columns"/> FROM mcp_virtual_key WHERE id = #{id}
     </select>
 
+    <!-- 认证口径（工单 0049 宽限双密钥）：主哈希，或宽限期内前代哈希 -->
     <select id="queryByHash" resultMap="McpVirtualKeyMap">
-        SELECT <include refid="all_columns"/> FROM mcp_virtual_key WHERE api_key_hash = #{apiKeyHash}
+        SELECT <include refid="all_columns"/>
+        FROM mcp_virtual_key
+        WHERE api_key_hash = #{apiKeyHash}
+           OR (prev_key_hash = #{apiKeyHash} AND grace_until IS NOT NULL AND grace_until > NOW())
+        LIMIT 1
     </select>
 
     <select id="queryPage" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" resultMap="McpVirtualKeyMap">

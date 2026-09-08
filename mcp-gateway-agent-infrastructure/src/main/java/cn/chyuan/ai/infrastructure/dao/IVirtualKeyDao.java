@@ -33,4 +33,8 @@ public interface IVirtualKeyDao {
 
     /** 最后活跃时间更新（认证命中去抖后调用，工单 0045） */
     int touchLastActive(@Param("id") Long id);
+
+    /** 密钥轮换（工单 0049：新哈希+前代宽限，只保留一代；前代哈希由 SQL 自赋值） */
+    int rotateKey(@Param("id") Long id, @Param("newKeyHash") String newKeyHash,
+            @Param("graceUntil") java.util.Date graceUntil);
 }

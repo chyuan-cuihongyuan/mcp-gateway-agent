@@ -49,6 +49,12 @@ public class VirtualKeyVO {
     /** IP/CIDR 白名单（空=不限，工单 0045） */
     private java.util.List<String> ipAllowList;
 
+    /** 累计轮换次数（工单 0049） */
+    private Integer rotationCount;
+
+    /** 上次轮换时间（工单 0049） */
+    private Date lastRotationAt;
+
     private Integer rpmLimit;
 
     private Integer dailyRequestLimit;

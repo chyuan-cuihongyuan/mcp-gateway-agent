@@ -146,4 +146,39 @@ public class VirtualKeyServiceTest {
         assertEquals(60, rpmCaptured.get(), "每小时限次应换算为 RPM（3600/h → 60/min）");
         verify(repository, times(2)).migrateLegacy(anyString(), anyString(), anyString(), any(), any(), anyString());
     }
+
+    @Test
+    @DisplayName("轮换（0049）— 新明文一次返回、仓储换哈希+宽限、缓存全量失效、审计")
+    void testRegenerate_NewPlaintextOnceAndRotate() throws Exception {
+        java.lang.reflect.Field graceField = VirtualKeyService.class.getDeclaredField("rotationGraceHours");
+        graceField.setAccessible(true);
+        graceField.set(service, 24L);
+
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder()
+                .id(42L).keyName("k").status("ACTIVE").rotationCount(1).build());
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder()
+                .id(42L).keyName("k").status("ACTIVE").rotationCount(1).build());
+        // regenerate 内部再 getById → 返回已轮换形态
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder()
+                .id(42L).keyName("k").status("ACTIVE").rotationCount(2).build());
+
+        VirtualKeyVO result = service.regenerate(42L);
+
+        assertNotNull(result.getPlaintextOnce());
+        assertTrue(result.getPlaintextOnce().startsWith("vk-"));
+        org.mockito.ArgumentCaptor<java.util.Date> graceCaptor = org.mockito.ArgumentCaptor.forClass(java.util.Date.class);
+        verify(repository).rotateKey(org.mockito.ArgumentMatchers.eq(42L),
+                org.mockito.ArgumentMatchers.eq(KeyHashUtil.sha256Hex(result.getPlaintextOnce())), graceCaptor.capture());
+        assertTrue(graceCaptor.getValue().getTime() > System.currentTimeMillis() + 23 * 3600_000L, "宽限期约 24h");
+        verify(governanceAuthService).invalidateAll();
+        verify(auditService).record(any(AuditCommandEntity.class));
+    }
+
+    @Test
+    @DisplayName("轮换（0049）— 非启用态拒绝")
+    void testRegenerate_RejectsDisabledKey() {
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder().id(42L).status("DISABLED").build());
+        assertThrows(cn.chyuan.ai.types.exception.AppException.class, () -> service.regenerate(42L));
+        verify(repository, never()).rotateKey(anyLong(), anyString(), any());
+    }
 }

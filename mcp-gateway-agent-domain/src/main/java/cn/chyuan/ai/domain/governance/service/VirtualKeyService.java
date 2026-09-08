@@ -12,8 +12,10 @@ import cn.chyuan.ai.types.util.KeyHashUtil;
 import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +126,42 @@ public class VirtualKeyService implements IVirtualKeyService {
         // 认证缓存兜底失效（状态变更影响全部缓存副本）
         governanceAuthService.invalidateAll();
     }
+
+    @Override
+    public VirtualKeyVO regenerate(Long id) {
+        VirtualKeyVO existing = requireKey(id);
+        if (!"ACTIVE".equals(existing.getStatus())) {
+            throw new AppException(McpErrorCodes.KEY_DISABLED, "仅启用态密钥可轮换，当前：" + existing.getStatus());
+        }
+
+        String credential = KeyHashUtil.generateVirtualKey();
+        String newHash = KeyHashUtil.sha256Hex(credential);
+        Date graceUntil = new Date(System.currentTimeMillis() + rotationGraceHours * 3600_000L);
+        repository.rotateKey(id, newHash, graceUntil);
+        governanceAuthService.invalidateAll();
+
+        VirtualKeyVO saved = getById(id);
+        saved.setPlaintextOnce(credential);
+        saved.setMaskedKey(KeyHashUtil.mask(credential));
+
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin")
+                .action("ROTATE_KEY")
+                .resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(id))
+                .beforeJson(snapshot(existing))
+                .afterJson("{\"rotationCount\":" + (existing.getRotationCount() == null
+                        ? 1 : existing.getRotationCount() + 1) + "}")
+                .build());
+
+        log.info("虚拟密钥已轮换 id:{} name:{} 第{}代", id, existing.getKeyName(),
+                existing.getRotationCount() == null ? 1 : existing.getRotationCount() + 1);
+        return saved;
+    }
+
+    /** 轮换宽限期（小时），工单 0049 */
+    @Value("${governance.key.rotation-grace-hours:24}")
+    private long rotationGraceHours;
 
     @Override
     public void grant(Long id, String gatewayId) {

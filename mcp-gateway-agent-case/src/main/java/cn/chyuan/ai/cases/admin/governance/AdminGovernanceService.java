@@ -129,6 +129,14 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     }
 
     @Override
+    public VirtualKeyResponseDTO regenerateVirtualKey(Long id) {
+        VirtualKeyVO vo = virtualKeyService.regenerate(id);
+        VirtualKeyResponseDTO dto = toDto(vo);
+        dto.setGrants(virtualKeyService.getGrants(id));
+        return dto;
+    }
+
+    @Override
     public void grantGateway(Long id, String gatewayId) {
         virtualKeyService.grant(id, gatewayId);
     }

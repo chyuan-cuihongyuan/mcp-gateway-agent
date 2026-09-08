@@ -38,4 +38,7 @@ public class VirtualKeyCommandEntity {
     private Integer tpmLimit;
 
     private Double dailyCostLimit;
+
+    /** IP/CIDR 白名单（空=不限，工单 0045） */
+    private java.util.List<String> ipAllowList;
 }

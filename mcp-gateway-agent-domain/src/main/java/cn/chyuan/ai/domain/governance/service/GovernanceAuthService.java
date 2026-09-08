@@ -9,6 +9,7 @@ import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
 import cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
 import cn.chyuan.ai.types.exception.AppException;
+import cn.chyuan.ai.types.util.IpCidrUtil;
 import cn.chyuan.ai.types.util.KeyHashUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -59,8 +60,13 @@ public class GovernanceAuthService implements IGovernanceAuthService {
 
     @Override
     public GovernancePrincipal authenticate(String gatewayId, String credential) {
+        return authenticate(gatewayId, credential, null);
+    }
+
+    @Override
+    public GovernancePrincipal authenticate(String gatewayId, String credential, String clientIp) {
         try {
-            return doAuthenticate(gatewayId, credential);
+            return doAuthenticate(gatewayId, credential, clientIp);
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
@@ -70,7 +76,7 @@ public class GovernanceAuthService implements IGovernanceAuthService {
         }
     }
 
-    private GovernancePrincipal doAuthenticate(String gatewayId, String credential) {
+    private GovernancePrincipal doAuthenticate(String gatewayId, String credential, String clientIp) {
         if (!isGatewayEnforcing(gatewayId)) {
             return GovernancePrincipal.anonymous();
         }
@@ -86,7 +92,7 @@ public class GovernanceAuthService implements IGovernanceAuthService {
         }
 
         // 虚拟密钥模式（vk- 或迁移后的 gw-）
-        return authenticateVirtualKey(gatewayId, trimmed);
+        return authenticateVirtualKey(gatewayId, trimmed, clientIp);
     }
 
     @Override
@@ -100,10 +106,10 @@ public class GovernanceAuthService implements IGovernanceAuthService {
         if (GovernancePrincipal.AuthType.JWT.equals(principal.getAuthType())) {
             return principal;
         }
-        // VIRTUAL_KEY：复核状态/过期/授权（缓存命中，幂等）
+        // VIRTUAL_KEY：复核状态/过期/授权（缓存命中，幂等；IP 白名单只在认证入口判一次）
         try {
             VirtualKeyVO vo = loadVirtualKey(principal.getApiKeyHash());
-            checkUsable(gatewayId, principal.getApiKeyHash(), vo);
+            checkUsable(gatewayId, principal.getApiKeyHash(), vo, null, false);
             return principal;
         } catch (AppException e) {
             throw e;
@@ -125,10 +131,11 @@ public class GovernanceAuthService implements IGovernanceAuthService {
                 .build();
     }
 
-    private GovernancePrincipal authenticateVirtualKey(String gatewayId, String credential) {
+    private GovernancePrincipal authenticateVirtualKey(String gatewayId, String credential, String clientIp) {
         String hash = KeyHashUtil.sha256Hex(credential);
         VirtualKeyVO vo = loadVirtualKey(hash);
-        checkUsable(gatewayId, hash, vo);
+        checkUsable(gatewayId, hash, vo, clientIp, true);
+        touchLastActiveDebounced(vo);
 
         return GovernancePrincipal.builder()
                 .authType(GovernancePrincipal.AuthType.VIRTUAL_KEY)
@@ -143,20 +150,47 @@ public class GovernanceAuthService implements IGovernanceAuthService {
                 .build();
     }
 
-    private void checkUsable(String gatewayId, String hash, VirtualKeyVO vo) {
+    private void checkUsable(String gatewayId, String hash, VirtualKeyVO vo, String clientIp, boolean enforceIp) {
         if (vo == null) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证无效或已吊销");
         }
         if (!"ACTIVE".equals(vo.getStatus())) {
-            throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证状态不可用：" + vo.getStatus());
+            // 四态语义（工单 0045）：禁用/吊销与无效凭证区分错误码
+            throw new AppException(McpErrorCodes.KEY_DISABLED, "凭证已禁用或吊销：" + vo.getStatus());
         }
         if (vo.getExpiresAt() != null && new Date().after(vo.getExpiresAt())) {
-            throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证已过期");
+            throw new AppException(McpErrorCodes.KEY_EXPIRED, "凭证已过期，请联系管理员续期或轮换");
+        }
+        if (enforceIp && !IpCidrUtil.allows(vo.getIpAllowList(), clientIp)) {
+            throw new AppException(McpErrorCodes.IP_NOT_ALLOWED,
+                    "来源 IP 不在密钥白名单内" + (clientIp == null ? "（未取到来源 IP）" : "：" + clientIp));
         }
         if (!virtualKeyRepository.existsGrant(vo.getId(), gatewayId)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证未授权访问该网关");
         }
     }
+
+    /** last_active_at 去抖（>60s 才写库），失败不影响认证主链（工单 0045） */
+    private void touchLastActiveDebounced(VirtualKeyVO vo) {
+        if (vo == null || vo.getId() == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = lastTouchMs.put(vo.getId(), now);
+        if (last == null || now - last >= LAST_ACTIVE_DEBOUNCE_MS) {
+            try {
+                virtualKeyRepository.touchLastActive(vo.getId());
+            } catch (Exception e) {
+                log.warn("last_active_at 更新失败 keyId:{}：{}", vo.getId(), e.getMessage());
+            }
+        }
+    }
+
+    /** keyId → 上次触达毫秒（去抖窗口） */
+    private final java.util.concurrent.ConcurrentHashMap<Long, Long> lastTouchMs = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** 去抖窗口：60 秒 */
+    private static final long LAST_ACTIVE_DEBOUNCE_MS = 60_000L;
 
     /**
      * 凭证哈希查询（30s TTL 缓存；null 结果用哨兵缓存避免穿透）

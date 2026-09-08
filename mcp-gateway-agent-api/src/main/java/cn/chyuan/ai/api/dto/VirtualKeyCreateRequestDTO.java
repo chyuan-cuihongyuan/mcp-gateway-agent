@@ -37,6 +37,9 @@ public class VirtualKeyCreateRequestDTO implements Serializable {
 
     private Double dailyCostLimit;
 
+    /** IP/CIDR 白名单（空=不限，工单 0045） */
+    private java.util.List<String> ipAllowList;
+
     /** 创建时一并授权的网关 ID 列表 */
     private java.util.List<String> grantGatewayIds;
 }

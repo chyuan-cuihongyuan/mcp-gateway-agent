@@ -15,6 +15,8 @@
         <result column="daily_tool_call_limit" property="dailyToolCallLimit"/>
         <result column="tpm_limit" property="tpmLimit"/>
         <result column="daily_cost_limit" property="dailyCostLimit"/>
+        <result column="last_active_at" property="lastActiveAt"/>
+        <result column="ip_allow_list" property="ipAllowList"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -22,14 +24,16 @@
     <sql id="all_columns">
         id, api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
         rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
-        created_at, updated_at
+        last_active_at, ip_allow_list, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
-                                     rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit)
+                                     rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
+                                     ip_allow_list)
         VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
-                #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit})
+                #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit},
+                #{ipAllowList})
     </insert>
 
     <!-- 存量迁移专用：唯一键冲突即跳过（幂等） -->
@@ -53,8 +57,14 @@
             daily_tool_call_limit = #{dailyToolCallLimit},
             tpm_limit = #{tpmLimit},
             daily_cost_limit = #{dailyCostLimit},
+            ip_allow_list = #{ipAllowList},
             updated_at = NOW()
         WHERE id = #{id}
+    </update>
+
+    <!-- 最后活跃去抖更新（认证路径低频调用，工单 0045） -->
+    <update id="touchLastActive">
+        UPDATE mcp_virtual_key SET last_active_at = NOW() WHERE id = #{id}
     </update>
 
     <select id="queryById" resultMap="McpVirtualKeyMap">

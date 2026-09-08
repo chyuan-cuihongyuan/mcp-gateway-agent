@@ -54,6 +54,12 @@ public class McpVirtualKeyPO extends BasePagePO {
     /** 日成本配额预留（本期不执行，仅建列） */
     private Double dailyCostLimit;
 
+    /** 最后活跃时间（认证命中去抖更新，工单 0045） */
+    private Date lastActiveAt;
+
+    /** IP/CIDR 白名单 JSON 数组字符串（空/NULL=不限，工单 0045） */
+    private String ipAllowList;
+
     private Date createdAt;
 
     private Date updatedAt;

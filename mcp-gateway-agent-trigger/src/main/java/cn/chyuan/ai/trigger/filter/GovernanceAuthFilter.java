@@ -63,7 +63,7 @@ public class GovernanceAuthFilter implements Filter {
 
         String credential = resolveCredential(httpRequest);
         try {
-            GovernancePrincipal principal = governanceAuthService.authenticate(gatewayId, credential);
+            GovernancePrincipal principal = governanceAuthService.authenticate(gatewayId, credential, resolveClientIp(httpRequest));
             httpRequest.setAttribute(PRINCIPAL_ATTR, principal);
             chain.doFilter(request, response);
         } catch (AppException e) {
@@ -82,6 +82,23 @@ public class GovernanceAuthFilter implements Filter {
             return authorization;
         }
         return request.getParameter("api_key");
+    }
+
+    /** 来源 IP：X-Forwarded-For 首跳优先，X-Real-IP 次之，remoteAddr 兜底（工单 0045 IP 白名单） */
+    private String resolveClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (StringUtils.isNotBlank(xff)) {
+            int comma = xff.indexOf(',');
+            String first = comma > 0 ? xff.substring(0, comma) : xff;
+            if (StringUtils.isNotBlank(first)) {
+                return first.trim();
+            }
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (StringUtils.isNotBlank(realIp)) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private String extractGatewayId(String uri) {

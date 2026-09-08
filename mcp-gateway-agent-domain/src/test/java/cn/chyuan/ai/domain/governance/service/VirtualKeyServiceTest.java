@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,6 +74,37 @@ public class VirtualKeyServiceTest {
         VirtualKeyVO vo = service.getById(42L);
 
         assertNull(vo.getPlaintextOnce(), "查询不应返回明文");
+    }
+
+    @Test
+    @DisplayName("派生状态四态（0045）— ACTIVE 已过期→EXPIRED；非 ACTIVE 原样；未过期→ACTIVE")
+    public void testDerivedStatus() {
+        when(repository.findById(1L)).thenReturn(VirtualKeyVO.builder().id(1L).status("ACTIVE")
+                .expiresAt(new Date(System.currentTimeMillis() - 1_000)).build());
+        when(repository.findById(2L)).thenReturn(VirtualKeyVO.builder().id(2L).status("DISABLED").build());
+        when(repository.findById(3L)).thenReturn(VirtualKeyVO.builder().id(3L).status("ACTIVE")
+                .expiresAt(new Date(System.currentTimeMillis() + 60_000)).build());
+        when(repository.findById(4L)).thenReturn(VirtualKeyVO.builder().id(4L).status("ACTIVE").build());
+
+        assertEquals("EXPIRED", service.getById(1L).getDerivedStatus());
+        assertEquals("DISABLED", service.getById(2L).getDerivedStatus());
+        assertEquals("ACTIVE", service.getById(3L).getDerivedStatus());
+        assertEquals("ACTIVE", service.getById(4L).getDerivedStatus(), "无过期时间=永久 ACTIVE");
+    }
+
+    @Test
+    @DisplayName("IP 白名单随创建/更新入参传递（0045）")
+    public void testIpAllowListCarried() {
+        when(repository.insert(anyString(), any(VirtualKeyVO.class))).thenAnswer(inv -> {
+            VirtualKeyVO vo = inv.getArgument(1);
+            vo.setId(7L);
+            return vo;
+        });
+
+        VirtualKeyVO result = service.create(VirtualKeyCommandEntity.builder()
+                .keyName("with-ip").ipAllowList(java.util.List.of("10.0.0.0/8")).build());
+
+        assertEquals(java.util.List.of("10.0.0.0/8"), result.getIpAllowList());
     }
 
     @Test

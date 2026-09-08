@@ -30,4 +30,7 @@ public interface IVirtualKeyDao {
      * 存量迁移专用：存在同哈希密钥时跳过插入
      */
     int insertIgnore(@Param("po") McpVirtualKeyPO po);
+
+    /** 最后活跃时间更新（认证命中去抖后调用，工单 0045） */
+    int touchLastActive(@Param("id") Long id);
 }

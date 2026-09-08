@@ -32,6 +32,9 @@ public interface IVirtualKeyRepository {
 
     int updateMeta(Long id, VirtualKeyVO vo);
 
+    /** 最后活跃时间更新（认证命中去抖后调用，工单 0045） */
+    void touchLastActive(Long id);
+
     /** 密钥↔网关授权 */
     boolean existsGrant(Long keyId, String gatewayId);
 

@@ -62,6 +62,11 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
     }
 
     @Override
+    public void touchLastActive(Long id) {
+        virtualKeyDao.touchLastActive(id);
+    }
+
+    @Override
     public boolean existsGrant(Long keyId, String gatewayId) {
         Integer count = virtualKeyGatewayDao.countGrant(keyId, gatewayId);
         return count != null && count > 0;
@@ -155,6 +160,8 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .tenantId(po.getTenantId())
                 .status(po.getStatus())
                 .expiresAt(po.getExpiresAt())
+                .lastActiveAt(po.getLastActiveAt())
+                .ipAllowList(parseIpList(po.getIpAllowList()))
                 .rpmLimit(po.getRpmLimit())
                 .dailyRequestLimit(po.getDailyRequestLimit())
                 .dailyToolCallLimit(po.getDailyToolCallLimit())
@@ -173,11 +180,33 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .tenantId(vo.getTenantId())
                 .status(vo.getStatus())
                 .expiresAt(vo.getExpiresAt())
+                .ipAllowList(writeIpList(vo.getIpAllowList()))
                 .rpmLimit(vo.getRpmLimit())
                 .dailyRequestLimit(vo.getDailyRequestLimit())
                 .dailyToolCallLimit(vo.getDailyToolCallLimit())
                 .tpmLimit(vo.getTpmLimit())
                 .dailyCostLimit(vo.getDailyCostLimit())
                 .build();
+    }
+
+    /** ip_allow_list JSON 数组 ↔ List（空列表落库为 NULL，语义=不限） */
+    private static List<String> parseIpList(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            List<String> parsed = com.alibaba.fastjson.JSON.parseArray(json, String.class);
+            return parsed == null ? Collections.emptyList() : parsed;
+        } catch (Exception e) {
+            log.warn("ip_allow_list 解析失败（按不限制处理）：{}", json);
+            return Collections.emptyList();
+        }
+    }
+
+    private static String writeIpList(List<String> list) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        return com.alibaba.fastjson.JSON.toJSONString(list);
     }
 }

@@ -35,7 +35,16 @@ public class VirtualKeyResponseDTO implements Serializable {
 
     private String status;
 
+    /** 派生状态四态（工单 0045）：ACTIVE/DISABLED/REVOKED/EXPIRED（QUOTA_EXHAUSTED 随预算扩展） */
+    private String derivedStatus;
+
     private String expiresAt;
+
+    /** 最后活跃时间（工单 0045） */
+    private String lastActiveAt;
+
+    /** IP/CIDR 白名单（空=不限，工单 0045） */
+    private List<String> ipAllowList;
 
     private Integer rpmLimit;
 

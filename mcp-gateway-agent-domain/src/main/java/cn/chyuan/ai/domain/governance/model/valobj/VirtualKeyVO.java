@@ -38,7 +38,16 @@ public class VirtualKeyVO {
     /** ACTIVE / DISABLED / REVOKED */
     private String status;
 
+    /** 派生状态（工单 0045 四态：ACTIVE/DISABLED/REVOKED/EXPIRED，QUOTA_EXHAUSTED 随预算票扩展）——查询时计算，不落库 */
+    private String derivedStatus;
+
     private Date expiresAt;
+
+    /** 最后活跃时间（认证命中去抖更新，工单 0045） */
+    private Date lastActiveAt;
+
+    /** IP/CIDR 白名单（空=不限，工单 0045） */
+    private java.util.List<String> ipAllowList;
 
     private Integer rpmLimit;
 

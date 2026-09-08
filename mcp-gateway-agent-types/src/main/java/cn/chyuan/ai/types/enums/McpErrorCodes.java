@@ -90,6 +90,21 @@ public final class McpErrorCodes {
      */
     public static final int QUOTA_SERVICE_UNAVAILABLE = -32010;
 
+    /**
+     * 凭证已过期 —— 密钥生命周期四态之一（工单 0045，HTTP 403）
+     */
+    public static final int KEY_EXPIRED = -32011;
+
+    /**
+     * 凭证已禁用/吊销 —— 密钥生命周期四态之一（工单 0045，HTTP 403）
+     */
+    public static final int KEY_DISABLED = -32012;
+
+    /**
+     * 来源 IP 不在密钥白名单 —— IP/CIDR 限制（工单 0045，HTTP 403）
+     */
+    public static final int IP_NOT_ALLOWED = -32013;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

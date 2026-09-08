@@ -39,7 +39,7 @@ public class GovernanceAuthFilterTest {
     @DisplayName("无凭证 → HTTP 401 + JSON-RPC 结构化错误（AUTH_REQUIRED）")
     public void testMissingCredential_Returns401() throws Exception {
         // 准备 — 强校验网关 + 无凭证
-        when(governanceAuthService.authenticate("gateway_001", null))
+        when(governanceAuthService.authenticate(eq("gateway_001"), isNull(), any()))
                 .thenThrow(new AppException(McpErrorCodes.AUTH_REQUIRED, "缺少调用凭证"));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api-gateway/gateway_001/mcp/sse");
@@ -61,7 +61,7 @@ public class GovernanceAuthFilterTest {
     @DisplayName("无效凭证 → HTTP 403 + JSON-RPC 结构化错误（INSUFFICIENT_PERMISSIONS）")
     public void testInvalidCredential_Returns403() throws Exception {
         // 准备 — 强校验网关 + 错误密钥
-        when(governanceAuthService.authenticate(eq("gateway_001"), eq("vk-invalid")))
+        when(governanceAuthService.authenticate(eq("gateway_001"), eq("vk-invalid"), any()))
                 .thenThrow(new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证无效或已吊销"));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api-gateway/gateway_001/mcp/sse");
@@ -87,7 +87,7 @@ public class GovernanceAuthFilterTest {
                 .virtualKeyId(1L)
                 .apiKeyHash("abc123")
                 .build();
-        when(governanceAuthService.authenticate("gateway_001", "vk-valid")).thenReturn(principal);
+        when(governanceAuthService.authenticate(eq("gateway_001"), eq("vk-valid"), any())).thenReturn(principal);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api-gateway/gateway_001/mcp/sse");
         request.setParameter("api_key", "vk-valid");
@@ -108,7 +108,7 @@ public class GovernanceAuthFilterTest {
     @DisplayName("Bearer JWT → 以去前缀后的 token 认证")
     public void testBearerJwt_DelegatesWithoutPrefix() throws Exception {
         // 准备
-        when(governanceAuthService.authenticate("gateway_001", "Bearer eyJhbGciOiJ"))
+        when(governanceAuthService.authenticate(eq("gateway_001"), eq("Bearer eyJhbGciOiJ"), any()))
                 .thenReturn(GovernancePrincipal.builder().authType(GovernancePrincipal.AuthType.JWT).build());
 
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api-gateway/gateway_001/mcp/sse");
@@ -119,7 +119,7 @@ public class GovernanceAuthFilterTest {
         filter.doFilter(request, new MockHttpServletResponse(), chain);
 
         // 验证 — 完整 Bearer 串透传（前缀剥离由 domain 服务处理）
-        verify(governanceAuthService).authenticate("gateway_001", "Bearer eyJhbGciOiJ");
+        verify(governanceAuthService).authenticate(eq("gateway_001"), eq("Bearer eyJhbGciOiJ"), any());
         assertNotNull(chain.getRequest());
     }
 

@@ -52,6 +52,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .tenantId(command.getTenantId())
                 .status("ACTIVE")
                 .expiresAt(command.getExpiresAt())
+                .ipAllowList(command.getIpAllowList())
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -85,6 +86,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .tenantId(command.getTenantId())
                 .status(existing.getStatus())
                 .expiresAt(command.getExpiresAt())
+                .ipAllowList(command.getIpAllowList())
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -162,6 +164,7 @@ public class VirtualKeyService implements IVirtualKeyService {
         VirtualKeyVO vo = repository.findById(id);
         if (vo != null) {
             vo.setMaskedKey("id-" + id + "/****");
+            deriveStatus(vo);
         }
         return vo;
     }
@@ -174,8 +177,28 @@ public class VirtualKeyService implements IVirtualKeyService {
     @Override
     public List<VirtualKeyVO> page(String keyword, int page, int size) {
         List<VirtualKeyVO> list = repository.queryPage(keyword, Math.max(page - 1, 0) * size, size);
-        list.forEach(vo -> vo.setMaskedKey("id-" + vo.getId() + "/****"));
+        list.forEach(vo -> {
+            vo.setMaskedKey("id-" + vo.getId() + "/****");
+            deriveStatus(vo);
+        });
         return list;
+    }
+
+    /**
+     * 派生状态四态（工单 0045）：落库状态 ACTIVE/DISABLED/REVOKED 之上，
+     * ACTIVE 且已过期 → EXPIRED；QUOTA_EXHAUSTED 随预算票（0050）扩展。
+     */
+    private void deriveStatus(VirtualKeyVO vo) {
+        String status = vo.getStatus();
+        if (!"ACTIVE".equals(status)) {
+            vo.setDerivedStatus(status);
+            return;
+        }
+        if (vo.getExpiresAt() != null && new java.util.Date().after(vo.getExpiresAt())) {
+            vo.setDerivedStatus("EXPIRED");
+            return;
+        }
+        vo.setDerivedStatus("ACTIVE");
     }
 
     @Override
@@ -228,6 +251,8 @@ public class VirtualKeyService implements IVirtualKeyService {
         map.put("id", vo.getId());
         map.put("keyName", vo.getKeyName());
         map.put("status", vo.getStatus());
+        map.put("expiresAt", vo.getExpiresAt() == null ? null : vo.getExpiresAt().getTime());
+        map.put("ipAllowList", vo.getIpAllowList());
         map.put("rpmLimit", vo.getRpmLimit());
         map.put("dailyRequestLimit", vo.getDailyRequestLimit());
         map.put("dailyToolCallLimit", vo.getDailyToolCallLimit());

@@ -22,6 +22,15 @@ public interface IGovernanceAuthService {
     GovernancePrincipal authenticate(String gatewayId, String credential);
 
     /**
+     * 认证入口（带来源 IP，工单 0045）：在双模认证基础上叠加密钥 IP/CIDR 白名单校验。
+     * clientIp 为 null 时视为取不到来源（配了白名单即拒绝，fail-closed）。
+     * 默认委托两参版本，保证既有实现/测试桩零改动。
+     */
+    default GovernancePrincipal authenticate(String gatewayId, String credential, String clientIp) {
+        return authenticate(gatewayId, credential);
+    }
+
+    /**
      * 主体复核（case 层节点链防御性复用，缓存命中，幂等）。
      */
     GovernancePrincipal validatePrincipal(String gatewayId, GovernancePrincipal principal);

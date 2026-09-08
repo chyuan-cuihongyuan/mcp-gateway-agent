@@ -4,7 +4,9 @@ import cn.chyuan.ai.domain.governance.adapter.codec.IJwtCodec;
 import cn.chyuan.ai.domain.governance.service.IBudgetService;
 import cn.chyuan.ai.domain.governance.service.IGovernanceAuthService;
 import cn.chyuan.ai.domain.governance.service.IQuotaService;
+import cn.chyuan.ai.domain.governance.service.ConcurrencyGuardService;
 import cn.chyuan.ai.trigger.filter.AdminJwtAuthFilter;
+import cn.chyuan.ai.trigger.filter.ConcurrencyLimitFilter;
 import cn.chyuan.ai.trigger.filter.GovernanceAuthFilter;
 import cn.chyuan.ai.trigger.filter.QuotaEnforcementFilter;
 import jakarta.annotation.Resource;
@@ -32,6 +34,12 @@ public class GovernanceFilterConfig {
     @Resource
     private IBudgetService budgetService;
 
+    @Resource
+    private ConcurrencyGuardService concurrencyGuardService;
+
+    @org.springframework.beans.factory.annotation.Value("${governance.request.max-concurrent-per-key:0}")
+    private int maxConcurrentPerKey;
+
     /** MCP 协议面统一认证（无凭证 401 / 错凭证 403） */
     @Bean
     public FilterRegistrationBean<GovernanceAuthFilter> governanceAuthFilter() {
@@ -51,6 +59,19 @@ public class GovernanceFilterConfig {
         registration.addUrlPatterns("/api-gateway/*");
         registration.setOrder(11);
         registration.setName("quotaEnforcementFilter");
+        return registration;
+    }
+
+    /** 每密钥并发闸（配额/预算之后，order 12；限值 0 不注册） */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "governance.request.max-concurrent-per-key", matchIfMissing = false)
+    public FilterRegistrationBean<ConcurrencyLimitFilter> concurrencyLimitFilter() {
+        FilterRegistrationBean<ConcurrencyLimitFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new ConcurrencyLimitFilter(concurrencyGuardService, maxConcurrentPerKey));
+        registration.addUrlPatterns("/api-gateway/*");
+        registration.setOrder(12);
+        registration.setName("concurrencyLimitFilter");
         return registration;
     }
 

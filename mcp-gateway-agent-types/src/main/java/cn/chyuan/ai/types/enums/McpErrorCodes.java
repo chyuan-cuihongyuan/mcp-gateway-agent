@@ -110,6 +110,16 @@ public final class McpErrorCodes {
      */
     public static final int BUDGET_EXCEEDED = -32014;
 
+    /**
+     * 请求体超限 —— 大小上限防护（工单 0056，HTTP 413，含限制值与实际值）
+     */
+    public static final int REQUEST_TOO_LARGE = -32015;
+
+    /**
+     * 并发超限 —— 每密钥并发上限（工单 0056，HTTP 429）
+     */
+    public static final int CONCURRENCY_EXCEEDED = -32016;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

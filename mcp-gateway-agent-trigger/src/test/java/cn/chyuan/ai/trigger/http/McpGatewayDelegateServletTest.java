@@ -49,7 +49,7 @@ class McpGatewayDelegateServletTest {
     @BeforeEach
     void setUp() {
         servlet = new McpGatewayDelegateServlet(registry, toolCatalogService, null,
-                observabilityHelper, null, null, 30L);
+                observabilityHelper, null, null, 64 * 1024, 30L);
     }
 
     private MockHttpServletRequest request(String method, String pathInfo, String body) {
@@ -74,15 +74,17 @@ class McpGatewayDelegateServletTest {
     }
 
     @Test
-    @DisplayName("消息体超 64KB — 400 + -32600")
-    void oversizedBodyReturns400() throws Exception {
+    @DisplayName("消息体超 64KB — 413 + -32015（0056 契约升级：含上限与实际值）")
+    void oversizedBodyReturns413() throws Exception {
         MockHttpServletRequest request = request("POST", "/" + GATEWAY_ID + "/mcp", "x".repeat(64 * 1024 + 1));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         servlet.service(request, response);
 
-        assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("64KB");
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getContentAsString())
+                .contains(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.REQUEST_TOO_LARGE))
+                .contains("64KB");
     }
 
     @Test

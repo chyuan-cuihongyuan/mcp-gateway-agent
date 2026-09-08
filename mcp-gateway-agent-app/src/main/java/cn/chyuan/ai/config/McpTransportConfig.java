@@ -32,11 +32,12 @@ public class McpTransportConfig {
             ObservabilityHelper observabilityHelper,
             IUsageLedgerService usageLedgerService,
             IQuotaService quotaService,
+            @Value("${governance.request.max-body-bytes:65536}") int maxBodyBytes,
             @Value("${mcp.session.timeout-minutes:30}") long sessionTimeoutMinutes) {
         ServletRegistrationBean<McpGatewayDelegateServlet> registration = new ServletRegistrationBean<>(
                 new McpGatewayDelegateServlet(registry, toolCatalogService,
                         sessionMetaRepository.getIfAvailable(), observabilityHelper,
-                        usageLedgerService, quotaService, sessionTimeoutMinutes),
+                        usageLedgerService, quotaService, maxBodyBytes, sessionTimeoutMinutes),
                 "/api-gateway/*");
         // 官方 streamable 传输对 POST 请求与 GET 监听流使用 startAsync
         registration.setAsyncSupported(true);

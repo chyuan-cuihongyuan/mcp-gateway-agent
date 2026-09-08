@@ -62,7 +62,8 @@ public class McpGatewayDelegateServlet extends HttpServlet {
 
     private static final Pattern ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$");
     private static final Pattern MCP_METHOD_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_./:-]{0,127}$");
-    private static final int MAX_MESSAGE_BODY_LENGTH = 64 * 1024;
+    /** 请求体上限（默认 64KB 与 0020 现状一致，工单 0056 起可配） */
+    private final int maxBodyBytes;
     private static final String SESSION_HEADER = "Mcp-Session-Id";
 
     private final GatewayMcpServerRegistry registry;
@@ -93,6 +94,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             ObservabilityHelper observabilityHelper,
             IUsageLedgerService usageLedgerService,
             cn.chyuan.ai.domain.governance.service.IQuotaService quotaService,
+            int maxBodyBytes,
             long sessionTimeoutMinutes) {
         this.registry = registry;
         this.toolCatalogService = toolCatalogService;
@@ -100,6 +102,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         this.observabilityHelper = observabilityHelper;
         this.usageLedgerService = usageLedgerService;
         this.quotaService = quotaService;
+        this.maxBodyBytes = maxBodyBytes;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
         log.info("Streamable HTTP 委派路由已初始化: sessionTimeoutMinutes={}", sessionTimeoutMinutes);
@@ -168,8 +171,10 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             String gatewayId) throws IOException {
         byte[] bodyBytes = readBody(request);
         if (bodyBytes == null) {
-            writeJsonRpcError(response, HttpServletResponse.SC_BAD_REQUEST,
-                    McpErrorCodes.INVALID_REQUEST, "messageBody超过64KB限制", null);
+            writeJsonRpcError(response, 413,
+                    McpErrorCodes.REQUEST_TOO_LARGE,
+                    "请求体超过上限：" + (maxBodyBytes / 1024) + "KB（实际 Content-Length "
+                            + request.getContentLengthLong() + " 字节）", null);
             return;
         }
         String messageBody = new String(bodyBytes, StandardCharsets.UTF_8);
@@ -600,11 +605,14 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         response.getWriter().flush();
     }
 
-    /** 读取请求体（超过上限返回 null）；包装后供委派重放 */
+    /** 读取请求体（超过上限返回 null；Content-Length 预判短路读取）；包装后供委派重放 */
     private byte[] readBody(HttpServletRequest request) throws IOException {
+        if (request.getContentLengthLong() > maxBodyBytes) {
+            return null;
+        }
         try (ServletInputStream inputStream = request.getInputStream()) {
-            byte[] bytes = inputStream.readNBytes(MAX_MESSAGE_BODY_LENGTH + 1);
-            if (bytes.length > MAX_MESSAGE_BODY_LENGTH) {
+            byte[] bytes = inputStream.readNBytes(maxBodyBytes + 1);
+            if (bytes.length > maxBodyBytes) {
                 return null;
             }
             return bytes;

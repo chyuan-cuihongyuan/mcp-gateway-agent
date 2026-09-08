@@ -21,6 +21,10 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
     @Resource
     private IExternalAttachDao externalAttachDao;
 
+    /** 凭证加密（工单 0062：apiKey/authConfig 写侧加密、读侧探测解密） */
+    @Resource
+    private cn.chyuan.ai.infrastructure.utils.CredentialCipher credentialCipher;
+
     @Override
     public Long insert(ExternalAttachVO attach) {
         McpExternalAttachPO po = toPo(attach);
@@ -96,7 +100,7 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .attachName(vo.getAttachName())
                 .transportType(vo.getTransportType())
                 .endpoint(vo.getEndpoint())
-                .apiKey(vo.getApiKey())
+                .apiKey(credentialCipher.encrypt(vo.getApiKey()))
                 .command(vo.getCommand())
                 .args(vo.getArgs())
                 .env(vo.getEnv())
@@ -105,7 +109,7 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .weight(vo.getWeight())
                 .priority(vo.getPriority())
                 .authType(vo.getAuthType())
-                .authConfig(vo.getAuthConfig())
+                .authConfig(credentialCipher.encrypt(vo.getAuthConfig()))
                 .build();
     }
 
@@ -119,7 +123,7 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .attachName(po.getAttachName())
                 .transportType(po.getTransportType())
                 .endpoint(po.getEndpoint())
-                .apiKey(po.getApiKey())
+                .apiKey(credentialCipher.decrypt(po.getApiKey()))
                 .command(po.getCommand())
                 .args(po.getArgs())
                 .env(po.getEnv())
@@ -134,7 +138,7 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .failTimeout(po.getFailTimeout())
                 .failHttp(po.getFailHttp())
                 .authType(po.getAuthType())
-                .authConfig(po.getAuthConfig())
+                .authConfig(credentialCipher.decrypt(po.getAuthConfig()))
                 .connectStatus(po.getConnectStatus())
                 .connectError(po.getConnectError())
                 .connectTime(po.getConnectTime())

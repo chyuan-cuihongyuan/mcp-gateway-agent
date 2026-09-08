@@ -4,9 +4,11 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_external_attach (gateway_id, attach_name, transport_type, endpoint, api_key,
-                                         command, args, env, request_timeout_ms, status, connect_status)
+                                         command, args, env, request_timeout_ms, status,
+                                         weight, priority, auth_type, auth_config, connect_status)
         VALUES (#{gatewayId}, #{attachName}, #{transportType}, #{endpoint}, #{apiKey},
-                #{command}, #{args}, #{env}, #{requestTimeoutMs}, #{status}, 'UNKNOWN')
+                #{command}, #{args}, #{env}, #{requestTimeoutMs}, #{status},
+                #{weight}, #{priority}, #{authType}, #{authConfig}, 'UNKNOWN')
     </insert>
 
     <update id="update">
@@ -19,6 +21,10 @@
             env                 = #{env},
             request_timeout_ms  = #{requestTimeoutMs},
             status              = #{status},
+            weight              = #{weight},
+            priority            = #{priority},
+            auth_type           = #{authType},
+            auth_config         = #{authConfig},
             connect_status      = 'UNKNOWN',
             connect_error       = NULL,
             connect_time        = NULL
@@ -33,6 +39,10 @@
         SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
                endpoint, api_key AS apiKey, command, args, env,
                request_timeout_ms AS requestTimeoutMs, status,
+               weight, priority, test_time AS testTime, response_time_ms AS responseTimeMs,
+               cooldown_until AS cooldownUntil,
+               fail_connect AS failConnect, fail_timeout AS failTimeout, fail_http AS failHttp,
+               auth_type AS authType, auth_config AS authConfig,
                connect_status AS connectStatus, connect_error AS connectError, connect_time AS connectTime,
                create_time AS createTime, update_time AS updateTime
         FROM mcp_external_attach
@@ -43,6 +53,10 @@
         SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
                endpoint, api_key AS apiKey, command, args, env,
                request_timeout_ms AS requestTimeoutMs, status,
+               weight, priority, test_time AS testTime, response_time_ms AS responseTimeMs,
+               cooldown_until AS cooldownUntil,
+               fail_connect AS failConnect, fail_timeout AS failTimeout, fail_http AS failHttp,
+               auth_type AS authType, auth_config AS authConfig,
                connect_status AS connectStatus, connect_error AS connectError, connect_time AS connectTime,
                create_time AS createTime, update_time AS updateTime
         FROM mcp_external_attach

@@ -75,6 +75,10 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .env(vo.getEnv())
                 .requestTimeoutMs(vo.getRequestTimeoutMs())
                 .status(vo.getStatus())
+                .weight(vo.getWeight())
+                .priority(vo.getPriority())
+                .authType(vo.getAuthType())
+                .authConfig(vo.getAuthConfig())
                 .build();
     }
 
@@ -94,6 +98,16 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                 .env(po.getEnv())
                 .requestTimeoutMs(po.getRequestTimeoutMs())
                 .status(po.getStatus())
+                .weight(po.getWeight())
+                .priority(po.getPriority())
+                .testTime(po.getTestTime())
+                .responseTimeMs(po.getResponseTimeMs())
+                .cooldownUntil(po.getCooldownUntil())
+                .failConnect(po.getFailConnect())
+                .failTimeout(po.getFailTimeout())
+                .failHttp(po.getFailHttp())
+                .authType(po.getAuthType())
+                .authConfig(po.getAuthConfig())
                 .connectStatus(po.getConnectStatus())
                 .connectError(po.getConnectError())
                 .connectTime(po.getConnectTime())

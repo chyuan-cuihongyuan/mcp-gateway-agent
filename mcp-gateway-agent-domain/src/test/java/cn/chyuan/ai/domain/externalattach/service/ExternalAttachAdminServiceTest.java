@@ -162,4 +162,56 @@ class ExternalAttachAdminServiceTest {
 
         assertThat(service.listByGateway("gateway_business")).hasSize(1);
     }
+
+    @Test
+    @DisplayName("渠道化字段（0047）— weight/priority 默认 1/0，authType 按 apiKey 有无推导")
+    void channelFieldsNormalized() {
+        when(repository.insert(any(ExternalAttachVO.class))).thenReturn(1L);
+        ExternalAttachVO vo = httpAttach();
+        vo.setWeight(null);
+        vo.setPriority(null);
+        vo.setAuthType(null);
+
+        service.create(vo);
+
+        ArgumentCaptor<ExternalAttachVO> captor = ArgumentCaptor.forClass(ExternalAttachVO.class);
+        verify(repository).insert(captor.capture());
+        assertThat(captor.getValue().getWeight()).isEqualTo(1);
+        assertThat(captor.getValue().getPriority()).isEqualTo(0);
+        assertThat(captor.getValue().getAuthType()).isEqualTo(ExternalAttachVO.AUTH_TYPE_BEARER);
+    }
+
+    @Test
+    @DisplayName("渠道三态（0047）— status=2 自动禁用不可经 admin API 设置")
+    void autoDisabledNotAdminSettable() {
+        ExternalAttachVO vo = httpAttach();
+        vo.setStatus(ExternalAttachVO.STATUS_AUTO_DISABLED);
+
+        assertThatThrownBy(() -> service.create(vo))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("自动禁用");
+    }
+
+    @Test
+    @DisplayName("渠道化字段校验（0047）— weight>=1、authType 枚举、authConfig 必须 JSON 对象")
+    void channelFieldValidation() {
+        ExternalAttachVO badWeight = httpAttach();
+        badWeight.setWeight(0);
+        assertThatThrownBy(() -> service.create(badWeight))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("weight");
+
+        ExternalAttachVO badAuth = httpAttach();
+        badAuth.setAuthType("DIGEST");
+        assertThatThrownBy(() -> service.create(badAuth))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("authType");
+
+        ExternalAttachVO badConfig = httpAttach();
+        badConfig.setAuthType(ExternalAttachVO.AUTH_TYPE_HEADER);
+        badConfig.setAuthConfig("not-json");
+        assertThatThrownBy(() -> service.create(badConfig))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("authConfig");
+    }
 }

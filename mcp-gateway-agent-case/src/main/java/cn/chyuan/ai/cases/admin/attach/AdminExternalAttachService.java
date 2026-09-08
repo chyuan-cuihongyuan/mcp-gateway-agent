@@ -124,6 +124,10 @@ public class AdminExternalAttachService implements IAdminExternalAttachService {
                 .env(dto.getEnv())
                 .requestTimeoutMs(dto.getRequestTimeoutMs())
                 .status(dto.getStatus())
+                .weight(dto.getWeight())
+                .priority(dto.getPriority())
+                .authType(dto.getAuthType())
+                .authConfig(dto.getAuthConfig())
                 .build();
     }
 
@@ -141,6 +145,13 @@ public class AdminExternalAttachService implements IAdminExternalAttachService {
                 .env(vo.getEnv())
                 .requestTimeoutMs(vo.getRequestTimeoutMs())
                 .status(vo.getStatus())
+                .weight(vo.getWeight())
+                .priority(vo.getPriority())
+                .testTime(vo.getTestTime())
+                .responseTimeMs(vo.getResponseTimeMs())
+                .cooldownUntil(vo.getCooldownUntil())
+                .authType(vo.getAuthType())
+                .authConfigMasked(vo.getAuthConfig() == null ? null : "****")
                 .connectStatus(runtime != null ? runtime.connectStatus() : vo.getConnectStatus())
                 .connectError(runtime != null ? runtime.connectError() : vo.getConnectError())
                 .connectTime(runtime != null ? runtime.connectTime() : vo.getConnectTime())

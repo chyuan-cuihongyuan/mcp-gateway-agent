@@ -133,8 +133,25 @@ public class ExternalAttachAdminService implements IExternalAttachAdminService {
             throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
                     "requestTimeoutMs须在1000-120000毫秒之间");
         }
-        if (attach.getStatus() != null && attach.getStatus() != 0 && attach.getStatus() != 1) {
-            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "status仅允许0(禁用)/1(启用)");
+        if (attach.getStatus() != null && attach.getStatus() != ExternalAttachVO.STATUS_MANUAL_DISABLED
+                && attach.getStatus() != ExternalAttachVO.STATUS_ENABLED) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                    "status仅允许0(手动禁用)/1(启用)；2(自动禁用)由巡检/熔断系统置位");
+        }
+        if (attach.getWeight() != null && attach.getWeight() < 1) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "weight须>=1");
+        }
+        if (attach.getPriority() != null && attach.getPriority() < 0) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "priority须>=0");
+        }
+        if (attach.getAuthType() != null && !List.of(ExternalAttachVO.AUTH_TYPE_NONE,
+                ExternalAttachVO.AUTH_TYPE_HEADER, ExternalAttachVO.AUTH_TYPE_BEARER,
+                ExternalAttachVO.AUTH_TYPE_OAUTH_CC).contains(attach.getAuthType())) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                    "authType仅支持NONE/HEADER/BEARER/OAUTH_CC");
+        }
+        if (StringUtils.isNotBlank(attach.getAuthConfig()) && !isValidJsonObject(attach.getAuthConfig())) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "authConfig必须是JSON对象字符串");
         }
     }
 
@@ -151,7 +168,18 @@ public class ExternalAttachAdminService implements IExternalAttachAdminService {
             attach.setRequestTimeoutMs(30_000);
         }
         if (attach.getStatus() == null) {
-            attach.setStatus(1);
+            attach.setStatus(ExternalAttachVO.STATUS_ENABLED);
+        }
+        if (attach.getWeight() == null) {
+            attach.setWeight(1);
+        }
+        if (attach.getPriority() == null) {
+            attach.setPriority(0);
+        }
+        if (attach.getAuthType() == null) {
+            // 存量行为等价：填了 apiKey 即 Bearer，否则 NONE（0061 起 authType 全量生效）
+            attach.setAuthType(StringUtils.isNotBlank(attach.getApiKey())
+                    ? ExternalAttachVO.AUTH_TYPE_BEARER : ExternalAttachVO.AUTH_TYPE_NONE);
         }
     }
 
@@ -180,6 +208,10 @@ public class ExternalAttachAdminService implements IExternalAttachAdminService {
         copy.setEnv(attach.getEnv());
         copy.setRequestTimeoutMs(attach.getRequestTimeoutMs());
         copy.setStatus(attach.getStatus());
+        copy.setWeight(attach.getWeight());
+        copy.setPriority(attach.getPriority());
+        copy.setAuthType(attach.getAuthType());
+        copy.setAuthConfig(attach.getAuthConfig() == null ? null : "****");
         copy.setConnectStatus(attach.getConnectStatus());
         copy.setConnectError(attach.getConnectError());
         copy.setConnectTime(attach.getConnectTime());

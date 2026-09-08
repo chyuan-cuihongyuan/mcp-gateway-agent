@@ -44,6 +44,18 @@ public class ExternalAttachUpsertRequestDTO implements Serializable {
     /** 上游请求超时毫秒（默认 30000） */
     private Integer requestTimeoutMs;
 
-    /** 0-禁用，1-启用（默认 1） */
+    /** 0-手动禁用，1-启用（默认 1）；2-自动禁用不可经此设置 */
     private Integer status;
+
+    /** 同层加权（默认 1，>=1） */
+    private Integer weight;
+
+    /** 调度优先级分层（默认 0，>=0，大者先选） */
+    private Integer priority;
+
+    /** 上游鉴权类型 NONE/HEADER/BEARER/OAUTH_CC（默认按 apiKey 有无推导，0061 起全量生效） */
+    private String authType;
+
+    /** 上游鉴权配置 JSON（HEADER: {"name","value"}；OAUTH_CC: {"tokenUrl","clientId","clientSecret","scope"}） */
+    private String authConfig;
 }

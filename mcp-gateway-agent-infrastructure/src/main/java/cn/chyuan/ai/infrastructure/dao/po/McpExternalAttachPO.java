@@ -48,8 +48,38 @@ public class McpExternalAttachPO implements Serializable {
     /** 上游请求超时（毫秒） */
     private Integer requestTimeoutMs;
 
-    /** 0-禁用，1-启用 */
+    /** 0-手动禁用，1-启用，2-自动禁用（工单 0047 渠道三态） */
     private Integer status;
+
+    /** 同层加权（默认 1） */
+    private Integer weight;
+
+    /** 调度优先级分层（默认 0） */
+    private Integer priority;
+
+    /** 最近一次探测时间 */
+    private Date testTime;
+
+    /** 最近一次探测耗时毫秒 */
+    private Long responseTimeMs;
+
+    /** 冷却截止时间 */
+    private Date cooldownUntil;
+
+    /** 被动熔断计数：连接失败 */
+    private Integer failConnect;
+
+    /** 被动熔断计数：超时 */
+    private Integer failTimeout;
+
+    /** 被动熔断计数：HTTP 5xx */
+    private Integer failHttp;
+
+    /** 上游鉴权类型 NONE/HEADER/BEARER/OAUTH_CC */
+    private String authType;
+
+    /** 上游鉴权配置 JSON（密文由 0062 接管） */
+    private String authConfig;
 
     /** UNKNOWN / CONNECTED / FAILED */
     private String connectStatus;

@@ -42,6 +42,27 @@ public class ExternalAttachResponseDTO implements Serializable {
 
     private Integer status;
 
+    /** 同层加权（工单 0047） */
+    private Integer weight;
+
+    /** 调度优先级分层（工单 0047） */
+    private Integer priority;
+
+    /** 最近一次探测时间（工单 0047） */
+    private Date testTime;
+
+    /** 最近一次探测耗时毫秒（工单 0047） */
+    private Long responseTimeMs;
+
+    /** 冷却截止时间（工单 0047） */
+    private Date cooldownUntil;
+
+    /** 上游鉴权类型（工单 0047） */
+    private String authType;
+
+    /** 已配置返回 "****"，未配置返回 null（auth_config 脱敏） */
+    private String authConfigMasked;
+
     /** UNKNOWN / CONNECTED / FAILED */
     private String connectStatus;
 

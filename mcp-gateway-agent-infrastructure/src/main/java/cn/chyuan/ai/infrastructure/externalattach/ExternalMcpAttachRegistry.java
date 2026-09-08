@@ -468,7 +468,7 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
             return client;
         }
 
-        /** 配置指纹：核心字段变化视为需重建客户端 */
+        /** 配置指纹：核心字段变化视为需重建客户端（0047 起含鉴权类型/配置） */
         boolean matches(ExternalAttachVO latest) {
             return latest != null
                     && config.getTransportType().equals(latest.getTransportType())
@@ -477,6 +477,8 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
                     && StringUtils.equals(config.getCommand(), latest.getCommand())
                     && StringUtils.equals(config.getArgs(), latest.getArgs())
                     && StringUtils.equals(config.getEnv(), latest.getEnv())
+                    && StringUtils.equals(config.getAuthType(), latest.getAuthType())
+                    && StringUtils.equals(config.getAuthConfig(), latest.getAuthConfig())
                     && java.util.Objects.equals(config.getRequestTimeoutMs(), latest.getRequestTimeoutMs());
         }
 

@@ -76,6 +76,38 @@ public class GovernanceAuthService implements IGovernanceAuthService {
         }
     }
 
+    /**
+     * 全局流量面认证（工单 0063）：跳过网关强校验开关与网关授权（/v1、A2A 面无网关维度），
+     * 凭证有效性（状态/过期/宽限/IP 白名单）与 JWT 全量生效。
+     */
+    @Override
+    public GovernancePrincipal authenticateGlobal(String credential, String clientIp) {
+        try {
+            if (credential == null || credential.isBlank()) {
+                throw new AppException(McpErrorCodes.AUTH_REQUIRED, "缺少调用凭证：请提供 Bearer JWT 或虚拟密钥");
+            }
+            String trimmed = credential.trim();
+            if (trimmed.startsWith(BEARER_PREFIX)) {
+                return authenticateJwt(trimmed.substring(BEARER_PREFIX.length()));
+            }
+            return authenticateVirtualKey("GLOBAL", trimmed, clientIp, true);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("全局流量面认证内部错误", e);
+            throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "认证服务暂不可用，请稍后重试");
+        }
+    }
+
+    private GovernancePrincipal authenticateVirtualKey(String gatewayId, String credential,
+            String clientIp, boolean skipGrantCheck) {
+        String hash = KeyHashUtil.sha256Hex(credential);
+        VirtualKeyVO vo = loadVirtualKey(hash);
+        checkUsable(gatewayId, hash, vo, clientIp, true, skipGrantCheck);
+        touchLastActiveDebounced(vo);
+        return principalOf(vo, hash, clientIp);
+    }
+
     private GovernancePrincipal doAuthenticate(String gatewayId, String credential, String clientIp) {
         if (!isGatewayEnforcing(gatewayId)) {
             return GovernancePrincipal.anonymous();
@@ -132,11 +164,11 @@ public class GovernanceAuthService implements IGovernanceAuthService {
     }
 
     private GovernancePrincipal authenticateVirtualKey(String gatewayId, String credential, String clientIp) {
-        String hash = KeyHashUtil.sha256Hex(credential);
-        VirtualKeyVO vo = loadVirtualKey(hash);
-        checkUsable(gatewayId, hash, vo, clientIp, true);
-        touchLastActiveDebounced(vo);
+        return authenticateVirtualKey(gatewayId, credential, clientIp, false);
+    }
 
+    /** vk 主体构造（两流量面共用） */
+    private GovernancePrincipal principalOf(VirtualKeyVO vo, String hash, String clientIp) {
         return GovernancePrincipal.builder()
                 .authType(GovernancePrincipal.AuthType.VIRTUAL_KEY)
                 .virtualKeyId(vo.getId())
@@ -154,6 +186,11 @@ public class GovernanceAuthService implements IGovernanceAuthService {
     }
 
     private void checkUsable(String gatewayId, String hash, VirtualKeyVO vo, String clientIp, boolean enforceIp) {
+        this.checkUsable(gatewayId, hash, vo, clientIp, enforceIp, false);
+    }
+
+    private void checkUsable(String gatewayId, String hash, VirtualKeyVO vo, String clientIp,
+            boolean enforceIp, boolean skipGrantCheck) {
         if (vo == null) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证无效或已吊销");
         }
@@ -168,7 +205,7 @@ public class GovernanceAuthService implements IGovernanceAuthService {
             throw new AppException(McpErrorCodes.IP_NOT_ALLOWED,
                     "来源 IP 不在密钥白名单内" + (clientIp == null ? "（未取到来源 IP）" : "：" + clientIp));
         }
-        if (!virtualKeyRepository.existsGrant(vo.getId(), gatewayId)) {
+        if (!skipGrantCheck && !virtualKeyRepository.existsGrant(vo.getId(), gatewayId)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "凭证未授权访问该网关");
         }
     }

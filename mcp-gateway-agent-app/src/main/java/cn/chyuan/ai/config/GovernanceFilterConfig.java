@@ -7,6 +7,7 @@ import cn.chyuan.ai.domain.governance.service.IQuotaService;
 import cn.chyuan.ai.domain.governance.service.ConcurrencyGuardService;
 import cn.chyuan.ai.trigger.filter.AdminJwtAuthFilter;
 import cn.chyuan.ai.trigger.filter.ConcurrencyLimitFilter;
+import cn.chyuan.ai.trigger.filter.GlobalTrafficAuthFilter;
 import cn.chyuan.ai.trigger.filter.GovernanceAuthFilter;
 import cn.chyuan.ai.trigger.filter.QuotaEnforcementFilter;
 import jakarta.annotation.Resource;
@@ -59,6 +60,17 @@ public class GovernanceFilterConfig {
         registration.addUrlPatterns("/api-gateway/*");
         registration.setOrder(11);
         registration.setName("quotaEnforcementFilter");
+        return registration;
+    }
+
+    /** 全局流量面认证（/v1 OpenAI 兼容面，order 10；A2A 面 0066 复用同一注册） */
+    @Bean
+    public FilterRegistrationBean<GlobalTrafficAuthFilter> globalTrafficAuthFilter() {
+        FilterRegistrationBean<GlobalTrafficAuthFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new GlobalTrafficAuthFilter(governanceAuthService));
+        registration.addUrlPatterns("/v1/*");
+        registration.setOrder(10);
+        registration.setName("globalTrafficAuthFilter");
         return registration;
     }
 

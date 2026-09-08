@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.ILlmChannelDao">
+
+    <resultMap id="ChannelMap" type="cn.chyuan.ai.infrastructure.dao.po.McpLlmChannelPO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="base_url" property="baseUrl"/>
+        <result column="credential" property="credential"/>
+        <result column="models" property="models"/>
+        <result column="model_mapping" property="modelMapping"/>
+        <result column="weight" property="weight"/>
+        <result column="priority" property="priority"/>
+        <result column="status" property="status"/>
+        <result column="timeout_ms" property="timeoutMs"/>
+        <result column="test_time" property="testTime"/>
+        <result column="response_time_ms" property="responseTimeMs"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_llm_channel (name, base_url, credential, models, model_mapping,
+                                     weight, priority, status, timeout_ms)
+        VALUES (#{name}, #{baseUrl}, #{credential}, #{models}, #{modelMapping},
+                #{weight}, #{priority}, #{status}, #{timeoutMs})
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_llm_channel
+        SET base_url = #{baseUrl}, credential = #{credential}, models = #{models},
+            model_mapping = #{modelMapping}, weight = #{weight}, priority = #{priority},
+            status = #{status}, timeout_ms = #{timeoutMs}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_llm_channel WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultMap="ChannelMap">
+        SELECT * FROM mcp_llm_channel WHERE id = #{id}
+    </select>
+
+    <select id="queryByName" resultMap="ChannelMap">
+        SELECT * FROM mcp_llm_channel WHERE name = #{name}
+    </select>
+
+    <select id="queryAll" resultMap="ChannelMap">
+        SELECT * FROM mcp_llm_channel ORDER BY priority DESC, id
+    </select>
+
+    <select id="queryEnabled" resultMap="ChannelMap">
+        SELECT * FROM mcp_llm_channel WHERE status = 1 ORDER BY priority DESC, id
+    </select>
+
+</mapper>

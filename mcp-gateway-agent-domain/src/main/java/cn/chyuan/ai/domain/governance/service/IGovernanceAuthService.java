@@ -31,6 +31,16 @@ public interface IGovernanceAuthService {
     }
 
     /**
+     * 全局流量面认证（工单 0063：/v1 与 A2A 面）——不经网关强校验与网关授权，
+     * 仅做凭证有效性（vk 状态/过期/宽限/IP 白名单）与 JWT 解析；
+     * 治理（CEL/配额/预算）由调用方按 traffic 面标签施加。
+     * 默认委托实现，保证既有实现零改动。
+     */
+    default GovernancePrincipal authenticateGlobal(String credential, String clientIp) {
+        return authenticate("GLOBAL", credential, clientIp);
+    }
+
+    /**
      * 主体复核（case 层节点链防御性复用，缓存命中，幂等）。
      */
     GovernancePrincipal validatePrincipal(String gatewayId, GovernancePrincipal principal);

@@ -49,7 +49,7 @@ class McpGatewayDelegateServletTest {
     @BeforeEach
     void setUp() {
         servlet = new McpGatewayDelegateServlet(registry, toolCatalogService, null,
-                observabilityHelper, null, 30L);
+                observabilityHelper, null, null, 30L);
     }
 
     private MockHttpServletRequest request(String method, String pathInfo, String body) {
@@ -190,5 +190,71 @@ class McpGatewayDelegateServletTest {
         assertThat(captured.toString()).isEqualTo("sess-1");
         assertThat(wrapper.capturedSessionId()).isEqualTo("sess-1");
         assertThat(mockResponse.getHeader("Mcp-Session-Id")).isEqualTo("sess-1");
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("batch（0054）— 拆分治理按序聚合：tools/list + 未知工具 + 通知（无响应条目）")
+    void testBatchMixedElements() throws Exception {
+        // 会话头合法 + 目录含工具
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", "/api-gateway/gateway_001/mcp");
+        request.setPathInfo("/gateway_001/mcp");
+        request.addHeader("Mcp-Session-Id", "sess-1");
+        request.setContentType("application/json");
+        String batch = "[" +
+                "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}," +
+                "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"no_such_tool\",\"arguments\":{}}}," +
+                "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}" +
+                "]";
+        request.setContent(batch.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.springframework.mock.web.MockHttpServletResponse response = new org.springframework.mock.web.MockHttpServletResponse();
+        org.springframework.mock.web.MockFilterChain chain = new org.springframework.mock.web.MockFilterChain();
+
+        // 会话登记进 servlet 本地表（batch 各元素共用）
+        @SuppressWarnings("unchecked")
+        Map<String, Long> localSessions = (Map<String, Long>) ReflectionTestUtils.getField(servlet, "localSessions");
+        localSessions.put("sess-1", System.currentTimeMillis());
+
+        servlet.service(request, response);
+
+        String body = response.getContentAsString();
+        org.junit.jupiter.api.Assertions.assertTrue(body.startsWith("["), "batch 响应应为数组");
+        com.fasterxml.jackson.databind.JsonNode array = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+        org.junit.jupiter.api.Assertions.assertEquals(2, array.size(), "通知不产生响应条目");
+        org.junit.jupiter.api.Assertions.assertEquals(1, array.get(0).path("id").asInt());
+        org.junit.jupiter.api.Assertions.assertEquals(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_NOT_FOUND,
+                array.get(1).path("error").path("code").asInt(), "未知工具 -32003");
+        org.junit.jupiter.api.Assertions.assertEquals(200, response.getStatus());
+    }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("batch（0054）— 空数组 -32600 / 畸形条目错误条目化")
+    void testBatchEmptyAndMalformed() throws Exception {
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", "/api-gateway/gateway_001/mcp");
+        request.setPathInfo("/gateway_001/mcp");
+        request.setContentType("application/json");
+        request.setContent("[]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.springframework.mock.web.MockHttpServletResponse response = new org.springframework.mock.web.MockHttpServletResponse();
+
+        servlet.service(request, response);
+        org.junit.jupiter.api.Assertions.assertEquals(400, response.getStatus());
+        org.junit.jupiter.api.Assertions.assertTrue(response.getContentAsString()
+                .contains(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.INVALID_REQUEST)));
+
+        org.springframework.mock.web.MockHttpServletRequest request2 =
+                new org.springframework.mock.web.MockHttpServletRequest("POST", "/api-gateway/gateway_001/mcp");
+        request2.setPathInfo("/gateway_001/mcp");
+        request2.addHeader("Mcp-Session-Id", "sess-1");
+        request2.setContentType("application/json");
+        request2.setContent("[\"not-an-object\",{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\"}]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.springframework.mock.web.MockHttpServletResponse response2 = new org.springframework.mock.web.MockHttpServletResponse();
+        servlet.service(request2, response2);
+
+        com.fasterxml.jackson.databind.JsonNode array = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(response2.getContentAsString());
+        org.junit.jupiter.api.Assertions.assertEquals(2, array.size());
+        org.junit.jupiter.api.Assertions.assertEquals(cn.chyuan.ai.types.enums.McpErrorCodes.INVALID_REQUEST,
+                array.get(0).path("error").path("code").asInt(), "非对象条目 -32600");
     }
 }

@@ -69,6 +69,8 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     private final IMcpToolCatalogService toolCatalogService;
     private final ObservabilityHelper observabilityHelper;
     private final IUsageLedgerService usageLedgerService;
+    /** 配额服务（工单 0054：batch 按条目数补计；null 防御切片装配） */
+    private final cn.chyuan.ai.domain.governance.service.IQuotaService quotaService;
     private final long sessionTimeoutMinutes;
 
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
@@ -90,12 +92,14 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             ISessionMetaRepository sessionMetaRepository,
             ObservabilityHelper observabilityHelper,
             IUsageLedgerService usageLedgerService,
+            cn.chyuan.ai.domain.governance.service.IQuotaService quotaService,
             long sessionTimeoutMinutes) {
         this.registry = registry;
         this.toolCatalogService = toolCatalogService;
         this.sessionMetaRepository = sessionMetaRepository;
         this.observabilityHelper = observabilityHelper;
         this.usageLedgerService = usageLedgerService;
+        this.quotaService = quotaService;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
         log.info("Streamable HTTP 委派路由已初始化: sessionTimeoutMinutes={}", sessionTimeoutMinutes);
@@ -173,6 +177,17 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         if (root == null) {
             return;
         }
+        // JSON-RPC batch（工单 0054）：数组请求体拆分逐条治理后按序聚合
+        if (root.isArray()) {
+            handleBatch(request, response, gatewayId, bodyBytes, (ArrayNode) root);
+            return;
+        }
+        processSingleElement(request, response, gatewayId, root, bodyBytes);
+    }
+
+    /** 单元素处理（对象形态，原 handlePost 主体） */
+    private void processSingleElement(HttpServletRequest request, HttpServletResponse response,
+            String gatewayId, JsonNode root, byte[] bodyBytes) throws IOException {
         JsonNode methodNode = root.get("method");
         String mcpMethod = methodNode == null || methodNode.isNull() ? null : methodNode.asText();
 
@@ -206,6 +221,116 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         if (wrapper.status() == HttpServletResponse.SC_NOT_FOUND) {
             removeSession(request.getHeader(SESSION_HEADER));
         }
+    }
+
+    /**
+     * JSON-RPC batch（工单 0054）：逐条走单元素治理链（CEL/会话/路由/账本按条目），
+     * 响应按原始顺序聚合；通知（无 id）不产生响应条目；配额按条目数补计
+     * （过滤器已按 HTTP 请求计 1 次，此处对条目数 N 补计 N-1 次，任一失败整批 429）。
+     */
+    private void handleBatch(HttpServletRequest request, HttpServletResponse response,
+            String gatewayId, byte[] bodyBytes, ArrayNode batch) throws IOException {
+        if (batch.isEmpty()) {
+            writeJsonRpcError(response, HttpServletResponse.SC_BAD_REQUEST,
+                    McpErrorCodes.INVALID_REQUEST, "batch数组不能为空", null);
+            return;
+        }
+
+        // 配额补计（按有 method 的条目计）
+        if (quotaService != null) {
+            GovernancePrincipal principal = principalOf(request);
+            if (principal != null) {
+                long chargeable = 0;
+                for (JsonNode element : batch) {
+                    if (element != null && element.isObject() && element.hasNonNull("method")) {
+                        chargeable++;
+                    }
+                }
+                for (long i = 1; i < chargeable; i++) {
+                    var verdict = quotaService.checkAndConsume(gatewayId, principal);
+                    if (!verdict.allowed()) {
+                        writeJsonRpcError(response, 429, McpErrorCodes.QUOTA_EXCEEDED,
+                                "超出配额限制（batch 条目数）：" + verdict.remaining(), null);
+                        return;
+                    }
+                }
+            }
+        }
+
+        ArrayNode responses = objectMapper.createArrayNode();
+        for (JsonNode element : batch) {
+            if (element == null || !element.isObject()) {
+                responses.add(errorEntry(null, McpErrorCodes.INVALID_REQUEST, "batch条目必须是JSON-RPC请求对象"));
+                continue;
+            }
+            JsonNode methodNode = element.get("method");
+            String method = methodNode == null || methodNode.isNull() ? null : methodNode.asText();
+            if (method == null || method.isBlank() || !MCP_METHOD_PATTERN.matcher(method).matches()) {
+                responses.add(errorEntry(idOf(element), McpErrorCodes.INVALID_REQUEST, "method格式非法"));
+                continue;
+            }
+            if ("tools/call".equals(method)) {
+                JsonNode toolNameNode = element.path("params").path("name");
+                if (!toolNameNode.isTextual() || !MCP_METHOD_PATTERN.matcher(toolNameNode.asText()).matches()) {
+                    responses.add(errorEntry(idOf(element), McpErrorCodes.INVALID_PARAMS, "toolName格式非法"));
+                    continue;
+                }
+            }
+
+            BufferingResponseWrapper buffer = new BufferingResponseWrapper(response);
+            byte[] elementBody = objectMapper.writeValueAsBytes(element);
+            HttpServletRequest elementRequest = new CachedBodyHttpServletRequest(request, elementBody);
+            try {
+                processSingleElement(elementRequest, buffer, gatewayId, element, elementBody);
+            } catch (Exception e) {
+                // 通知（无 id）不产生响应条目——异常路径同样遵循
+                if (element.hasNonNull("id")) {
+                    responses.add(errorEntry(idOf(element), McpErrorCodes.INTERNAL_ERROR,
+                            "内部错误: " + e.getMessage()));
+                }
+                continue;
+            }
+            // 通知（无 id）不产生响应条目
+            if (element.hasNonNull("id")) {
+                JsonNode parsed = parseBufferedBody(buffer, idOf(element));
+                if (parsed != null) {
+                    responses.add(parsed);
+                }
+            }
+        }
+
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write(objectMapper.writeValueAsString(responses));
+        response.getWriter().flush();
+    }
+
+    /** 缓冲响应解析为 JSON-RPC 条目（空缓冲按既有 id 造内部错误条目） */
+    private JsonNode parseBufferedBody(BufferingResponseWrapper buffer, JsonNode id) {
+        String body = buffer.body();
+        if (body != null && !body.isBlank()) {
+            try {
+                return objectMapper.readTree(body);
+            } catch (Exception ignore) {
+                // fallthrough 造错误条目
+            }
+        }
+        return errorEntry(id, McpErrorCodes.INTERNAL_ERROR, "batch条目处理无响应");
+    }
+
+    private ObjectNode errorEntry(JsonNode id, int code, String message) {
+        ObjectNode entry = objectMapper.createObjectNode();
+        entry.put("jsonrpc", "2.0");
+        if (id != null && !id.isNull()) {
+            entry.set("id", id);
+        } else {
+            entry.putNull("id");
+        }
+        ObjectNode error = entry.putObject("error");
+        error.put("code", code);
+        error.put("message", message == null ? "" : message);
+        return entry;
     }
 
     /** initialize：委派官方传输建会话；Mcp-Session-Id 响应头一旦写出立即登记（早于响应体到达客户端，避免后续请求竞态 404） */
@@ -628,6 +753,84 @@ public class McpGatewayDelegateServlet extends HttpServlet {
                 }
             }
             super.setHeader(name, value);
+        }
+    }
+
+    /**
+     * batch 元素处理的缓冲响应（工单 0054）：捕获状态码与响应体，
+     * 头操作（如 initialize 的会话头）静默吞掉——会话登记经 SessionCapturing 逻辑不受影响（元素走委派时）。
+     */
+    static final class BufferingResponseWrapper extends HttpServletResponseWrapper {
+
+        private int status = HttpServletResponse.SC_OK;
+
+        private final java.io.StringWriter body = new java.io.StringWriter();
+
+        private String contentType = "application/json";
+
+        /** 覆写全部写路径，真实 response 仅作占位（不经父类写出） */
+        BufferingResponseWrapper(HttpServletResponse placeholder) {
+            super(placeholder);
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            // 纯缓冲：头操作吞掉（会话登记经 SessionCapturing 回调不受影响）
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            // 纯缓冲：头操作吞掉
+        }
+
+        @Override
+        public void addDateHeader(String name, long date) {
+            // 纯缓冲：头操作吞掉
+        }
+
+        @Override
+        public void setStatus(int statusCode) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void sendError(int statusCode, String message) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void sendError(int statusCode) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void setContentType(String type) {
+            if (type != null) {
+                this.contentType = type;
+            }
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public java.io.PrintWriter getWriter() {
+            return new java.io.PrintWriter(body);
+        }
+
+        @Override
+        public jakarta.servlet.ServletOutputStream getOutputStream() {
+            throw new UnsupportedOperationException("batch 缓冲只支持字符流");
+        }
+
+        int status() {
+            return status;
+        }
+
+        String body() {
+            return body.toString();
         }
     }
 }

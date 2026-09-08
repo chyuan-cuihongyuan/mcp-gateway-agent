@@ -66,6 +66,55 @@ public class QuotaService implements IQuotaService {
         return QuotaVerdict.denied(probe.getRemainingTokens(), retryAfterSeconds);
     }
 
+    @Override
+    public QuotaVerdict admitTokens(String gatewayId, GovernancePrincipal principal) {
+        Integer tpmLimit = principal == null ? null : principal.getTpmLimit();
+        if (!isPerKeyQuotaApplicable(principal) || !isLimited(tpmLimit)) {
+            return QuotaVerdict.notLimited();
+        }
+        try {
+            IQuotaBucketBackend.QuotaBucket bucket = quotaBucketBackend.getTpmBucket(
+                    principal.getVirtualKeyId(), tpmLimit);
+            long available = bucket.availableTokens();
+            if (available > 0) {
+                return QuotaVerdict.allowed(available);
+            }
+            countDenial(gatewayId, principal.getVirtualKeyId());
+            log.info("TPM 限流拒绝 gateway:{} keyId:{} tpmLimit:{}", gatewayId, principal.getVirtualKeyId(), tpmLimit);
+            return QuotaVerdict.denied(0, 60);
+        } catch (Exception e) {
+            // 与请求配额同口径 fail-closed（0011 决议①）
+            log.warn("TPM 桶后端不可用（fail-closed 拒绝）gateway:{} keyId:{}: {}",
+                    gatewayId, principal.getVirtualKeyId(), e.getMessage());
+            throw new AppException(McpErrorCodes.QUOTA_SERVICE_UNAVAILABLE,
+                    "配额服务暂不可用，请稍后重试（fail-closed）");
+        }
+    }
+
+    @Override
+    public void consumeTokens(String gatewayId, GovernancePrincipal principal, long tokens) {
+        Integer tpmLimit = principal == null ? null : principal.getTpmLimit();
+        if (tokens <= 0 || !isPerKeyQuotaApplicable(principal) || !isLimited(tpmLimit)) {
+            return;
+        }
+        try {
+            IQuotaBucketBackend.QuotaBucket bucket = quotaBucketBackend.getTpmBucket(
+                    principal.getVirtualKeyId(), tpmLimit);
+            int chunk = (int) Math.min(tokens, Integer.MAX_VALUE);
+            if (!bucket.tryConsume(chunk).isConsumed()) {
+                // 超出窗口余量：尽量扣满（余量清零），超出部分随补币自然吸收
+                long available = bucket.availableTokens();
+                if (available > 0) {
+                    bucket.tryConsume((int) Math.min(available, Integer.MAX_VALUE));
+                }
+            }
+        } catch (Exception e) {
+            // 响应已完成：计量失败仅告警
+            log.warn("TPM 计量失败（不影响已完成响应）gateway:{} keyId:{} tokens:{}: {}",
+                    gatewayId, principal.getVirtualKeyId(), tokens, e.getMessage());
+        }
+    }
+
     /** 仅虚拟密钥主体受限额管辖（JWT 管理面/匿名开放网关不限） */
     private boolean isPerKeyQuotaApplicable(GovernancePrincipal principal) {
         return principal != null

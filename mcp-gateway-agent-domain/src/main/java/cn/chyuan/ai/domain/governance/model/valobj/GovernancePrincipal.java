@@ -51,6 +51,9 @@ public class GovernancePrincipal {
     /** 预算硬线（工单 0050；空=未启用） */
     private Long budgetHard;
 
+    /** 每分钟 token 限额 TPM（工单 0065；空=不限） */
+    private Integer tpmLimit;
+
     /** 每分钟请求限额（NULL 不限，-1 表示未知） */
     private Integer rpmLimit;
 

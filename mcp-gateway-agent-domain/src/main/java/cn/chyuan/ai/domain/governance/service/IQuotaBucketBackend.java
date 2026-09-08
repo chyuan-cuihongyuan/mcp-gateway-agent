@@ -22,6 +22,11 @@ public interface IQuotaBucketBackend {
      */
     QuotaBucket getBucket(long keyId, Integer rpmLimit, Integer dailyRequestLimit);
 
+    /**
+     * TPM 桶（工单 0065：token 粒度单带宽；null 表示不启用——调用方不取桶）。
+     */
+    QuotaBucket getTpmBucket(long keyId, Integer tpmLimit);
+
     /** 配额桶（本地或 Redis 代理桶的抽象，实现须线程安全） */
     interface QuotaBucket {
 

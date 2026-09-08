@@ -55,6 +55,13 @@ public class RedisQuotaBucketBackend implements IQuotaBucketBackend {
         return new ProxyQuotaBucket(key.getBytes(StandardCharsets.UTF_8), configuration);
     }
 
+    @Override
+    public QuotaBucket getTpmBucket(long keyId, Integer tpmLimit) {
+        String key = QuotaBuckets.tpmBucketKey(keyId, tpmLimit);
+        return new ProxyQuotaBucket(key.getBytes(StandardCharsets.UTF_8),
+                QuotaBuckets.buildTpmConfiguration(tpmLimit));
+    }
+
     private CircuitBreaker breaker() {
         if (circuitBreaker == null) {
             synchronized (this) {

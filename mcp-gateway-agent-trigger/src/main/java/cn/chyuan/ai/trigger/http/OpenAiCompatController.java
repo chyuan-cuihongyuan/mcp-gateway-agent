@@ -116,6 +116,14 @@ public class OpenAiCompatController {
                         "超出配额限制：剩余 " + verdict.remaining() + "，请 " + verdict.retryAfterSeconds() + " 秒后重试");
             }
         }
+        if (quotaService != null) {
+            IQuotaService.QuotaVerdict tpm = quotaService.admitTokens(LlmChatService.TRAFFIC_LLM_GATEWAY, principal);
+            if (!tpm.allowed()) {
+                response.setHeader("Retry-After", String.valueOf(tpm.retryAfterSeconds()));
+                throw new AppException(McpErrorCodes.QUOTA_EXCEEDED,
+                        "超出每分钟 token 限额（TPM），请 " + tpm.retryAfterSeconds() + " 秒后重试");
+            }
+        }
         if (budgetService != null) {
             IBudgetService.BudgetVerdict budget = budgetService.admit(principal);
             if (!budget.allowed()) {

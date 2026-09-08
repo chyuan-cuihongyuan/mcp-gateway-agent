@@ -665,6 +665,17 @@ class StreamableHttpProtocolTest {
 
     /** 配额假实现：默认放行，可切换拒绝（429 断言用） */
     static class FakeQuotaService implements IQuotaService {
+        @Override
+        public cn.chyuan.ai.domain.governance.service.IQuotaService.QuotaVerdict admitTokens(
+                String gatewayId, cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal principal) {
+            return cn.chyuan.ai.domain.governance.service.IQuotaService.QuotaVerdict.notLimited();
+        }
+
+        @Override
+        public void consumeTokens(String gatewayId,
+                cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal principal, long tokens) {
+        }
+
 
         static volatile boolean deny = false;
 

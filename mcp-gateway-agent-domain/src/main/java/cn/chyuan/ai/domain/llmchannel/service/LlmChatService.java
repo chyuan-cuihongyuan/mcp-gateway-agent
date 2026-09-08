@@ -59,6 +59,9 @@ public class LlmChatService {
     @Resource
     private IUsageLedgerService usageLedger;
 
+    @Resource
+    private cn.chyuan.ai.domain.governance.service.IQuotaService quotaService;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -105,6 +108,7 @@ public class LlmChatService {
                 int cost = (int) (System.currentTimeMillis() - start);
                 if (status >= 200 && status < 300 && response != null) {
                     recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
+                    consumeTpmQuietly(principal, response);
                     return response;
                 }
                 lastError = "渠道 " + channel.getName() + " 返回 " + status;
@@ -184,6 +188,7 @@ public class LlmChatService {
                 if (status >= 200 && status < 300) {
                     recordUsageTokens(principal, model, channel.getName(), "SUCCESS", cost,
                             forwarder.usagePromptTokens(), forwarder.usageCompletionTokens());
+                    consumeTpmQuietly(principal, forwarder.usagePromptTokens(), forwarder.usageCompletionTokens());
                     return forwarder.ttftMs();
                 }
                 if (forwarder.firstByteSent()) {
@@ -278,6 +283,35 @@ public class LlmChatService {
 
         Long usageCompletionTokens() {
             return usageCompletionTokens;
+        }
+    }
+
+    /** TPM 计量（非流式：从响应体解析 usage；工单 0065） */
+    private void consumeTpmQuietly(GovernancePrincipal principal, String responseBody) {
+        long tokens = 0;
+        if (responseBody != null) {
+            try {
+                JSONObject usage = JSON.parseObject(responseBody).getJSONObject("usage");
+                if (usage != null) {
+                    tokens += usage.getLongValue("prompt_tokens");
+                    tokens += usage.getLongValue("completion_tokens");
+                }
+            } catch (Exception ignore) {
+                // 无 usage 不计量
+            }
+        }
+        consumeTpmQuietly(principal, tokens > 0 ? tokens : 0L, 0L);
+    }
+
+    private void consumeTpmQuietly(GovernancePrincipal principal, Long promptTokens, Long completionTokens) {
+        long tokens = (promptTokens == null ? 0 : promptTokens) + (completionTokens == null ? 0 : completionTokens);
+        if (tokens <= 0) {
+            return;
+        }
+        try {
+            quotaService.consumeTokens(TRAFFIC_LLM_GATEWAY, principal, tokens);
+        } catch (Exception e) {
+            log.debug("TPM 计量提交失败：{}", e.getMessage());
         }
     }
 

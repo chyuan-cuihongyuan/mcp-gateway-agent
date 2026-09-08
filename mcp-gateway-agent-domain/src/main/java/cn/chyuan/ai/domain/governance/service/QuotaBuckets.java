@@ -38,6 +38,22 @@ public final class QuotaBuckets {
                 + (dailyLimit == null || dailyLimit <= 0 ? "-" : dailyLimit);
     }
 
+    /** TPM 桶键前缀（工单 0065：token 粒度，与请求粒度桶分离） */
+    public static final String TPM_KEY_PREFIX = "governance:tpm:v1";
+
+    public static String tpmBucketKey(long keyId, Integer tpmLimit) {
+        return TPM_KEY_PREFIX + ":" + keyId + ":"
+                + (tpmLimit == null || tpmLimit <= 0 ? "-" : tpmLimit);
+    }
+
+    /** TPM 单带宽桶（每分钟 token 数，greedy 补充；工单 0065） */
+    public static BucketConfiguration buildTpmConfiguration(Integer tpmLimit) {
+        return BucketConfiguration.builder()
+                .addLimit(io.github.bucket4j.Bandwidth.classic(tpmLimit,
+                        io.github.bucket4j.Refill.greedy(tpmLimit, Duration.ofMinutes(1))))
+                .build();
+    }
+
     /** 构建多带宽同桶配置（未启用的带宽不加入） */
     public static BucketConfiguration buildConfiguration(Integer rpmLimit, Integer dailyRequestLimit, Instant now) {
         ConfigurationBuilder builder = BucketConfiguration.builder();

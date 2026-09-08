@@ -24,6 +24,18 @@ public interface IQuotaService {
     QuotaVerdict checkAndConsume(String gatewayId, GovernancePrincipal principal);
 
     /**
+     * TPM 准入（工单 0065）：token 粒度窗口余量检查（不消费——真实 token 数在响应后计量）。
+     * 未配置 TPM 的密钥直通；窗口耗尽返回拒绝（429 语义同 -32009，文案区分 TPM）。
+     */
+    QuotaVerdict admitTokens(String gatewayId, GovernancePrincipal principal);
+
+    /**
+     * TPM 计量（工单 0065）：响应 usage 已知后向窗口累加 token 数。
+     * 计量失败仅告警（响应已完成，不回滚不阻断）；超额部分窗口内自然拒绝后续请求。
+     */
+    void consumeTokens(String gatewayId, GovernancePrincipal principal, long tokens);
+
+    /**
      * 配额判定结果
      *
      * @param allowed           是否放行
@@ -33,15 +45,15 @@ public interface IQuotaService {
      */
     record QuotaVerdict(boolean allowed, boolean limited, long remaining, long retryAfterSeconds) {
 
-        static QuotaVerdict notLimited() {
+        public static QuotaVerdict notLimited() {
             return new QuotaVerdict(true, false, -1, 0);
         }
 
-        static QuotaVerdict allowed(long remaining) {
+        public static QuotaVerdict allowed(long remaining) {
             return new QuotaVerdict(true, true, remaining, 0);
         }
 
-        static QuotaVerdict denied(long remaining, long retryAfterSeconds) {
+        public static QuotaVerdict denied(long remaining, long retryAfterSeconds) {
             return new QuotaVerdict(false, true, remaining, retryAfterSeconds);
         }
     }

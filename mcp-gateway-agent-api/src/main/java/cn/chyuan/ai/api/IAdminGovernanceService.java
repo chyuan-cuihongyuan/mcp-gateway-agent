@@ -33,6 +33,16 @@ public interface IAdminGovernanceService {
     /** 轮换密钥（工单 0049）：新明文仅本次返回，旧钥进入宽限期 */
     VirtualKeyResponseDTO regenerateVirtualKey(Long id);
 
+    /** 禁用/解禁（工单 0052，立即生效） */
+    void blockVirtualKey(Long id);
+    void unblockVirtualKey(Long id);
+
+    /** 批量禁用/解禁（工单 0052）：返回实际成功数 */
+    int bulkBlockVirtualKeys(java.util.List<Long> ids, boolean block);
+
+    /** 临时提额（工单 0052）：预算硬线上浮增量至到期时间 */
+    void applyTempBudget(Long id, long increase, String expiresAt);
+
     void grantGateway(Long id, String gatewayId);
 
     void revokeGrantGateway(Long id, String gatewayId);

@@ -165,6 +165,68 @@ public class VirtualKeyService implements IVirtualKeyService {
         return saved;
     }
 
+
+    // ---- 工单 0052：密钥管理 API 完备化 ----
+
+    @Override
+    public void block(Long id) {
+        VirtualKeyVO existing = requireKey(id);
+        repository.updateStatus(id, "DISABLED");
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin").action("BLOCK_KEY").resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(id)).beforeJson(snapshot(existing)).build());
+        governanceAuthService.invalidateAll();
+    }
+
+    @Override
+    public void unblock(Long id) {
+        VirtualKeyVO existing = requireKey(id);
+        repository.updateStatus(id, "ACTIVE");
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin").action("UNBLOCK_KEY").resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(id)).beforeJson(snapshot(existing)).build());
+        governanceAuthService.invalidateAll();
+    }
+
+    @Override
+    public int bulkUpdateStatus(java.util.List<Long> ids, boolean block) {
+        int changed = 0;
+        for (Long id : ids == null ? java.util.List.<Long>of() : ids) {
+            try {
+                if (block) {
+                    block(id);
+                } else {
+                    unblock(id);
+                }
+                changed++;
+            } catch (AppException e) {
+                log.warn("批量{}跳过 keyId={}：{}", block ? "禁用" : "解禁", id, e.getInfo());
+            }
+        }
+        return changed;
+    }
+
+    @Override
+    public void applyTempBudget(Long id, long increase, Date expiresAt) {
+        VirtualKeyVO existing = requireKey(id);
+        if (existing.getBudgetHard() == null || existing.getBudgetHard() <= 0) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "临时提额仅适用于已配置预算的密钥，请先设置 budgetHard");
+        }
+        if (increase <= 0) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "临时提额增量必须大于 0");
+        }
+        if (expiresAt == null || !expiresAt.after(new Date())) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "临时提额到期时间必须晚于当前时间");
+        }
+        repository.applyTempBudget(id, increase, expiresAt);
+        auditService.record(AuditCommandEntity.builder()
+                .actor("admin").action("TEMP_BUDGET").resourceType(RESOURCE_TYPE)
+                .resourceId(String.valueOf(id))
+                .afterJson("{\"increase\":" + increase + ",\"expiresAt\":" + expiresAt.getTime() + "}")
+                .build());
+        governanceAuthService.invalidateAll();
+    }
+
     /** 轮换宽限期（小时），工单 0049 */
     @Value("${governance.key.rotation-grace-hours:24}")
     private long rotationGraceHours;

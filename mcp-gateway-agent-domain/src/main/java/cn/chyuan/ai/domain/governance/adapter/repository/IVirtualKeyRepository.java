@@ -41,6 +41,12 @@ public interface IVirtualKeyRepository {
     /** 预算窗口已用次数 +1（工单 0050，放行时调用） */
     void incrementBudgetUsed(Long id);
 
+    /** 临时提额（工单 0052：生效硬线上浮 increase 至 expiresAt） */
+    void applyTempBudget(Long id, long increase, Date expiresAt);
+
+    /** 清除临时提额（工单 0052） */
+    void clearTempBudget(Long id);
+
     /**
      * 密钥轮换（工单 0049）：换新哈希、前代哈希入宽限期（覆盖上一代即失效）。
      */

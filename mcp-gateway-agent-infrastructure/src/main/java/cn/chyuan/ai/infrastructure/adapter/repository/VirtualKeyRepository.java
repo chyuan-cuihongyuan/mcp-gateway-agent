@@ -82,6 +82,16 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
     }
 
     @Override
+    public void applyTempBudget(Long id, long increase, Date expiresAt) {
+        virtualKeyDao.applyTempBudget(id, increase, expiresAt);
+    }
+
+    @Override
+    public void clearTempBudget(Long id) {
+        virtualKeyDao.clearTempBudget(id);
+    }
+
+    @Override
     public boolean existsGrant(Long keyId, String gatewayId) {
         Integer count = virtualKeyGatewayDao.countGrant(keyId, gatewayId);
         return count != null && count > 0;
@@ -184,6 +194,8 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .budgetDurationHours(po.getBudgetDurationHours())
                 .budgetResetAt(po.getBudgetResetAt())
                 .budgetUsed(po.getBudgetUsed() == null ? 0L : po.getBudgetUsed())
+                .tempBudgetHard(po.getTempBudgetHard())
+                .tempBudgetExpires(po.getTempBudgetExpires())
                 .rpmLimit(po.getRpmLimit())
                 .dailyRequestLimit(po.getDailyRequestLimit())
                 .dailyToolCallLimit(po.getDailyToolCallLimit())

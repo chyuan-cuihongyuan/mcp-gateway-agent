@@ -43,4 +43,16 @@ public interface IVirtualKeyService {
 
     /** 存量 gw- apiKey 等价迁移（启动幂等，0011 决策④）：返回本次实际迁移条数 */
     int migrateLegacyKeys();
+
+    /** 禁用（工单 0052：DISABLED，立即失效缓存，可 unblock 恢复） */
+    void block(Long id);
+
+    /** 解禁（工单 0052：恢复 ACTIVE） */
+    void unblock(Long id);
+
+    /** 批量 block/unblock（工单 0052）：返回实际成功数 */
+    int bulkUpdateStatus(java.util.List<Long> ids, boolean block);
+
+    /** 临时提额（工单 0052：生效硬线上浮 increase 至 expiresAt，过期惰性回落） */
+    void applyTempBudget(Long id, long increase, java.util.Date expiresAt);
 }

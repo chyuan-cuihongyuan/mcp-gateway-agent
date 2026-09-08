@@ -127,4 +127,29 @@ public class BudgetServiceTest {
     private static <V> Map<String, V> anyMap() {
         return any();
     }
+
+    @Test
+    @DisplayName("临时提额（0052）— 未过期生效硬线取较大值；过期惰性回落")
+    void testEffectiveHardWithTempBudget() {
+        VirtualKeyVO vo = VirtualKeyVO.builder()
+                .id(42L).status("ACTIVE").budgetHard(1000L).budgetUsed(999L)
+                .tempBudgetHard(1500L)
+                .tempBudgetExpires(new Date(System.currentTimeMillis() + 3600_000))
+                .budgetResetAt(new Date(System.currentTimeMillis() + 3600_000))
+                .build();
+        when(repository.findById(42L)).thenReturn(vo);
+
+        IBudgetService.BudgetVerdict verdict = service.admit(principalWithBudget(null, 1000L));
+        assertTrue(verdict.allowed(), "生效硬线 1500，used+1=1000 未超");
+        assertEquals(1500L, verdict.hard());
+
+        VirtualKeyVO expired = VirtualKeyVO.builder()
+                .id(42L).status("ACTIVE").budgetHard(1000L).budgetUsed(1000L)
+                .tempBudgetHard(1500L)
+                .tempBudgetExpires(new Date(System.currentTimeMillis() - 1000))
+                .budgetResetAt(new Date(System.currentTimeMillis() + 3600_000))
+                .build();
+        when(repository.findById(42L)).thenReturn(expired);
+        assertFalse(service.admit(principalWithBudget(null, 1000L)).allowed(), "临时提额过期回落 1000，used+1 超");
+    }
 }

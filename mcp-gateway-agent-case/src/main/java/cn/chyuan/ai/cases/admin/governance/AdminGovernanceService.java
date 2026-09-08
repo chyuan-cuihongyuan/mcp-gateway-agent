@@ -132,6 +132,26 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     }
 
     @Override
+    public void blockVirtualKey(Long id) {
+        virtualKeyService.block(id);
+    }
+
+    @Override
+    public void unblockVirtualKey(Long id) {
+        virtualKeyService.unblock(id);
+    }
+
+    @Override
+    public int bulkBlockVirtualKeys(List<Long> ids, boolean block) {
+        return virtualKeyService.bulkUpdateStatus(ids, block);
+    }
+
+    @Override
+    public void applyTempBudget(Long id, long increase, String expiresAt) {
+        virtualKeyService.applyTempBudget(id, increase, parseDate(expiresAt));
+    }
+
+    @Override
     public VirtualKeyResponseDTO regenerateVirtualKey(Long id) {
         VirtualKeyVO vo = virtualKeyService.regenerate(id);
         VirtualKeyResponseDTO dto = toDto(vo);

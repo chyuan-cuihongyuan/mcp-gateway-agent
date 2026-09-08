@@ -24,6 +24,8 @@
         <result column="budget_duration_hours" property="budgetDurationHours"/>
         <result column="budget_reset_at" property="budgetResetAt"/>
         <result column="budget_used" property="budgetUsed"/>
+        <result column="temp_budget_hard" property="tempBudgetHard"/>
+        <result column="temp_budget_expires" property="tempBudgetExpires"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -33,6 +35,7 @@
         rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
         last_active_at, ip_allow_list, rotation_count, last_rotation_at,
         budget_soft, budget_hard, budget_duration_hours, budget_reset_at, budget_used,
+        temp_budget_hard, temp_budget_expires,
         created_at, updated_at
     </sql>
 
@@ -102,6 +105,21 @@
 
     <update id="incrementBudgetUsed">
         UPDATE mcp_virtual_key SET budget_used = budget_used + 1 WHERE id = #{id}
+    </update>
+
+    <!-- 临时提额（工单 0052：增量并入当前生效硬线，到期惰性回落由查询 CASE 处理） -->
+    <update id="applyTempBudget">
+        UPDATE mcp_virtual_key
+        SET temp_budget_hard = GREATEST(COALESCE(temp_budget_hard, budget_hard, 0), COALESCE(budget_hard, 0)) + #{increase},
+            temp_budget_expires = #{expiresAt},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="clearTempBudget">
+        UPDATE mcp_virtual_key
+        SET temp_budget_hard = NULL, temp_budget_expires = NULL, updated_at = NOW()
+        WHERE id = #{id}
     </update>
 
     <!-- 轮换：换新哈希、前代哈希入宽限期（只保留一代，工单 0049） -->

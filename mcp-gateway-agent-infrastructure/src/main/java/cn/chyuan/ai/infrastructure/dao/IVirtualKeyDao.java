@@ -40,6 +40,13 @@ public interface IVirtualKeyDao {
     /** 预算窗口已用递增（工单 0050） */
     int incrementBudgetUsed(@Param("id") Long id);
 
+    /** 临时提额（工单 0052） */
+    int applyTempBudget(@Param("id") Long id, @Param("increase") long increase,
+            @Param("expiresAt") java.util.Date expiresAt);
+
+    /** 清除临时提额（工单 0052） */
+    int clearTempBudget(@Param("id") Long id);
+
     /** 密钥轮换（工单 0049：新哈希+前代宽限，只保留一代；前代哈希由 SQL 自赋值） */
     int rotateKey(@Param("id") Long id, @Param("newKeyHash") String newKeyHash,
             @Param("graceUntil") java.util.Date graceUntil);

@@ -79,6 +79,10 @@ public class McpVirtualKeyPO extends BasePagePO {
     private Date budgetResetAt;
     private Long budgetUsed;
 
+    /** 临时提额硬线/到期时间（工单 0052；过期惰性回落） */
+    private Long tempBudgetHard;
+    private Date tempBudgetExpires;
+
     private Date createdAt;
 
     private Date updatedAt;

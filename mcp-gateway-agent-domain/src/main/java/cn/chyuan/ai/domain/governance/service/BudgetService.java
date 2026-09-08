@@ -46,6 +46,8 @@ public class BudgetService implements IBudgetService {
         }
 
         long used = key.getBudgetUsed() == null ? 0 : key.getBudgetUsed();
+        // 生效硬线 = max(原硬线, 未过期临时提额)（工单 0052 惰性回落）
+        long hard = effectiveHard(key);
         // 窗口惰性重置（请求时点发现过期即清零顺延）
         if (key.getBudgetResetAt() != null && new Date().after(key.getBudgetResetAt())) {
             try {
@@ -58,8 +60,8 @@ public class BudgetService implements IBudgetService {
         }
 
         long next = used + 1;
-        if (next > key.getBudgetHard()) {
-            return new BudgetVerdict(false, false, used, key.getBudgetHard());
+        if (next > hard) {
+            return new BudgetVerdict(false, false, used, hard);
         }
 
         try {
@@ -83,6 +85,16 @@ public class BudgetService implements IBudgetService {
                 log.warn("预算软线事件发布失败 keyId={}：{}", key.getId(), e.getMessage());
             }
         }
-        return new BudgetVerdict(true, softWarning, next, key.getBudgetHard());
+        return new BudgetVerdict(true, softWarning, next, hard);
+    }
+
+    /** 生效硬线：临时提额未过期时取较大值（工单 0052） */
+    static long effectiveHard(VirtualKeyVO key) {
+        long base = key.getBudgetHard() == null ? 0 : key.getBudgetHard();
+        if (key.getTempBudgetHard() != null && key.getTempBudgetHard() > base
+                && key.getTempBudgetExpires() != null && new Date().before(key.getTempBudgetExpires())) {
+            return key.getTempBudgetHard();
+        }
+        return base;
     }
 }

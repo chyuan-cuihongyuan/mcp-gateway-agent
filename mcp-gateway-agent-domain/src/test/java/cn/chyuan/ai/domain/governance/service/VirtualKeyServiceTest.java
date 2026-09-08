@@ -181,4 +181,45 @@ public class VirtualKeyServiceTest {
         assertThrows(cn.chyuan.ai.types.exception.AppException.class, () -> service.regenerate(42L));
         verify(repository, never()).rotateKey(anyLong(), anyString(), any());
     }
+
+    @Test
+    @DisplayName("block/unblock（0052）— 状态切换 + 立即失效缓存 + 审计")
+    void testBlockUnblock() {
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder().id(42L).status("ACTIVE").build());
+        service.block(42L);
+        verify(repository).updateStatus(42L, "DISABLED");
+        verify(governanceAuthService).invalidateAll();
+
+        service.unblock(42L);
+        verify(repository).updateStatus(42L, "ACTIVE");
+        verify(governanceAuthService, times(2)).invalidateAll();
+    }
+
+    @Test
+    @DisplayName("批量（0052）— 部分失败跳过并返回成功数")
+    void testBulkUpdateStatus() {
+        when(repository.findById(1L)).thenReturn(VirtualKeyVO.builder().id(1L).status("ACTIVE").build());
+        when(repository.findById(2L)).thenReturn(null);
+        when(repository.findById(2L)).thenReturn(null);
+
+        int changed = service.bulkUpdateStatus(java.util.List.of(1L, 2L), true);
+
+        assertEquals(1, changed);
+        verify(repository).updateStatus(1L, "DISABLED");
+    }
+
+    @Test
+    @DisplayName("临时提额（0052）— 未配置预算拒绝；合法入参落库 + 审计")
+    void testApplyTempBudget() {
+        when(repository.findById(1L)).thenReturn(VirtualKeyVO.builder().id(1L).status("ACTIVE").build());
+        assertThrows(cn.chyuan.ai.types.exception.AppException.class,
+                () -> service.applyTempBudget(1L, 100, new java.util.Date(System.currentTimeMillis() + 3600_000)));
+
+        when(repository.findById(2L)).thenReturn(VirtualKeyVO.builder().id(2L).status("ACTIVE")
+                .budgetHard(1000L).build());
+        java.util.Date expiry = new java.util.Date(System.currentTimeMillis() + 7200_000);
+        service.applyTempBudget(2L, 500, expiry);
+        verify(repository).applyTempBudget(2L, 500, expiry);
+        verify(auditService).record(any(AuditCommandEntity.class));
+    }
 }

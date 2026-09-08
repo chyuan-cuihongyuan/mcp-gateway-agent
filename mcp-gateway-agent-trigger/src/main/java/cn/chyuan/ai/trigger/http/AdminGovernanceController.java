@@ -82,6 +82,40 @@ public class AdminGovernanceController {
         return Response.success(adminGovernanceService.regenerateVirtualKey(id));
     }
 
+    // ---- 密钥管理完备化（工单 0052）----
+
+    @PostMapping("/virtual-keys/{id}/block")
+    public Response<Void> blockVirtualKey(@PathVariable Long id) {
+        adminGovernanceService.blockVirtualKey(id);
+        return Response.success(null);
+    }
+
+    @PostMapping("/virtual-keys/{id}/unblock")
+    public Response<Void> unblockVirtualKey(@PathVariable Long id) {
+        adminGovernanceService.unblockVirtualKey(id);
+        return Response.success(null);
+    }
+
+    /** 批量禁用/解禁，body {"ids":[1,2],"action":"block"|"unblock"} */
+    @PostMapping("/virtual-keys/bulk")
+    public Response<Integer> bulkVirtualKeys(@RequestBody java.util.Map<String, Object> body) {
+        java.util.List<Long> ids = ((java.util.List<?>) body.getOrDefault("ids", java.util.List.of())).stream()
+                .map(v -> Long.valueOf(String.valueOf(v)))
+                .toList();
+        boolean block = "block".equalsIgnoreCase(String.valueOf(body.get("action")));
+        return Response.success(adminGovernanceService.bulkBlockVirtualKeys(ids, block));
+    }
+
+    /** 临时提额，body {"increase":1000,"expiresAt":"yyyy-MM-dd HH:mm:ss"} */
+    @PostMapping("/virtual-keys/{id}/temp-budget")
+    public Response<Void> applyTempBudget(@PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> body) {
+        long increase = Long.parseLong(String.valueOf(body.get("increase")));
+        String expiresAt = String.valueOf(body.get("expiresAt"));
+        adminGovernanceService.applyTempBudget(id, increase, expiresAt);
+        return Response.success(null);
+    }
+
     @GetMapping("/virtual-keys")
     public ResponsePage<List<VirtualKeyResponseDTO>> pageVirtualKeys(
             @RequestParam(required = false, defaultValue = "") String keyword,

@@ -70,6 +70,12 @@ public class VirtualKeyVO {
     /** 预算窗口内已用次数（工单 0050） */
     private Long budgetUsed;
 
+    /** 临时提额硬线（工单 0052；过期惰性回落） */
+    private Long tempBudgetHard;
+
+    /** 临时提额到期时间（工单 0052） */
+    private Date tempBudgetExpires;
+
     private Integer rpmLimit;
 
     private Integer dailyRequestLimit;

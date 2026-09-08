@@ -112,6 +112,10 @@
             <groupId>cn.chyuan.ai</groupId>
             <artifactId>agent-rag-observability-server-client</artifactId>
         </dependency>
+            <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

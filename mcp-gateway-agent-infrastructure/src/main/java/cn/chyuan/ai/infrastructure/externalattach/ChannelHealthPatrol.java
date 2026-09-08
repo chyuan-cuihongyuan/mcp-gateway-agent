@@ -52,6 +52,10 @@ public class ChannelHealthPatrol {
     @Resource
     private IGovernanceEventPublisher eventPublisher;
 
+    /** 渠道状态指标（工单 0067） */
+    @Resource
+    private cn.chyuan.ai.infrastructure.utils.GatewayMetrics gatewayMetrics;
+
     /** 巡检周期秒（0/缺省走默认；>0 生效） */
     @Value("${mcp.external.attach.patrol-seconds:60}")
     private long patrolSeconds;
@@ -142,6 +146,9 @@ public class ChannelHealthPatrol {
         if (attach.getStatus() == ExternalAttachVO.STATUS_AUTO_DISABLED) {
             // 半开恢复：探测成功一次即恢复启用并清计数
             attachRepository.updateChannelStatus(attach.getId(), ExternalAttachVO.STATUS_ENABLED, null);
+            if (gatewayMetrics != null) {
+                gatewayMetrics.channelState(attach.getAttachName(), 0);
+            }
             publish(EVENT_CHANNEL_RECOVERED, attach, "探测成功自动恢复");
             log.info("渠道已恢复: gateway={} attach={} 耗时{}ms", attach.getGatewayId(), attach.getAttachName(), cost);
         }
@@ -156,6 +163,9 @@ public class ChannelHealthPatrol {
             consecutiveFails.remove(attach.getId());
             Date cooldownUntil = new Date(System.currentTimeMillis() + cooldownSeconds * 1000);
             attachRepository.updateChannelStatus(attach.getId(), ExternalAttachVO.STATUS_AUTO_DISABLED, cooldownUntil);
+            if (gatewayMetrics != null) {
+                gatewayMetrics.channelState(attach.getAttachName(), 1);
+            }
             publish(EVENT_CHANNEL_AUTO_DISABLED, attach, "连续失败 " + fails + " 次：" + abbreviate(error));
             log.warn("渠道自动禁用: gateway={} attach={} 连续失败{}次 冷却至{}", attach.getGatewayId(),
                     attach.getAttachName(), fails, cooldownUntil);

@@ -34,13 +34,15 @@ public class McpTransportConfig {
             IQuotaService quotaService,
             ObjectProvider<cn.chyuan.ai.domain.promptresource.service.PromptResourceService> promptResourceService,
             ObjectProvider<cn.chyuan.ai.domain.session.service.SessionAffinityService> sessionAffinityService,
+            ObjectProvider<cn.chyuan.ai.infrastructure.utils.GatewayMetrics> gatewayMetrics,
             @Value("${governance.request.max-body-bytes:65536}") int maxBodyBytes,
             @Value("${mcp.session.timeout-minutes:30}") long sessionTimeoutMinutes) {
         ServletRegistrationBean<McpGatewayDelegateServlet> registration = new ServletRegistrationBean<>(
                 new McpGatewayDelegateServlet(registry, toolCatalogService,
                         sessionMetaRepository.getIfAvailable(), observabilityHelper,
                         usageLedgerService, quotaService, promptResourceService.getIfAvailable(),
-                        sessionAffinityService.getIfAvailable(), maxBodyBytes, sessionTimeoutMinutes),
+                        sessionAffinityService.getIfAvailable(), gatewayMetrics.getIfAvailable(),
+                        maxBodyBytes, sessionTimeoutMinutes),
                 "/api-gateway/*");
         // 官方 streamable 传输对 POST 请求与 GET 监听流使用 startAsync
         registration.setAsyncSupported(true);

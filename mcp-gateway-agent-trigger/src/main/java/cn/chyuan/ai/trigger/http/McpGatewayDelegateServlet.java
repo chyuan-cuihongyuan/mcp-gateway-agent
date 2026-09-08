@@ -82,6 +82,9 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     /** 会话亲和服务（工单 0055；null 防御切片装配——路由表/漂移检测/实例头） */
     private final cn.chyuan.ai.domain.session.service.SessionAffinityService sessionAffinityService;
 
+    /** 网关指标收口（工单 0067；null 防御切片装配） */
+    private final cn.chyuan.ai.infrastructure.utils.GatewayMetrics gatewayMetrics;
+
     private final long sessionTimeoutMinutes;
 
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
@@ -106,6 +109,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             cn.chyuan.ai.domain.governance.service.IQuotaService quotaService,
             PromptResourceService promptResourceService,
             cn.chyuan.ai.domain.session.service.SessionAffinityService sessionAffinityService,
+            cn.chyuan.ai.infrastructure.utils.GatewayMetrics gatewayMetrics,
             int maxBodyBytes,
             long sessionTimeoutMinutes) {
         this.registry = registry;
@@ -116,6 +120,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         this.quotaService = quotaService;
         this.promptResourceService = promptResourceService;
         this.sessionAffinityService = sessionAffinityService;
+        this.gatewayMetrics = gatewayMetrics;
         this.maxBodyBytes = maxBodyBytes;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
@@ -145,6 +150,11 @@ public class McpGatewayDelegateServlet extends HttpServlet {
                     sessionAffinityService.instanceId());
         }
 
+        long metricsStart = System.currentTimeMillis();
+        boolean metricsOk = false;
+        if (gatewayMetrics != null) {
+            gatewayMetrics.inflightStart("MCP");
+        }
         try {
             String method = request.getMethod();
             switch (method) {
@@ -152,11 +162,19 @@ public class McpGatewayDelegateServlet extends HttpServlet {
                 case "POST" -> handlePost(request, response, gatewayId);
                 default -> response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             }
+            metricsOk = true;
         } catch (AppException e) {
             // 网关不存在等业务拒绝
             log.warn("Streamable HTTP 请求拒绝: gatewayId={}, reason={}", gatewayId, e.getInfo());
             writeJsonRpcError(response, HttpServletResponse.SC_NOT_FOUND,
                     jsonRpcErrorCode(e), e.getInfo(), null);
+        } finally {
+            if (gatewayMetrics != null) {
+                gatewayMetrics.inflightEnd("MCP");
+                gatewayMetrics.recordLatency("MCP", System.currentTimeMillis() - metricsStart);
+                gatewayMetrics.countRequest("MCP", request.getMethod(),
+                        metricsOk ? String.valueOf(response.getStatus()) : "error", metricsOk ? "" : "exception");
+            }
         }
     }
 

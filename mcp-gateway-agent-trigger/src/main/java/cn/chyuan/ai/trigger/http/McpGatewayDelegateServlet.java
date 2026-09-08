@@ -79,6 +79,9 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     /** 本地 Prompt/Resource 域服务（工单 0053；null 防御切片装配） */
     private final cn.chyuan.ai.domain.promptresource.service.PromptResourceService promptResourceService;
 
+    /** 会话亲和服务（工单 0055；null 防御切片装配——路由表/漂移检测/实例头） */
+    private final cn.chyuan.ai.domain.session.service.SessionAffinityService sessionAffinityService;
+
     private final long sessionTimeoutMinutes;
 
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
@@ -102,6 +105,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             IUsageLedgerService usageLedgerService,
             cn.chyuan.ai.domain.governance.service.IQuotaService quotaService,
             PromptResourceService promptResourceService,
+            cn.chyuan.ai.domain.session.service.SessionAffinityService sessionAffinityService,
             int maxBodyBytes,
             long sessionTimeoutMinutes) {
         this.registry = registry;
@@ -111,6 +115,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         this.usageLedgerService = usageLedgerService;
         this.quotaService = quotaService;
         this.promptResourceService = promptResourceService;
+        this.sessionAffinityService = sessionAffinityService;
         this.maxBodyBytes = maxBodyBytes;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
@@ -133,6 +138,12 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             return;
         }
         String gatewayId = segments[0];
+
+        // 会话亲和实例标识（工单 0055：负载均衡器/运维校验粘性用）
+        if (sessionAffinityService != null) {
+            response.setHeader(cn.chyuan.ai.domain.session.service.SessionAffinityService.INSTANCE_HEADER,
+                    sessionAffinityService.instanceId());
+        }
 
         try {
             String method = request.getMethod();
@@ -562,6 +573,10 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             // 官方传输要求非 initialize 请求必须携带会话；此处先行 404，行为与其一致
             return false;
         }
+        // 会话亲和（工单 0055）：归属漂移检测（指标口径）+ 实例响应头
+        if (sessionAffinityService != null) {
+            sessionAffinityService.checkDrift(sessionId);
+        }
         Long lastAccessed = localSessions.get(sessionId);
         if (lastAccessed == null) {
             return false;
@@ -584,6 +599,9 @@ public class McpGatewayDelegateServlet extends HttpServlet {
 
     private void registerSession(String sessionId, String gatewayId, GovernancePrincipal principal) {
         localSessions.put(sessionId, System.currentTimeMillis());
+        if (sessionAffinityService != null) {
+            sessionAffinityService.register(sessionId, Duration.ofMinutes(sessionTimeoutMinutes));
+        }
         if (sessionMetaRepository != null) {
             try {
                 SessionMetaVO meta = SessionMetaVO.builder()
@@ -610,6 +628,9 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             return;
         }
         localSessions.remove(sessionId);
+        if (sessionAffinityService != null) {
+            sessionAffinityService.release(sessionId);
+        }
         if (sessionMetaRepository != null) {
             try {
                 sessionMetaRepository.delete(sessionId);

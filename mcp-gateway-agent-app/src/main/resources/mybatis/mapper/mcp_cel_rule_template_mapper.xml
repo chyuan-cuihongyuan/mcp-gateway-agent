@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.ICelRuleTemplateDao">
+
+    <resultMap id="McpCelRuleTemplateMap" type="cn.chyuan.ai.infrastructure.dao.po.McpCelRuleTemplatePO">
+        <id column="id" property="id"/>
+        <result column="code" property="code"/>
+        <result column="name" property="name"/>
+        <result column="expression" property="expression"/>
+        <result column="variables_desc" property="variablesDesc"/>
+        <result column="builtin" property="builtin"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_cel_rule_template (code, name, expression, variables_desc, builtin)
+        VALUES (#{code}, #{name}, #{expression}, #{variablesDesc}, #{builtin})
+    </insert>
+
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id">
+        INSERT IGNORE INTO mcp_cel_rule_template (code, name, expression, variables_desc, builtin)
+        VALUES (#{po.code}, #{po.name}, #{po.expression}, #{po.variablesDesc}, #{po.builtin})
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_cel_rule_template
+        SET name = #{name}, expression = #{expression}, variables_desc = #{variablesDesc}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_cel_rule_template WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultMap="McpCelRuleTemplateMap">
+        SELECT * FROM mcp_cel_rule_template WHERE id = #{id}
+    </select>
+
+    <select id="queryByCode" resultMap="McpCelRuleTemplateMap">
+        SELECT * FROM mcp_cel_rule_template WHERE code = #{code}
+    </select>
+
+    <select id="queryAll" resultMap="McpCelRuleTemplateMap">
+        SELECT * FROM mcp_cel_rule_template ORDER BY builtin DESC, id
+    </select>
+
+</mapper>

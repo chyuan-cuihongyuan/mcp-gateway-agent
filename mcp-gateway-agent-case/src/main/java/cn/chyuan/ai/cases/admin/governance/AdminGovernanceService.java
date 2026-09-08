@@ -6,6 +6,9 @@ import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
+import cn.chyuan.ai.api.dto.CelTemplateInstantiateRequestDTO;
+import cn.chyuan.ai.api.dto.CelTemplateResponseDTO;
+import cn.chyuan.ai.api.dto.CelTemplateUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.UsageDailyResponseDTO;
 import cn.chyuan.ai.api.dto.UsageLogResponseDTO;
 import cn.chyuan.ai.api.dto.VirtualKeyCreateRequestDTO;
@@ -20,6 +23,8 @@ import cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO;
 import cn.chyuan.ai.domain.governance.service.IAdminAuthService;
 import cn.chyuan.ai.domain.governance.service.IAuditService;
 import cn.chyuan.ai.domain.governance.service.ICelRuleService;
+import cn.chyuan.ai.domain.governance.model.valobj.CelRuleTemplateVO;
+import cn.chyuan.ai.domain.governance.service.CelTemplateAdminService;
 import cn.chyuan.ai.domain.governance.service.IVirtualKeyService;
 import cn.chyuan.ai.domain.usage.model.valobj.DailyUsageVO;
 import cn.chyuan.ai.domain.usage.model.valobj.UsageQueryVO;
@@ -61,6 +66,9 @@ public class AdminGovernanceService implements IAdminGovernanceService {
 
     @Resource
     private IUsageLedgerService usageLedgerService;
+
+    @Resource
+    private CelTemplateAdminService celTemplateAdminService;
 
     @Override
     public LoginResponseDTO login(LoginRequestDTO requestDTO) {
@@ -306,6 +314,40 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .totalDurationMs(vo.getTotalDurationMs())
                 .tokenSum(vo.getTokenSum())
                 .build();
+    }
+
+    // ---- CEL 规则模板（工单 0057）----
+
+    @Override
+    public List<CelTemplateResponseDTO> listCelTemplates() {
+        return celTemplateAdminService.list().stream()
+                .map(t -> CelTemplateResponseDTO.builder()
+                        .id(t.getId()).code(t.getCode()).name(t.getName())
+                        .expression(t.getExpression()).variablesDesc(t.getVariablesDesc())
+                        .builtin(t.getBuiltin()).build())
+                .toList();
+    }
+
+    @Override
+    public CelTemplateResponseDTO createCelTemplate(CelTemplateUpsertRequestDTO requestDTO) {
+        CelRuleTemplateVO vo = celTemplateAdminService.createCustom(CelRuleTemplateVO.builder()
+                .code(requestDTO.getCode()).name(requestDTO.getName())
+                .expression(requestDTO.getExpression()).variablesDesc(requestDTO.getVariablesDesc())
+                .build());
+        return CelTemplateResponseDTO.builder().id(vo.getId()).code(vo.getCode()).name(vo.getName())
+                .expression(vo.getExpression()).variablesDesc(vo.getVariablesDesc()).builtin(vo.getBuiltin()).build();
+    }
+
+    @Override
+    public void deleteCelTemplate(Long id) {
+        celTemplateAdminService.delete(id);
+    }
+
+    @Override
+    public CelRuleResponseDTO instantiateCelTemplate(CelTemplateInstantiateRequestDTO requestDTO) {
+        return toCelRuleDto(celTemplateAdminService.instantiate(requestDTO.getCode(),
+                requestDTO.getRuleName(), requestDTO.getScopeType(), requestDTO.getGatewayId(),
+                requestDTO.getVirtualKeyId(), requestDTO.getParams()));
     }
 
     private static String blankToNull(String value) {

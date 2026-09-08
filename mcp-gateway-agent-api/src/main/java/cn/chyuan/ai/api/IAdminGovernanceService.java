@@ -2,6 +2,9 @@ package cn.chyuan.ai.api;
 
 import cn.chyuan.ai.api.dto.AuditLogResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
+import cn.chyuan.ai.api.dto.CelTemplateInstantiateRequestDTO;
+import cn.chyuan.ai.api.dto.CelTemplateResponseDTO;
+import cn.chyuan.ai.api.dto.CelTemplateUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
 import cn.chyuan.ai.api.dto.LoginResponseDTO;
@@ -80,4 +83,15 @@ public interface IAdminGovernanceService {
 
     /** 用量按日汇总（仪表盘趋势） */
     List<UsageDailyResponseDTO> dailyUsageTotals(String fromDate, String toDate);
+
+    // ---- CEL 规则模板（工单 0057）----
+
+    java.util.List<CelTemplateResponseDTO> listCelTemplates();
+
+    CelTemplateResponseDTO createCelTemplate(CelTemplateUpsertRequestDTO requestDTO);
+
+    void deleteCelTemplate(Long id);
+
+    /** 实例化模板为规则（渲染占位符→既有保存校验链），返回规则响应 */
+    CelRuleResponseDTO instantiateCelTemplate(CelTemplateInstantiateRequestDTO requestDTO);
 }

@@ -159,6 +159,32 @@ public class AdminGovernanceController {
         return Response.success(adminGovernanceService.dailyUsageDetail(fromDate, toDate));
     }
 
+    // ---- CEL 规则模板（工单 0057）----
+
+    @GetMapping("/cel-templates")
+    public Response<List<cn.chyuan.ai.api.dto.CelTemplateResponseDTO>> listCelTemplates() {
+        return Response.success(adminGovernanceService.listCelTemplates());
+    }
+
+    @PostMapping("/cel-templates")
+    public Response<cn.chyuan.ai.api.dto.CelTemplateResponseDTO> createCelTemplate(
+            @RequestBody cn.chyuan.ai.api.dto.CelTemplateUpsertRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.createCelTemplate(requestDTO));
+    }
+
+    @DeleteMapping("/cel-templates/{id}")
+    public Response<Void> deleteCelTemplate(@PathVariable Long id) {
+        adminGovernanceService.deleteCelTemplate(id);
+        return Response.success(null);
+    }
+
+    /** 实例化模板为规则（渲染占位符 → 既有保存校验链） */
+    @PostMapping("/cel-templates/instantiate")
+    public Response<CelRuleResponseDTO> instantiateCelTemplate(
+            @RequestBody cn.chyuan.ai.api.dto.CelTemplateInstantiateRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.instantiateCelTemplate(requestDTO));
+    }
+
     /** 用量按日汇总（趋势图数据源） */
     @GetMapping("/usage/daily/totals")
     public Response<List<UsageDailyResponseDTO>> dailyUsageTotals(

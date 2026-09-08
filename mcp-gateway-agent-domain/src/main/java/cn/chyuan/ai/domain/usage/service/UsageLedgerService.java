@@ -7,6 +7,7 @@ import cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO;
 import jakarta.annotation.PreDestroy;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -30,6 +31,10 @@ public class UsageLedgerService implements IUsageLedgerService {
 
     @Resource
     private IUsageRepository repository;
+
+    /** 慢调用阈值毫秒（工单 0069；超阈 WARN 结构化） */
+    @Value("${governance.slow-call-threshold-ms:3000}")
+    private long slowCallThresholdMs;
 
     /** 落账单线程（守护；账本写不与请求主链争抢） */
     private final ExecutorService ledgerExecutor = Executors.newSingleThreadExecutor(runnable -> {
@@ -61,6 +66,13 @@ public class UsageLedgerService implements IUsageLedgerService {
         }
         if (record.getCreatedAt() == null) {
             record.setCreatedAt(new java.util.Date());
+        }
+        // 慢调用日志（工单 0069）：账本单一卡点，阈下零开销
+        if (record.getDurationMs() != null && record.getDurationMs() >= slowCallThresholdMs) {
+            log.warn("SLOW_CALL requestId={} traffic={} tool={} channel={} status={} costMs={} keyId={} clientIp={} session={}",
+                    record.getRequestId(), record.getTrafficType(), record.getToolOrModel(), record.getChannelId(),
+                    record.getStatus(), record.getDurationMs(), record.getVirtualKeyId(),
+                    record.getClientIp(), record.getSessionId());
         }
         DailyUsageVO delta = DailyUsageVO.deltaOf(
                 LocalDate.now().toString(),

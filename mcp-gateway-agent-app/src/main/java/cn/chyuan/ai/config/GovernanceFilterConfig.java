@@ -74,6 +74,19 @@ public class GovernanceFilterConfig {
         return registration;
     }
 
+    /** /actuator/prometheus 认证开关（工单 0070：governance.metrics.auth-required=true 时要求 admin JWT） */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            name = "governance.metrics.auth-required", havingValue = "true")
+    public FilterRegistrationBean<cn.chyuan.ai.trigger.filter.MetricsAuthFilter> metricsAuthFilter() {
+        FilterRegistrationBean<cn.chyuan.ai.trigger.filter.MetricsAuthFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new cn.chyuan.ai.trigger.filter.MetricsAuthFilter(jwtCodec));
+        registration.addUrlPatterns("/actuator/prometheus");
+        registration.setOrder(5);
+        registration.setName("metricsAuthFilter");
+        return registration;
+    }
+
     /** 每密钥并发闸（配额/预算之后，order 12；限值 0 不注册） */
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(

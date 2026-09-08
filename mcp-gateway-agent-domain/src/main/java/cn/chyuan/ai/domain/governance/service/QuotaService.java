@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import static cn.chyuan.ai.domain.governance.service.IQuotaService.QuotaVerdict;
@@ -31,6 +32,10 @@ public class QuotaService implements IQuotaService {
     @Autowired(required = false)
     private MeterRegistry meterRegistry;
 
+    /** 限流降级开关（工单 0071：true=存储故障放行并计数降级；默认 false 维持 0011 fail-closed） */
+    @Value("${governance.quota.fail-open:false}")
+    private boolean failOpen;
+
     @Override
     public QuotaVerdict checkAndConsume(String gatewayId, GovernancePrincipal principal) {
         if (!isPerKeyQuotaApplicable(principal)) {
@@ -49,6 +54,13 @@ public class QuotaService implements IQuotaService {
                     principal.getVirtualKeyId(), rpmLimit, dailyLimit);
             probe = bucket.tryConsume(1);
         } catch (Exception e) {
+            if (failOpen) {
+                // 工单 0071：可用性优先口径——放行并计数降级（CEL fail-closed 红线不受影响）
+                log.warn("配额后端不可用（fail-open 放行）gateway:{} keyId:{}: {}",
+                        gatewayId, principal.getVirtualKeyId(), e.getMessage());
+                countDegraded(gatewayId, principal.getVirtualKeyId());
+                return QuotaVerdict.notLimited();
+            }
             // 0011 决策①：Redis 不可用 → fail-closed 拒绝，不降级放行
             log.warn("配额后端不可用（fail-closed 拒绝）gateway:{} keyId:{}: {}",
                     gatewayId, principal.getVirtualKeyId(), e.getMessage());
@@ -125,6 +137,14 @@ public class QuotaService implements IQuotaService {
     /** NULL 或 <=0 视为不限 */
     private boolean isLimited(Integer limit) {
         return limit != null && limit > 0;
+    }
+
+    private void countDegraded(String gatewayId, Long keyId) {
+        if (meterRegistry != null) {
+            meterRegistry.counter("gateway.quota.degraded",
+                    "gateway", gatewayId == null ? "" : gatewayId,
+                    "key", "vk-" + keyId).increment();
+        }
     }
 
     private void countDenial(String gatewayId, Long keyId) {

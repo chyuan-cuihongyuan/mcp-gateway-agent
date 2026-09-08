@@ -41,4 +41,9 @@ public class VirtualKeyCommandEntity {
 
     /** IP/CIDR 白名单（空=不限，工单 0045） */
     private java.util.List<String> ipAllowList;
+
+    /** 预算软线/硬线/窗口小时（工单 0050；均空=不启用预算） */
+    private Long budgetSoft;
+    private Long budgetHard;
+    private Integer budgetDurationHours;
 }

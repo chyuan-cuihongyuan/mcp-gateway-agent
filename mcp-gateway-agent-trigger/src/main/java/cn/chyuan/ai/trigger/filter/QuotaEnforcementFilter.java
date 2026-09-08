@@ -1,6 +1,7 @@
 package cn.chyuan.ai.trigger.filter;
 
 import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
+import cn.chyuan.ai.domain.governance.service.IBudgetService;
 import cn.chyuan.ai.domain.governance.service.IQuotaService;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
 import cn.chyuan.ai.types.exception.AppException;
@@ -33,8 +34,12 @@ public class QuotaEnforcementFilter implements Filter {
 
     private final IQuotaService quotaService;
 
-    public QuotaEnforcementFilter(IQuotaService quotaService) {
+    /** 预算准入（工单 0050；null 防御切片测试装配） */
+    private final IBudgetService budgetService;
+
+    public QuotaEnforcementFilter(IQuotaService quotaService, IBudgetService budgetService) {
         this.quotaService = quotaService;
+        this.budgetService = budgetService;
     }
 
     @Override
@@ -60,19 +65,40 @@ public class QuotaEnforcementFilter implements Filter {
         String gatewayId = extractGatewayId(httpRequest.getRequestURI());
         try {
             IQuotaService.QuotaVerdict verdict = quotaService.checkAndConsume(gatewayId, principal);
-            if (verdict.allowed()) {
-                chain.doFilter(request, response);
+            if (!verdict.allowed()) {
+                // 429 + 剩余额度信息（0011 决议：结构化 429 含 retry-after 提示）
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("remaining", verdict.remaining());
+                data.put("retryAfterSeconds", verdict.retryAfterSeconds());
+                httpResponse.setHeader("Retry-After", String.valueOf(verdict.retryAfterSeconds()));
+                JsonRpcErrorWriter.write(httpResponse, 429, McpErrorCodes.QUOTA_EXCEEDED,
+                        "超出配额限制：剩余额度 " + verdict.remaining() + "，请 " + verdict.retryAfterSeconds()
+                                + " 秒后重试",
+                        data);
                 return;
             }
-            // 429 + 剩余额度信息（0011 决议：结构化 429 含 retry-after 提示）
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("remaining", verdict.remaining());
-            data.put("retryAfterSeconds", verdict.retryAfterSeconds());
-            httpResponse.setHeader("Retry-After", String.valueOf(verdict.retryAfterSeconds()));
-            JsonRpcErrorWriter.write(httpResponse, 429, McpErrorCodes.QUOTA_EXCEEDED,
-                    "超出配额限制：剩余额度 " + verdict.remaining() + "，请 " + verdict.retryAfterSeconds()
-                            + " 秒后重试",
-                    data);
+
+            // 预算准入（工单 0050：软线告警头、硬线 429 -32014 与日配额语义区分）
+            if (budgetService != null) {
+                IBudgetService.BudgetVerdict budget = budgetService.admit(principal);
+                if (!budget.allowed()) {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("used", budget.used());
+                    data.put("hard", budget.hard());
+                    httpResponse.setHeader("Retry-After", "3600");
+                    JsonRpcErrorWriter.write(httpResponse, 429, McpErrorCodes.BUDGET_EXCEEDED,
+                            "预算耗尽：窗口内已用 " + budget.used() + "/" + budget.hard()
+                                    + "，请管理员提额或等待窗口重置",
+                            data);
+                    return;
+                }
+                if (budget.softWarning()) {
+                    httpResponse.setHeader("X-Budget-Warning",
+                            "soft budget crossed: " + budget.used() + "/" + budget.hard());
+                }
+            }
+
+            chain.doFilter(request, response);
         } catch (AppException e) {
             if (String.valueOf(McpErrorCodes.QUOTA_SERVICE_UNAVAILABLE).equals(e.getCode())) {
                 httpResponse.setHeader("Retry-After", "10");

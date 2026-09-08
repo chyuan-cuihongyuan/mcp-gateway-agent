@@ -36,7 +36,7 @@ public class QuotaEnforcementFilterTest {
 
     @BeforeEach
     public void setUp() {
-        filter = new QuotaEnforcementFilter(quotaService);
+        filter = new QuotaEnforcementFilter(quotaService, null);
     }
 
     private MockHttpServletRequest request() {

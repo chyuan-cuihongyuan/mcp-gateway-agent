@@ -45,6 +45,12 @@ public class GovernancePrincipal {
     /** 来源 IP（认证过滤器提取，用量账本/CEL client.ip 消费，工单 0045/0046） */
     private String clientIp;
 
+    /** 预算软线（工单 0050；空=未启用） */
+    private Long budgetSoft;
+
+    /** 预算硬线（工单 0050；空=未启用） */
+    private Long budgetHard;
+
     /** 每分钟请求限额（NULL 不限，-1 表示未知） */
     private Integer rpmLimit;
 

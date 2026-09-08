@@ -72,6 +72,13 @@ public class McpVirtualKeyPO extends BasePagePO {
     /** 宽限期截止（工单 0049） */
     private Date graceUntil;
 
+    /** 预算软线/硬线/窗口小时/重置时间/窗口已用（工单 0050） */
+    private Long budgetSoft;
+    private Long budgetHard;
+    private Integer budgetDurationHours;
+    private Date budgetResetAt;
+    private Long budgetUsed;
+
     private Date createdAt;
 
     private Date updatedAt;

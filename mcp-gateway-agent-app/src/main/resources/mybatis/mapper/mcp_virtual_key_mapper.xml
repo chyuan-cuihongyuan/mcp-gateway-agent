@@ -19,6 +19,11 @@
         <result column="ip_allow_list" property="ipAllowList"/>
         <result column="rotation_count" property="rotationCount"/>
         <result column="last_rotation_at" property="lastRotationAt"/>
+        <result column="budget_soft" property="budgetSoft"/>
+        <result column="budget_hard" property="budgetHard"/>
+        <result column="budget_duration_hours" property="budgetDurationHours"/>
+        <result column="budget_reset_at" property="budgetResetAt"/>
+        <result column="budget_used" property="budgetUsed"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -26,16 +31,25 @@
     <sql id="all_columns">
         id, api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
         rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
-        last_active_at, ip_allow_list, rotation_count, last_rotation_at, created_at, updated_at
+        last_active_at, ip_allow_list, rotation_count, last_rotation_at,
+        budget_soft, budget_hard, budget_duration_hours, budget_reset_at, budget_used,
+        created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
                                      rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
-                                     ip_allow_list)
+                                     ip_allow_list, budget_soft, budget_hard, budget_duration_hours,
+                                     budget_reset_at)
         VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
                 #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit},
-                #{ipAllowList})
+                #{ipAllowList}, #{budgetSoft}, #{budgetHard}, #{budgetDurationHours},
+                <if test="budgetHard != null and budgetDurationHours != null">
+                    DATE_ADD(NOW(), INTERVAL #{budgetDurationHours} HOUR)
+                </if>
+                <if test="budgetHard == null or budgetDurationHours == null">
+                    NULL
+                </if>)
     </insert>
 
     <!-- 存量迁移专用：唯一键冲突即跳过（幂等） -->
@@ -60,6 +74,15 @@
             tpm_limit = #{tpmLimit},
             daily_cost_limit = #{dailyCostLimit},
             ip_allow_list = #{ipAllowList},
+            budget_soft = #{budgetSoft},
+            budget_hard = #{budgetHard},
+            budget_duration_hours = #{budgetDurationHours},
+            budget_reset_at = CASE
+                WHEN #{budgetHard} IS NULL OR #{budgetDurationHours} IS NULL THEN NULL
+                WHEN #{budgetResetAt} IS NULL THEN DATE_ADD(NOW(), INTERVAL #{budgetDurationHours} HOUR)
+                ELSE budget_reset_at
+            END,
+            budget_used = CASE WHEN #{budgetHard} IS NULL THEN 0 ELSE budget_used END,
             updated_at = NOW()
         WHERE id = #{id}
     </update>
@@ -67,6 +90,18 @@
     <!-- 最后活跃去抖更新（认证路径低频调用，工单 0045） -->
     <update id="touchLastActive">
         UPDATE mcp_virtual_key SET last_active_at = NOW() WHERE id = #{id}
+    </update>
+
+    <!-- 预算窗口惰性重置 + 已用递增（工单 0050） -->
+    <update id="resetBudgetWindow">
+        UPDATE mcp_virtual_key
+        SET budget_used = 0,
+            budget_reset_at = DATE_ADD(NOW(), INTERVAL budget_duration_hours HOUR)
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementBudgetUsed">
+        UPDATE mcp_virtual_key SET budget_used = budget_used + 1 WHERE id = #{id}
     </update>
 
     <!-- 轮换：换新哈希、前代哈希入宽限期（只保留一代，工单 0049） -->

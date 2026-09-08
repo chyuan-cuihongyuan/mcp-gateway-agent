@@ -516,7 +516,7 @@ class StreamableHttpProtocolTest {
         @Bean
         FilterRegistrationBean<QuotaEnforcementFilter> quotaEnforcementFilter(IQuotaService quotaService) {
             FilterRegistrationBean<QuotaEnforcementFilter> registration = new FilterRegistrationBean<>();
-            registration.setFilter(new QuotaEnforcementFilter(quotaService));
+            registration.setFilter(new QuotaEnforcementFilter(quotaService, null));
             registration.addUrlPatterns("/api-gateway/*");
             registration.setOrder(11);
             registration.setName("quotaEnforcementFilter");

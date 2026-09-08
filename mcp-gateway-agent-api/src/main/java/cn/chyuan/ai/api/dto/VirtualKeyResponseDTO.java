@@ -46,6 +46,13 @@ public class VirtualKeyResponseDTO implements Serializable {
     /** IP/CIDR 白名单（空=不限，工单 0045） */
     private List<String> ipAllowList;
 
+    /** 预算（工单 0050）：软线/硬线/窗口小时/重置时间/窗口已用 */
+    private Long budgetSoft;
+    private Long budgetHard;
+    private Integer budgetDurationHours;
+    private String budgetResetAt;
+    private Long budgetUsed;
+
     private Integer rpmLimit;
 
     private Integer dailyRequestLimit;

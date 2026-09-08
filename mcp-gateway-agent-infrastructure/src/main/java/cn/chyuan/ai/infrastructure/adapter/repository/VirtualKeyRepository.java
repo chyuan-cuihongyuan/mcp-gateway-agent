@@ -72,6 +72,16 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
     }
 
     @Override
+    public void resetBudgetWindow(Long id) {
+        virtualKeyDao.resetBudgetWindow(id);
+    }
+
+    @Override
+    public void incrementBudgetUsed(Long id) {
+        virtualKeyDao.incrementBudgetUsed(id);
+    }
+
+    @Override
     public boolean existsGrant(Long keyId, String gatewayId) {
         Integer count = virtualKeyGatewayDao.countGrant(keyId, gatewayId);
         return count != null && count > 0;
@@ -169,6 +179,11 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .ipAllowList(parseIpList(po.getIpAllowList()))
                 .rotationCount(po.getRotationCount())
                 .lastRotationAt(po.getLastRotationAt())
+                .budgetSoft(po.getBudgetSoft())
+                .budgetHard(po.getBudgetHard())
+                .budgetDurationHours(po.getBudgetDurationHours())
+                .budgetResetAt(po.getBudgetResetAt())
+                .budgetUsed(po.getBudgetUsed() == null ? 0L : po.getBudgetUsed())
                 .rpmLimit(po.getRpmLimit())
                 .dailyRequestLimit(po.getDailyRequestLimit())
                 .dailyToolCallLimit(po.getDailyToolCallLimit())
@@ -188,6 +203,10 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .status(vo.getStatus())
                 .expiresAt(vo.getExpiresAt())
                 .ipAllowList(writeIpList(vo.getIpAllowList()))
+                .budgetSoft(vo.getBudgetSoft())
+                .budgetHard(vo.getBudgetHard())
+                .budgetDurationHours(vo.getBudgetDurationHours())
+                .budgetResetAt(vo.getBudgetResetAt())
                 .rpmLimit(vo.getRpmLimit())
                 .dailyRequestLimit(vo.getDailyRequestLimit())
                 .dailyToolCallLimit(vo.getDailyToolCallLimit())

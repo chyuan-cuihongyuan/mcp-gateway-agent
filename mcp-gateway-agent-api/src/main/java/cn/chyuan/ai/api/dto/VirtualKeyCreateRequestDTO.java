@@ -40,6 +40,11 @@ public class VirtualKeyCreateRequestDTO implements Serializable {
     /** IP/CIDR 白名单（空=不限，工单 0045） */
     private java.util.List<String> ipAllowList;
 
+    /** 预算软线/硬线/窗口小时（工单 0050；hard 空=不启用） */
+    private Long budgetSoft;
+    private Long budgetHard;
+    private Integer budgetDurationHours;
+
     /** 创建时一并授权的网关 ID 列表 */
     private java.util.List<String> grantGatewayIds;
 }

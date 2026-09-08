@@ -55,6 +55,9 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .status("ACTIVE")
                 .expiresAt(command.getExpiresAt())
                 .ipAllowList(command.getIpAllowList())
+                .budgetSoft(command.getBudgetSoft())
+                .budgetHard(command.getBudgetHard())
+                .budgetDurationHours(command.getBudgetDurationHours())
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -89,6 +92,9 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .status(existing.getStatus())
                 .expiresAt(command.getExpiresAt())
                 .ipAllowList(command.getIpAllowList())
+                .budgetSoft(command.getBudgetSoft())
+                .budgetHard(command.getBudgetHard())
+                .budgetDurationHours(command.getBudgetDurationHours())
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -234,6 +240,11 @@ public class VirtualKeyService implements IVirtualKeyService {
         }
         if (vo.getExpiresAt() != null && new java.util.Date().after(vo.getExpiresAt())) {
             vo.setDerivedStatus("EXPIRED");
+            return;
+        }
+        if (vo.getBudgetHard() != null && vo.getBudgetHard() > 0
+                && vo.getBudgetUsed() != null && vo.getBudgetUsed() >= vo.getBudgetHard()) {
+            vo.setDerivedStatus("QUOTA_EXHAUSTED");
             return;
         }
         vo.setDerivedStatus("ACTIVE");

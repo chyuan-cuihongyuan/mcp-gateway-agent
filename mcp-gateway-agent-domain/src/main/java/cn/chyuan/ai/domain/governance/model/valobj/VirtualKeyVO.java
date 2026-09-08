@@ -55,6 +55,21 @@ public class VirtualKeyVO {
     /** 上次轮换时间（工单 0049） */
     private Date lastRotationAt;
 
+    /** 预算软线（越过告警不阻断，工单 0050；空=不启用） */
+    private Long budgetSoft;
+
+    /** 预算硬线（阻断，工单 0050；空=不启用） */
+    private Long budgetHard;
+
+    /** 预算窗口时长（小时，工单 0050） */
+    private Integer budgetDurationHours;
+
+    /** 预算窗口重置时间（工单 0050，惰性重置） */
+    private Date budgetResetAt;
+
+    /** 预算窗口内已用次数（工单 0050） */
+    private Long budgetUsed;
+
     private Integer rpmLimit;
 
     private Integer dailyRequestLimit;

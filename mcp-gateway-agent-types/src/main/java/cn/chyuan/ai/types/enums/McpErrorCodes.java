@@ -105,6 +105,11 @@ public final class McpErrorCodes {
      */
     public static final int IP_NOT_ALLOWED = -32013;
 
+    /**
+     * 预算耗尽 —— 密钥周期窗口硬预算上限（工单 0050，HTTP 429，与日配额 -32009 语义区分）
+     */
+    public static final int BUDGET_EXCEEDED = -32014;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

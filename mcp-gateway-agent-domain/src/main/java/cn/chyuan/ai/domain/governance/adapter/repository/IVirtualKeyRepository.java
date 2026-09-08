@@ -35,6 +35,12 @@ public interface IVirtualKeyRepository {
     /** 最后活跃时间更新（认证命中去抖后调用，工单 0045） */
     void touchLastActive(Long id);
 
+    /** 预算窗口惰性重置（工单 0050：used 清零 + reset_at 顺延一个窗口） */
+    void resetBudgetWindow(Long id);
+
+    /** 预算窗口已用次数 +1（工单 0050，放行时调用） */
+    void incrementBudgetUsed(Long id);
+
     /**
      * 密钥轮换（工单 0049）：换新哈希、前代哈希入宽限期（覆盖上一代即失效）。
      */

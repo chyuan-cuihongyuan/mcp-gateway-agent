@@ -40,6 +40,11 @@ public class VirtualKeyUpdateRequestDTO implements Serializable {
     /** IP/CIDR 白名单（空=不限，工单 0045） */
     private List<String> ipAllowList;
 
+    /** 预算软线/硬线/窗口小时（工单 0050；hard 空=不启用） */
+    private Long budgetSoft;
+    private Long budgetHard;
+    private Integer budgetDurationHours;
+
     /** 追加授权的网关 ID 列表（可选） */
     private List<String> grantGatewayIds;
 

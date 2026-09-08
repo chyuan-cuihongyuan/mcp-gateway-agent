@@ -49,6 +49,43 @@
         WHERE id = #{id}
     </select>
 
+    <select id="queryAll" resultType="cn.chyuan.ai.infrastructure.dao.po.McpExternalAttachPO">
+        SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
+               endpoint, api_key AS apiKey, command, args, env,
+               request_timeout_ms AS requestTimeoutMs, status,
+               weight, priority, test_time AS testTime, response_time_ms AS responseTimeMs,
+               cooldown_until AS cooldownUntil,
+               fail_connect AS failConnect, fail_timeout AS failTimeout, fail_http AS failHttp,
+               auth_type AS authType, auth_config AS authConfig,
+               connect_status AS connectStatus, connect_error AS connectError, connect_time AS connectTime,
+               create_time AS createTime, update_time AS updateTime
+        FROM mcp_external_attach
+        ORDER BY id
+    </select>
+
+    <update id="updateChannelHealth">
+        UPDATE mcp_external_attach
+        SET test_time = NOW(), response_time_ms = #{responseTimeMs}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 渠道状态迁移（0058/0059）：恢复(1)清计数；自动禁用(2)附带冷却 -->
+    <update id="updateChannelStatus">
+        UPDATE mcp_external_attach
+        SET status = #{status},
+            cooldown_until = #{cooldownUntil},
+            fail_connect = 0, fail_timeout = 0, fail_http = 0,
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 被动熔断计数递增（0059） -->
+    <update id="incrementChannelFailure">
+        UPDATE mcp_external_attach
+        SET ${column} = ${column} + 1, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
     <select id="queryByGatewayId" resultType="cn.chyuan.ai.infrastructure.dao.po.McpExternalAttachPO">
         SELECT id, gateway_id AS gatewayId, attach_name AS attachName, transport_type AS transportType,
                endpoint, api_key AS apiKey, command, args, env,

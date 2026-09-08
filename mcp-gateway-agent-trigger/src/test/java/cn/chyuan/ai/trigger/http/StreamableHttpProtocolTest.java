@@ -455,6 +455,12 @@ class StreamableHttpProtocolTest {
         }
 
         @Bean
+        cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher governanceEventPublisher() {
+            // 治理事件 mock：熔断/巡检事件在分片上下文仅吞掉
+            return org.mockito.Mockito.mock(cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher.class);
+        }
+
+        @Bean
         cn.chyuan.ai.domain.usage.service.IUsageLedgerService usageLedgerService() {
             // 用量账本落账 mock：分片上下文无 DB，record() 仅吞掉（后续流量面票在此断言）
             return org.mockito.Mockito.mock(cn.chyuan.ai.domain.usage.service.IUsageLedgerService.class);
@@ -670,6 +676,23 @@ class StreamableHttpProtocolTest {
 
     /** 外部挂接配置假仓储：endpoint 置空时无挂接（存量用例语义不变），置值后 gateway_business 挂接上游网关 */
     static class FakeExternalAttachRepository implements IExternalAttachRepository {
+        @Override
+        public java.util.List<cn.chyuan.ai.domain.externalattach.model.valobj.ExternalAttachVO> findAllAttaches() {
+            return java.util.List.of();
+        }
+
+        @Override
+        public void updateChannelHealth(Long id, long responseTimeMs) {
+        }
+
+        @Override
+        public void updateChannelStatus(Long id, int status, java.util.Date cooldownUntil) {
+        }
+
+        @Override
+        public void incrementChannelFailure(Long id, String column) {
+        }
+
 
         /** 挂接端点（null = 未配置挂接）；联邦用例在 @BeforeEach 后按随机端口赋值 */
         static volatile String endpoint;

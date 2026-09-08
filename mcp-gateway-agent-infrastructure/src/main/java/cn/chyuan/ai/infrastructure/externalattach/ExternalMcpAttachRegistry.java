@@ -3,6 +3,7 @@ package cn.chyuan.ai.infrastructure.externalattach;
 import cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort;
 import cn.chyuan.ai.domain.externalattach.adapter.repository.IExternalAttachRepository;
 import cn.chyuan.ai.domain.externalattach.model.valobj.ExternalAttachVO;
+import cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.infrastructure.gateway.streamable.GatewayMcpServerRegistry;
 import io.modelcontextprotocol.client.McpClient;
@@ -25,6 +26,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,6 +59,20 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
 
     @Resource
     private IExternalAttachRepository attachRepository;
+
+    /** 被动熔断事件（工单 0059，0051 webhook 订阅口径） */
+    public static final String EVENT_CIRCUIT_OPEN = "CIRCUIT_OPEN";
+
+    /** 被动熔断阈值（0=关闭；单类失败计数达阈值即自动禁用+冷却，探测成功恢复） */
+    @Value("${mcp.external.attach.circuit-threshold:5}")
+    private int circuitThreshold;
+
+    /** 自动禁用冷却秒（与巡检共用配置口径） */
+    @Value("${mcp.external.attach.cooldown-seconds:120}")
+    private long cooldownSeconds;
+
+    @Resource
+    private IGovernanceEventPublisher eventPublisher;
 
     /** 惰性解析：与网关服务器注册表存在 catalog→attach→registry 环，ObjectProvider 打断构造期循环 */
     @Autowired(required = false)
@@ -127,11 +143,99 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
                 throw new IllegalStateException("挂接不可用: " + config.getAttachName());
             }
             String rawName = prefixedToolName.substring(config.getAttachName().length() + 1);
-            McpSchema.CallToolResult result = entry.client().callTool(
-                    new McpSchema.CallToolRequest(rawName, arguments));
-            return new ExternalCallResult(Boolean.TRUE.equals(result.isError()), renderContent(result));
+            try {
+                McpSchema.CallToolResult result = entry.client().callTool(
+                        new McpSchema.CallToolRequest(rawName, arguments));
+                // 成功清零全部失败计数（Kong passive health 口径，工单 0059）
+                if (circuitThreshold > 0) {
+                    clearCircuitCountersQuietly(config);
+                }
+                return new ExternalCallResult(Boolean.TRUE.equals(result.isError()), renderContent(result));
+            } catch (RuntimeException e) {
+                // 失败分类计数：超时 / 连接 / 其余（上游错误）；达阈值自动禁用+冷却（半开恢复归巡检）
+                recordCircuitFailureQuietly(config, classifyFailure(e));
+                throw e;
+            }
         }
         throw new IllegalStateException("工具不属于任何挂接: " + prefixedToolName);
+    }
+
+    /** 失败三分类（工单 0059） */
+    static String classifyFailure(Throwable failure) {
+        String text = failure == null ? "" : String.valueOf(failure.getMessage());
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            String name = cause.getClass().getSimpleName();
+            if (name.contains("Timeout") || name.contains("timeout")) {
+                return "fail_timeout";
+            }
+            if (name.contains("Connect") || name.contains("Unresolved")) {
+                return "fail_connect";
+            }
+        }
+        if (text.contains("timed out") || text.contains("timeout") || text.contains("超时")) {
+            return "fail_timeout";
+        }
+        if (text.contains("Connection refused") || text.contains("connect") || text.contains("连接")) {
+            return "fail_connect";
+        }
+        return "fail_http";
+    }
+
+    private void recordCircuitFailureQuietly(ExternalAttachVO config, String column) {
+        if (circuitThreshold <= 0 || column == null) {
+            return;
+        }
+        try {
+            attachRepository.incrementChannelFailure(config.getId(), column);
+            // 达阈值即自动禁用 + 冷却（计数清零由 updateChannelStatus 一并处理）
+            ExternalAttachVO latest = attachRepository.findById(config.getId());
+            int counted = switch (column) {
+                case "fail_connect" -> latest == null || latest.getFailConnect() == null ? 0 : latest.getFailConnect();
+                case "fail_timeout" -> latest == null || latest.getFailTimeout() == null ? 0 : latest.getFailTimeout();
+                default -> latest == null || latest.getFailHttp() == null ? 0 : latest.getFailHttp();
+            };
+            if (counted >= circuitThreshold && latest != null
+                    && latest.getStatus() != null && latest.getStatus() == ExternalAttachVO.STATUS_ENABLED) {
+                Date cooldownUntil = new Date(System.currentTimeMillis() + cooldownSeconds * 1000);
+                attachRepository.updateChannelStatus(config.getId(), ExternalAttachVO.STATUS_AUTO_DISABLED, cooldownUntil);
+                publishCircuitEvent(config, column, counted, cooldownUntil);
+                log.warn("被动熔断打开: gateway={} attach={} {}={} 阈值{} 冷却至{}",
+                        config.getGatewayId(), config.getAttachName(), column, counted, circuitThreshold, cooldownUntil);
+            }
+        } catch (Exception e) {
+            log.warn("熔断计数失败（不影响调用主链）attach={}：{}", config.getAttachName(), e.getMessage());
+        }
+    }
+
+    private void clearCircuitCountersQuietly(ExternalAttachVO config) {
+        // 去热化：缓存计数全零（常态）即跳过写库，避免成功路径每调用一次写一行
+        boolean hasCounters = (config.getFailConnect() != null && config.getFailConnect() > 0)
+                || (config.getFailTimeout() != null && config.getFailTimeout() > 0)
+                || (config.getFailHttp() != null && config.getFailHttp() > 0);
+        if (!hasCounters) {
+            return;
+        }
+        try {
+            // 复用状态迁移语句清零（状态保持启用、冷却清空）
+            attachRepository.updateChannelStatus(config.getId(), ExternalAttachVO.STATUS_ENABLED, null);
+        } catch (Exception e) {
+            log.debug("熔断计数清零失败 attach={}：{}", config.getAttachName(), e.getMessage());
+        }
+    }
+
+    private void publishCircuitEvent(ExternalAttachVO config, String column, int counted, Date cooldownUntil) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("gatewayId", config.getGatewayId());
+            payload.put("attachName", config.getAttachName());
+            payload.put("attachId", config.getId());
+            payload.put("failureType", column);
+            payload.put("failures", counted);
+            payload.put("cooldownUntil", cooldownUntil.getTime());
+            eventPublisher.publish(EVENT_CIRCUIT_OPEN, payload);
+        } catch (Exception e) {
+            log.debug("熔断事件发布失败：{}", e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------

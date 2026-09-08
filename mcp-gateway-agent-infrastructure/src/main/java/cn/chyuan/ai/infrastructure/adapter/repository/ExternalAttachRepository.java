@@ -59,6 +59,33 @@ public class ExternalAttachRepository implements IExternalAttachRepository {
                         ? connectError.substring(0, 1024) : connectError) > 0;
     }
 
+    @Override
+    public List<ExternalAttachVO> findAllAttaches() {
+        return externalAttachDao.queryAll().stream().map(this::toVo).toList();
+    }
+
+    @Override
+    public void updateChannelHealth(Long id, long responseTimeMs) {
+        externalAttachDao.updateChannelHealth(id, responseTimeMs);
+    }
+
+    @Override
+    public void updateChannelStatus(Long id, int status, java.util.Date cooldownUntil) {
+        externalAttachDao.updateChannelStatus(id, status, cooldownUntil);
+    }
+
+    /** 白名单列名（防 SQL 注入：仅代码枚举可传入） */
+    private static final java.util.Set<String> FAIL_COLUMNS =
+            java.util.Set.of("fail_connect", "fail_timeout", "fail_http");
+
+    @Override
+    public void incrementChannelFailure(Long id, String column) {
+        if (!FAIL_COLUMNS.contains(column)) {
+            throw new IllegalArgumentException("非法熔断计数列: " + column);
+        }
+        externalAttachDao.incrementChannelFailure(id, column);
+    }
+
     private McpExternalAttachPO toPo(ExternalAttachVO vo) {
         if (vo == null) {
             return null;

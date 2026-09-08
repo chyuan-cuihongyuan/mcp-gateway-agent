@@ -26,4 +26,22 @@ public interface IExternalAttachRepository {
 
     /** 回写运行期连接状态（连接失败可观测） */
     boolean updateConnectStatus(Long id, String connectStatus, String connectError);
+
+    /** 全部挂接（巡检遍历用，工单 0058） */
+    List<ExternalAttachVO> findAllAttaches();
+
+    /** 回写巡检健康（test_time/response_time_ms，工单 0058） */
+    void updateChannelHealth(Long id, long responseTimeMs);
+
+    /**
+     * 渠道状态迁移（工单 0058/0059）：置状态（2=自动禁用附带冷却；恢复=1）并清空被动熔断三计数。
+     */
+    void updateChannelStatus(Long id, int status, java.util.Date cooldownUntil);
+
+    /**
+     * 被动熔断计数递增（工单 0059）。
+     *
+     * @param column fail_connect / fail_timeout / fail_http（实现侧白名单校验）
+     */
+    void incrementChannelFailure(Long id, String column);
 }

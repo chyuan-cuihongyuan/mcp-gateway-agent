@@ -53,4 +53,20 @@ public class JdkLlmHttpPort implements ILlmHttpPort {
         HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
         return response.body();
     }
+
+    @Override
+    public int postJsonStreaming(String url, Map<String, String> headers, String body, int timeoutMs,
+            java.util.function.Consumer<String> onLine) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .POST(HttpRequest.BodyPublishers.ofString(body, java.nio.charset.StandardCharsets.UTF_8));
+        headers.forEach(builder::header);
+        HttpResponse<java.util.stream.Stream<String>> response = httpClient.send(builder.build(),
+                HttpResponse.BodyHandlers.ofLines());
+        try (java.util.stream.Stream<String> lines = response.body()) {
+            lines.forEach(line -> onLine.accept(line + "\n"));
+        }
+        return response.statusCode();
+    }
 }

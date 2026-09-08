@@ -72,7 +72,7 @@ public class LlmChatService {
         }
         if (Boolean.TRUE.equals(request.getBoolean("stream"))) {
             throw new AppException(McpErrorCodes.INVALID_PARAMS,
-                    "流式（stream=true）暂未开放，即将随后续版本提供");
+                    "流式请求请走 chatCompletionStream（工单 0064 路径）");
         }
         if (!celEvaluationService.isToolAllowed(principal, TRAFFIC_LLM_GATEWAY,
                 "chat/completions", model, SOURCE_LLM)) {
@@ -136,6 +136,170 @@ public class LlmChatService {
             }
         }
         return new ArrayList<>(models);
+    }
+
+
+    /**
+     * 流式 chat/completions（工单 0064）：SSE 逐行透传；首字节前允许渠道故障转移，
+     * 出首字节后失败即断（不重放）；末块 usage 解析计量；TTFT 经返回值交付。
+     *
+     * @param onLine 上游行回调（控制器写响应并逐行 flush）
+     * @return 首字节延迟毫秒（TTFT；未产出任何行时为 -1）
+     */
+    public long chatCompletionStream(GovernancePrincipal principal, String requestBody,
+            java.util.function.Consumer<String> onLine) {
+        JSONObject request = parse(requestBody);
+        String model = request.getString("model");
+        if (StringUtils.isBlank(model)) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "缺少 model 字段");
+        }
+        if (!celEvaluationService.isToolAllowed(principal, TRAFFIC_LLM_GATEWAY,
+                "chat/completions", model, SOURCE_LLM)) {
+            throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
+        }
+        List<LlmChannelVO> candidates = candidatesFor(model);
+        if (candidates.isEmpty()) {
+            throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
+        }
+        List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> ordered =
+                orderCandidates(candidates);
+
+        String lastError = null;
+        for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
+            LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
+            StreamForwarder forwarder = new StreamForwarder(onLine);
+            try {
+                String upstreamBody = rewriteModel(request, mapModel(channel, model));
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Content-Type", "application/json");
+                headers.put("Accept", "text/event-stream");
+                if (StringUtils.isNotBlank(channel.getCredential())) {
+                    headers.put("Authorization", "Bearer " + channel.getCredential());
+                }
+                long start = System.currentTimeMillis();
+                int status = llmHttpPort.postJsonStreaming(channel.getBaseUrl() + "/chat/completions",
+                        headers, upstreamBody, channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs(),
+                        forwarder);
+                int cost = (int) (System.currentTimeMillis() - start);
+                if (status >= 200 && status < 300) {
+                    recordUsageTokens(principal, model, channel.getName(), "SUCCESS", cost,
+                            forwarder.usagePromptTokens(), forwarder.usageCompletionTokens());
+                    return forwarder.ttftMs();
+                }
+                if (forwarder.firstByteSent()) {
+                    // 已向客户端出流：不可重放，按失败断流
+                    recordUsageTokens(principal, model, channel.getName(), "FAIL", cost,
+                            forwarder.usagePromptTokens(), forwarder.usageCompletionTokens());
+                    throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,
+                            "上游流式中断（httpStatus=" + status + "）");
+                }
+                lastError = "渠道 " + channel.getName() + " 返回 " + status;
+                recordUsage(principal, model, channel.getName(), "FAIL", cost, null);
+            } catch (AppException e) {
+                throw e;
+            } catch (Exception e) {
+                if (forwarder.firstByteSent()) {
+                    recordUsageTokens(principal, model, channel.getName(), "FAIL", 0,
+                            forwarder.usagePromptTokens(), forwarder.usageCompletionTokens());
+                    throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED, "上游流式中断: " + e.getMessage());
+                }
+                lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
+                recordUsage(principal, model, channel.getName(), "FAIL", 0, null);
+            }
+        }
+        throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,
+                "全部渠道失败，最后错误：" + StringUtils.defaultString(lastError));
+    }
+
+    /** 流式转发器：行透传 + TTFT + 末块 usage 解析（工单 0064） */
+    static final class StreamForwarder implements java.util.function.Consumer<String> {
+
+        private final java.util.function.Consumer<String> sink;
+        private volatile long ttftMs = -1;
+        private volatile long start = System.currentTimeMillis();
+        private volatile boolean firstByteSent = false;
+        private Long usagePromptTokens;
+        private Long usageCompletionTokens;
+
+        StreamForwarder(java.util.function.Consumer<String> sink) {
+            this.sink = sink;
+        }
+
+        @Override
+        public void accept(String line) {
+            if (line == null || line.isBlank()) {
+                return;
+            }
+            firstByteSent = true;
+            if (ttftMs < 0) {
+                ttftMs = System.currentTimeMillis() - start;
+            }
+            parseUsage(line);
+            sink.accept(line);
+        }
+
+        private void parseUsage(String line) {
+            String payload = line.trim();
+            if (payload.startsWith("data:")) {
+                payload = payload.substring(5).trim();
+            }
+            if (payload.isEmpty() || "[DONE]".equals(payload)) {
+                return;
+            }
+            try {
+                JSONObject chunk = JSON.parseObject(payload);
+                JSONObject usage = chunk.getJSONObject("usage");
+                if (usage != null) {
+                    Long prompt = usage.getLong("prompt_tokens");
+                    Long completion = usage.getLong("completion_tokens");
+                    if (prompt != null) {
+                        usagePromptTokens = prompt;
+                    }
+                    if (completion != null) {
+                        usageCompletionTokens = completion;
+                    }
+                }
+            } catch (Exception ignore) {
+                // 非 JSON 行（注释/心跳）跳过
+            }
+        }
+
+        long ttftMs() {
+            return ttftMs;
+        }
+
+        boolean firstByteSent() {
+            return firstByteSent;
+        }
+
+        Long usagePromptTokens() {
+            return usagePromptTokens;
+        }
+
+        Long usageCompletionTokens() {
+            return usageCompletionTokens;
+        }
+    }
+
+    private void recordUsageTokens(GovernancePrincipal principal, String model, String channel,
+            String status, int costMs, Long promptTokens, Long completionTokens) {
+        try {
+            usageLedger.record(UsageRecordVO.builder()
+                    .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())
+                    .apiKeyHash(principal == null ? null : principal.getApiKeyHash())
+                    .gatewayId(TRAFFIC_LLM_GATEWAY)
+                    .trafficType("LLM")
+                    .toolOrModel(model)
+                    .channelId(channel)
+                    .status(status)
+                    .durationMs(costMs)
+                    .promptTokens(promptTokens)
+                    .completionTokens(completionTokens)
+                    .clientIp(principal == null ? null : principal.getClientIp())
+                    .build());
+        } catch (Exception e) {
+            log.debug("LLM 流式用量落账失败 model={}：{}", model, e.getMessage());
+        }
     }
 
     /** 供给某模型的启用渠道（models 清单含该名，或映射目标含该名） */

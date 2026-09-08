@@ -21,4 +21,13 @@ public interface ILlmHttpPort {
 
     /** GET JSON（/v1/models 探测等轻量用途） */
     String getJson(String url, Map<String, String> headers, int timeoutMs) throws Exception;
+
+    /**
+     * POST JSON 流式（工单 0064）：上游响应逐行回调（SSE data: 行与注释行原样），
+     * 首行回调前抛异常/非 2xx 允许调用方故障转移；返回最终 HTTP 状态码。
+     *
+     * @param onLine 逐行消费者（已含换行符）；实现须保证行序
+     */
+    int postJsonStreaming(String url, Map<String, String> headers, String body, int timeoutMs,
+            java.util.function.Consumer<String> onLine) throws Exception;
 }

@@ -162,4 +162,76 @@ public class LlmChatServiceTest {
 
         assertEquals(List.of("m1", "m3"), service.visibleModels(principal()));
     }
+
+    @Test
+    @DisplayName("流式（0064）— 行序逐行透传、[DONE] 收尾、末块 usage 计量、TTFT>=0")
+    public void testStreamingPassthroughWithUsageAndTtft() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(channelRepository.findEnabled()).thenReturn(List.of(channel(1L, "s", 0, "m", null)));
+        java.util.List<String> received = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        when(llmHttpPort.postJsonStreaming(anyString(), anyMap(), anyString(), anyInt(), any())).thenAnswer(inv -> {
+            @SuppressWarnings("unchecked")
+            java.util.function.Consumer<String> onLine = (java.util.function.Consumer<String>) inv.getArgument(4);
+            onLine.accept("data: {\"choices\":[{\"delta\":{\"content\":\"你\"}}]}\n");
+            onLine.accept("data: {\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":3}}\n");
+            onLine.accept("data: [DONE]\n");
+            return 200;
+        });
+
+        long ttft = service.chatCompletionStream(principal(), "{\"model\":\"m\",\"stream\":true,\"messages\":[]}",
+                received::add);
+
+        org.junit.jupiter.api.Assertions.assertEquals(3, received.size(), "行序逐行透传");
+        org.junit.jupiter.api.Assertions.assertTrue(received.get(2).contains("[DONE]"));
+        org.junit.jupiter.api.Assertions.assertTrue(ttft >= 0, "TTFT 已计量");
+        verify(usageLedger).record(argThat(r -> r != null && "SUCCESS".equals(r.getStatus())
+                && Long.valueOf(8L).equals(r.getPromptTokens())
+                && Long.valueOf(3L).equals(r.getCompletionTokens())));
+    }
+
+    @Test
+    @DisplayName("流式故障转移（0064）— 首字节前 500 切换下一渠道；出首字节后失败即断不重放")
+    public void testStreamingFailoverBoundaries() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(channelRepository.findEnabled()).thenReturn(List.of(
+                channel(1L, "bad", 10, "m", null), channel(2L, "good", 0, "m", null)));
+        java.util.List<String> received = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        when(llmHttpPort.postJsonStreaming(eq("http://upstream-bad/chat/completions"), anyMap(), anyString(), anyInt(), any()))
+                .thenReturn(500);
+        when(llmHttpPort.postJsonStreaming(eq("http://upstream-good/chat/completions"), anyMap(), anyString(), anyInt(), any()))
+                .thenAnswer(inv -> {
+                    @SuppressWarnings("unchecked")
+                    java.util.function.Consumer<String> onLine = (java.util.function.Consumer<String>) inv.getArgument(4);
+                    onLine.accept("data: {\"ok\":true}\n");
+                    return 200;
+                });
+
+        service.chatCompletionStream(principal(), "{\"model\":\"m\",\"stream\":true,\"messages\":[]}", received::add);
+        org.junit.jupiter.api.Assertions.assertEquals(1, received.size(), "坏渠道零出流，好渠道一行");
+
+        // 出首字节后上游断（抛异常）→ 不重放到下一渠道，直接 -32004
+        when(llmHttpPort.postJsonStreaming(anyString(), anyMap(), anyString(), anyInt(), any())).thenAnswer(inv -> {
+            @SuppressWarnings("unchecked")
+            java.util.function.Consumer<String> onLine = (java.util.function.Consumer<String>) inv.getArgument(4);
+            onLine.accept("data: {\"partial\":1}\n");
+            throw new java.io.IOException("upstream reset");
+        });
+        java.util.List<String> replay = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        AppException broken = assertThrows(AppException.class, () -> service.chatCompletionStream(
+                principal(), "{\"model\":\"m\",\"stream\":true,\"messages\":[]}", replay::add));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), broken.getCode());
+        org.junit.jupiter.api.Assertions.assertEquals(1, replay.size(), "已出流内容不重放");
+    }
 }

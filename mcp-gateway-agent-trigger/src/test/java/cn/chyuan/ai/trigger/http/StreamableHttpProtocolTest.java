@@ -481,6 +481,12 @@ class StreamableHttpProtocolTest {
         }
 
         @Bean
+        cn.chyuan.ai.infrastructure.externalattach.UpstreamAuthHeaders upstreamAuthHeaders() {
+            return new cn.chyuan.ai.infrastructure.externalattach.UpstreamAuthHeaders(
+                    new cn.chyuan.ai.infrastructure.externalattach.UpstreamOAuthTokenManager());
+        }
+
+        @Bean
         ExternalMcpAttachRegistry externalMcpAttachRegistry(IExternalAttachRepository externalAttachRepository,
                 org.springframework.beans.factory.ObjectProvider<GatewayMcpServerRegistry> gatewayRegistryProvider) {
             ExternalMcpAttachRegistry registry = new ExternalMcpAttachRegistry();

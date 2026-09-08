@@ -74,6 +74,10 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
     @Resource
     private IGovernanceEventPublisher eventPublisher;
 
+    /** 上游鉴权头解析（工单 0061） */
+    @Resource
+    private UpstreamAuthHeaders upstreamAuthHeaders;
+
     /** 惰性解析：与网关服务器注册表存在 catalog→attach→registry 环，ObjectProvider 打断构造期循环 */
     @Autowired(required = false)
     private org.springframework.beans.factory.ObjectProvider<GatewayMcpServerRegistry> gatewayServerRegistryProvider;
@@ -424,9 +428,16 @@ public class ExternalMcpAttachRegistry implements IExternalMcpAttachPort {
         HttpClientStreamableHttpTransport.Builder builder = HttpClientStreamableHttpTransport
                 .builder(baseUri)
                 .endpoint(endpoint);
-        if (StringUtils.isNotBlank(config.getApiKey())) {
+        // 上游鉴权头按类型分派（0061：NONE/HEADER/BEARER/OAUTH_CC；OAUTH_CC 每请求经缓存解析支持近过期刷新）
+        Map<String, String> authHeaders;
+        try {
+            authHeaders = upstreamAuthHeaders.headersFor(config);
+        } catch (Exception e) {
+            throw new IllegalStateException("上游鉴权配置解析失败: " + e.getMessage(), e);
+        }
+        if (!authHeaders.isEmpty()) {
             builder.httpRequestCustomizer((requestBuilder, method, reqUri, body, context) ->
-                    requestBuilder.header("Authorization", "Bearer " + config.getApiKey()));
+                    authHeaders.forEach(requestBuilder::header));
         }
         return builder.build();
     }

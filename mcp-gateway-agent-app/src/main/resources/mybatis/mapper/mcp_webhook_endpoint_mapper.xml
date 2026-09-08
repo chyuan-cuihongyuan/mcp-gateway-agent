@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IWebhookEndpointDao">
+
+    <resultMap id="McpWebhookEndpointMap" type="cn.chyuan.ai.infrastructure.dao.po.McpWebhookEndpointPO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="url" property="url"/>
+        <result column="events" property="events"/>
+        <result column="secret" property="secret"/>
+        <result column="enabled" property="enabled"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_webhook_endpoint (name, url, events, secret, enabled)
+        VALUES (#{name}, #{url}, #{events}, #{secret}, #{enabled})
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_webhook_endpoint
+        SET name    = #{name},
+            url     = #{url},
+            events  = #{events},
+            secret  = #{secret},
+            enabled = #{enabled},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_webhook_endpoint WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultMap="McpWebhookEndpointMap">
+        SELECT * FROM mcp_webhook_endpoint WHERE id = #{id}
+    </select>
+
+    <select id="queryAll" resultMap="McpWebhookEndpointMap">
+        SELECT * FROM mcp_webhook_endpoint ORDER BY id
+    </select>
+
+    <select id="queryEnabled" resultMap="McpWebhookEndpointMap">
+        SELECT * FROM mcp_webhook_endpoint WHERE enabled = 1 ORDER BY id
+    </select>
+
+</mapper>

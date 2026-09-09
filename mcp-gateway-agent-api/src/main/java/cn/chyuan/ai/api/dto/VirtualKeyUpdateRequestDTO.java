@@ -45,6 +45,10 @@ public class VirtualKeyUpdateRequestDTO implements Serializable {
     private Long budgetHard;
     private Integer budgetDurationHours;
 
+    /** 金额预算软/硬线（工单 0087） */
+    private java.math.BigDecimal costSoftLimit;
+    private java.math.BigDecimal costHardLimit;
+
     /** 追加授权的网关 ID 列表（可选） */
     private List<String> grantGatewayIds;
 

@@ -79,6 +79,10 @@ public class McpVirtualKeyPO extends BasePagePO {
     private Date budgetResetAt;
     private Long budgetUsed;
 
+    /** 金额预算软/硬线（工单 0087；窗口与次数预算共振） */
+    private java.math.BigDecimal costSoftLimit;
+    private java.math.BigDecimal costHardLimit;
+
     /** 临时提额硬线/到期时间（工单 0052；过期惰性回落） */
     private Long tempBudgetHard;
     private Date tempBudgetExpires;

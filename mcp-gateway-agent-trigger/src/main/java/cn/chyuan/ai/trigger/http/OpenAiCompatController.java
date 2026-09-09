@@ -45,15 +45,22 @@ public class OpenAiCompatController {
         this.budgetService = budgetServiceProvider.getIfAvailable();
     }
 
-    /** 成本响应头（工单 0086）：读取线程暂存值并清理 */
+    /** 成本响应头（工单 0086）：读取线程暂存值并清理；金额软线告警头（工单 0087） */
     private void writeCostHeader(HttpServletResponse response) {
+        boolean costWarning = llmChatService.consumeLastCostWarning();
         if (!costHeaderEnabled) {
             llmChatService.consumeLastCost();
+            if (costWarning) {
+                response.setHeader("X-Budget-Warning", "cost soft limit crossed");
+            }
             return;
         }
         java.math.BigDecimal cost = llmChatService.consumeLastCost();
         if (cost != null) {
             response.setHeader("X-Gateway-Cost", cost.toPlainString());
+        }
+        if (costWarning) {
+            response.setHeader("X-Budget-Warning", "cost soft limit crossed");
         }
     }
 
@@ -80,7 +87,7 @@ public class OpenAiCompatController {
             int httpStatus = switch (e.getCode()) {
                 case "-32008" -> 401;
                 case "-32006" -> 403;
-                case "-32009", "-32014" -> 429;
+                case "-32009", "-32014", "-32017" -> 429;
                 case "-32003", "-32004" -> 404;
                 default -> 400;
             };
@@ -152,6 +159,12 @@ public class OpenAiCompatController {
             if (budget.softWarning()) {
                 response.setHeader("X-Budget-Warning",
                         "soft budget crossed: " + budget.used() + "/" + budget.hard());
+            }
+            // 金额预算准入（工单 0087）：已用金额 ≥ 硬线 → -32017（HTTP 429）
+            IBudgetService.CostVerdict cost = budgetService.admitCost(principal);
+            if (!cost.allowed()) {
+                throw new AppException(McpErrorCodes.COST_LIMIT_EXCEEDED,
+                        "金额预算耗尽：" + cost.usedCost().toPlainString() + "/" + cost.hard().toPlainString());
             }
         }
     }

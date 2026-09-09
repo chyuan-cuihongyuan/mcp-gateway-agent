@@ -91,6 +91,12 @@ public class UsageRepository implements IUsageRepository {
         return usageDao.tagDaily(tag, fromDate, toDate);
     }
 
+    @Override
+    public java.math.BigDecimal sumCostSince(Long virtualKeyId, java.util.Date since) {
+        java.math.BigDecimal sum = usageDao.sumCostSince(virtualKeyId, since);
+        return sum == null ? java.math.BigDecimal.ZERO : sum;
+    }
+
     private Map<String, Object> queryParams(UsageQueryVO query) {
         Map<String, Object> params = new HashMap<>();
         if (query != null) {

@@ -46,4 +46,8 @@ public class VirtualKeyCommandEntity {
     private Long budgetSoft;
     private Long budgetHard;
     private Integer budgetDurationHours;
+
+    /** 金额预算软/硬线（工单 0087；窗口与次数预算共振） */
+    private java.math.BigDecimal costSoftLimit;
+    private java.math.BigDecimal costHardLimit;
 }

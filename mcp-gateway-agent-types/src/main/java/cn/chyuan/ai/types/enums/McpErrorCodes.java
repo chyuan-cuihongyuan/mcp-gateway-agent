@@ -120,6 +120,11 @@ public final class McpErrorCodes {
      */
     public static final int CONCURRENCY_EXCEEDED = -32016;
 
+    /**
+     * 金额预算耗尽 —— 密钥窗口成本硬线（工单 0087，HTTP 429，与次数口径 -32014 语义区分）
+     */
+    public static final int COST_LIMIT_EXCEEDED = -32017;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

@@ -50,6 +50,10 @@ public class VirtualKeyResponseDTO implements Serializable {
     private Long budgetSoft;
     private Long budgetHard;
     private Integer budgetDurationHours;
+
+    /** 金额预算软/硬线（工单 0087；已用金额从账本派生见 usage 查询） */
+    private java.math.BigDecimal costSoftLimit;
+    private java.math.BigDecimal costHardLimit;
     private String budgetResetAt;
     private Long budgetUsed;
 

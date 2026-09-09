@@ -67,6 +67,10 @@ public class VirtualKeyVO {
     /** 预算窗口重置时间（工单 0050，惰性重置） */
     private Date budgetResetAt;
 
+    /** 金额预算软/硬线（工单 0087；窗口与次数预算共振，已用金额从账本派生） */
+    private java.math.BigDecimal costSoftLimit;
+    private java.math.BigDecimal costHardLimit;
+
     /** 预算窗口内已用次数（工单 0050） */
     private Long budgetUsed;
 

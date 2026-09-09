@@ -69,6 +69,13 @@ public class LlmChatService {
     /** 本次请求线程的成本（工单 0086 响应头消费；读后即清） */
     private static final ThreadLocal<java.math.BigDecimal> LAST_COST = new ThreadLocal<>();
 
+    /** 金额软线告警标记（工单 0087 响应头消费；读后即清） */
+    private static final ThreadLocal<Boolean> LAST_COST_WARNING = new ThreadLocal<>();
+
+    /** 预算（工单 0087 金额软线上报；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IBudgetService> budgetServiceProvider;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -347,7 +354,8 @@ public class LlmChatService {
         }
     }
 
-    /** 计价（工单 0086）：命中即落账并暂存线程上下文供响应头；未定价返回 null */
+    /** 计价（工单 0086）：命中即落账并暂存线程上下文供响应头；未定价返回 null。
+     *  金额软线（工单 0087）：越过即事件 + 暂存告警供响应头。 */
     private java.math.BigDecimal costOf(GovernancePrincipal principal, String model,
             Long promptTokens, Long completionTokens) {
         cn.chyuan.ai.domain.governance.service.PricingService pricing =
@@ -358,8 +366,29 @@ public class LlmChatService {
         java.math.BigDecimal cost = pricing.costOf(model, promptTokens, completionTokens);
         if (cost != null) {
             LAST_COST.set(cost);
+            reportCostQuietly(principal, cost);
         }
         return cost;
+    }
+
+    /** 金额软线上报（工单 0087）：告警暂存线程上下文（X-Budget-Warning: cost 消费） */
+    private void reportCostQuietly(GovernancePrincipal principal, java.math.BigDecimal cost) {
+        try {
+            cn.chyuan.ai.domain.governance.service.IBudgetService budgetService =
+                    budgetServiceProvider == null ? null : budgetServiceProvider.getIfAvailable();
+            if (budgetService != null && budgetService.reportCost(principal, cost)) {
+                LAST_COST_WARNING.set(true);
+            }
+        } catch (Exception e) {
+            log.debug("金额软线上报失败（不阻断）：{}", e.getMessage());
+        }
+    }
+
+    /** 取出并清除本次请求的金额软线告警标记（无则 false） */
+    public boolean consumeLastCostWarning() {
+        boolean warning = Boolean.TRUE.equals(LAST_COST_WARNING.get());
+        LAST_COST_WARNING.remove();
+        return warning;
     }
 
     /** 取出并清除本次请求线程的成本（响应头 X-Gateway-Cost 消费；无则 null） */

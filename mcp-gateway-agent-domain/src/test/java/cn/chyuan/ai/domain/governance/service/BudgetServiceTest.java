@@ -33,8 +33,21 @@ public class BudgetServiceTest {
     @Mock
     private IGovernanceEventPublisher eventPublisher;
 
+    /** 账本端口（工单 0087）：ObjectProvider mock */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.usage.adapter.repository.IUsageRepository> usageRepositoryProvider;
+
+    @Mock
+    private cn.chyuan.ai.domain.usage.adapter.repository.IUsageRepository usageRepository;
+
     @InjectMocks
     private BudgetService service;
+
+    @SuppressWarnings("unchecked")
+    private void stubUsageRepository() {
+        // lenient：未触达账本的用例（早退路径）不因未用 stub 报错
+        org.mockito.Mockito.lenient().when(usageRepositoryProvider.getIfAvailable()).thenReturn(usageRepository);
+    }
 
     private GovernancePrincipal principalWithBudget(Long soft, Long hard) {
         return GovernancePrincipal.builder()
@@ -43,6 +56,62 @@ public class BudgetServiceTest {
                 .budgetSoft(soft)
                 .budgetHard(hard)
                 .build();
+    }
+
+    // ---- 金额预算（工单 0087） ----
+
+    @Test
+    @DisplayName("金额准入：未配置硬线恒放行；已用 ≥ 硬线拒绝")
+    public void testCostAdmitLines() {
+        stubUsageRepository();
+        GovernancePrincipal principal = principalWithBudget(null, null);
+        // 未配置 cost 硬线（库中无列值）
+        VirtualKeyVO noCost = VirtualKeyVO.builder().id(42L).keyName("k").build();
+        when(repository.findById(42L)).thenReturn(noCost);
+        assertTrue(service.admitCost(principal).allowed());
+
+        VirtualKeyVO costed = VirtualKeyVO.builder().id(42L).keyName("k")
+                .costSoftLimit(new java.math.BigDecimal("10"))
+                .costHardLimit(new java.math.BigDecimal("100")).build();
+        when(repository.findById(42L)).thenReturn(costed);
+        when(usageRepository.sumCostSince(anyLong(), any(Date.class)))
+                .thenReturn(new java.math.BigDecimal("99.999"));
+        assertTrue(service.admitCost(principal).allowed(), "已用 99.999 < 100 应放行");
+        when(usageRepository.sumCostSince(anyLong(), any(Date.class)))
+                .thenReturn(new java.math.BigDecimal("100.000"));
+        assertFalse(service.admitCost(principal).allowed(), "已用 ≥ 100 应拒绝");
+    }
+
+    @Test
+    @DisplayName("金额上报：越过软线发 COST_SOFT_CROSSED 事件并返回告警；未越过静默")
+    public void testCostReportSoftLine() {
+        stubUsageRepository();
+        GovernancePrincipal principal = principalWithBudget(null, null);
+        VirtualKeyVO costed = VirtualKeyVO.builder().id(42L).keyName("k")
+                .costSoftLimit(new java.math.BigDecimal("10"))
+                .costHardLimit(new java.math.BigDecimal("100")).build();
+        when(repository.findById(42L)).thenReturn(costed);
+        when(usageRepository.sumCostSince(anyLong(), any(Date.class)))
+                .thenReturn(new java.math.BigDecimal("8"));
+
+        assertFalse(service.reportCost(principal, new java.math.BigDecimal("1.5")), "8+1.5 < 10 未越过软线");
+        verify(eventPublisher, never()).publish(anyString(), any());
+
+        assertTrue(service.reportCost(principal, new java.math.BigDecimal("2.5")), "8+2.5 ≥ 10 越过软线");
+        verify(eventPublisher).publish(eq(BudgetService.EVENT_COST_SOFT_CROSSED), any(Map.class));
+        verify(eventPublisher, never()).publish(eq(BudgetService.EVENT_BUDGET_SOFT_CROSSED), any(Map.class));
+    }
+
+    @Test
+    @DisplayName("金额上报：未配置软线/账本异常不阻断（返回 false）")
+    public void testCostReportTolerance() {
+        stubUsageRepository();
+        GovernancePrincipal principal = principalWithBudget(null, null);
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder().id(42L).keyName("k").build());
+        assertFalse(service.reportCost(principal, new java.math.BigDecimal("5")));
+
+        when(repository.findById(42L)).thenThrow(new RuntimeException("db down"));
+        assertFalse(service.reportCost(principal, new java.math.BigDecimal("5")));
     }
 
     @Test

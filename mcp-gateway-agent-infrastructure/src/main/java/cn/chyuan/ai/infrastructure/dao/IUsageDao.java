@@ -31,4 +31,8 @@ public interface IUsageDao {
     /** 按标签日聚合（工单 0088：明细表按日期分组，含成本合计） */
     List<Map<String, Object>> tagDaily(@Param("tag") String tag,
             @Param("fromDate") String fromDate, @Param("toDate") String toDate);
+
+    /** 窗口内成本合计（工单 0087 金额预算派生口径） */
+    java.math.BigDecimal sumCostSince(@Param("virtualKeyId") Long virtualKeyId,
+            @Param("since") java.util.Date since);
 }

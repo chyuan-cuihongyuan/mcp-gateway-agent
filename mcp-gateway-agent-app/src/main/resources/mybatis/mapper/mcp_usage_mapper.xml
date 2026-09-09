@@ -156,4 +156,13 @@
         ORDER BY statDate ASC
     </select>
 
+    <!-- 窗口内成本合计（工单 0087 金额预算；未计价行不计入） -->
+    <select id="sumCostSince" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(cost), 0)
+        FROM mcp_usage_log
+        WHERE virtual_key_id = #{virtualKeyId}
+          AND cost IS NOT NULL
+          AND created_at &gt;= #{since}
+    </select>
+
 </mapper>

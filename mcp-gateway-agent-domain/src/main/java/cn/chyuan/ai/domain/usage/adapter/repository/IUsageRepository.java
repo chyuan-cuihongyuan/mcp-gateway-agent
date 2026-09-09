@@ -35,4 +35,7 @@ public interface IUsageRepository {
 
     /** 按标签日聚合（工单 0088：键 statDate/callCount/failCount/costSum） */
     java.util.List<java.util.Map<String, Object>> tagDaily(String tag, String fromDate, String toDate);
+
+    /** 窗口内成本合计（工单 0087 金额预算派生；空窗口返回 0） */
+    java.math.BigDecimal sumCostSince(Long virtualKeyId, java.util.Date since);
 }

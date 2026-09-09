@@ -29,4 +29,25 @@ public interface IBudgetService {
             return new BudgetVerdict(true, false, 0, 0);
         }
     }
+
+    /**
+     * 金额预算准入（工单 0087，LLM 面）：窗口内已用金额 ≥ 硬线 → 拒绝（-32017）。
+     * 已用金额从账本派生（SUM(cost)，窗口与次数预算共振——共用 duration/reset_at 惰性重置）。
+     * 未配置 costHardLimit 的密钥恒放行。账本异步落账的短暂滞后可接受（文档口径）。
+     */
+    CostVerdict admitCost(GovernancePrincipal principal);
+
+    /**
+     * 金额上报（工单 0087，响应后置）：累计越过软线 → COST_SOFT_LIMIT 事件（每窗口一次即可，
+     * 此处按次发布由 webhook 端去重口径消化）+ 返回告警标记（响应头消费）。
+     */
+    boolean reportCost(GovernancePrincipal principal, java.math.BigDecimal cost);
+
+    /** 金额预算判决 */
+    record CostVerdict(boolean allowed, java.math.BigDecimal usedCost, java.math.BigDecimal hard) {
+
+        public static CostVerdict passthrough() {
+            return new CostVerdict(true, java.math.BigDecimal.ZERO, null);
+        }
+    }
 }

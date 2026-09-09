@@ -76,16 +76,19 @@ public interface IAdminGovernanceService {
 
     // ---- 用量账本（工单 0046）----
 
-    /** 用量明细分页（时间/密钥/工具/状态/流量类型过滤；密钥哈希只回前 8 位摘要） */
+    /** 用量明细分页（时间/密钥/工具/状态/流量类型/标签过滤；密钥哈希只回前 8 位摘要） */
     ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(String fromDate, String toDate,
             Long virtualKeyId, String toolOrModel, String status, String trafficType,
-            String channelId, int page, int size);
+            String channelId, String tag, int page, int size);
 
     /** 用量日聚合明细（区间内全部维度行） */
     List<UsageDailyResponseDTO> dailyUsageDetail(String fromDate, String toDate);
 
     /** 用量按日汇总（仪表盘趋势） */
     List<UsageDailyResponseDTO> dailyUsageTotals(String fromDate, String toDate);
+
+    /** 按标签日聚合（工单 0088：标签维度调用/失败/成本趋势） */
+    java.util.List<cn.chyuan.ai.api.dto.UsageTagDailyDTO> dailyUsageByTag(String tag, String fromDate, String toDate);
 
     // ---- CEL 规则模板（工单 0057）----
 

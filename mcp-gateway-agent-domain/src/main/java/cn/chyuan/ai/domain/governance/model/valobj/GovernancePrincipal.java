@@ -45,6 +45,9 @@ public class GovernancePrincipal {
     /** 来源 IP（认证过滤器提取，用量账本/CEL client.ip 消费，工单 0045/0046） */
     private String clientIp;
 
+    /** 请求标签（工单 0088：X-Gateway-Tags 头 + LLM metadata.tags，账本成本归因维度） */
+    private List<String> tags;
+
     /** 预算软线（工单 0050；空=未启用） */
     private Long budgetSoft;
 

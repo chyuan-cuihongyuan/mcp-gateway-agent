@@ -181,6 +181,7 @@ public class A2aProxyController {
                     .toolOrModel(method)
                     .status(status)
                     .durationMs(costMs)
+                    .tags(cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags()))
                     .clientIp(principal.getClientIp())
                     .build());
         } catch (Exception e) {

@@ -26,4 +26,7 @@ public interface IUsageLedgerService {
 
     /** 按日汇总（仪表盘趋势） */
     List<DailyUsageVO> dailyTotals(String fromDate, String toDate);
+
+    /** 按标签日聚合（工单 0088：键 statDate/callCount/failCount/costSum） */
+    java.util.List<java.util.Map<String, Object>> tagDaily(String tag, String fromDate, String toDate);
 }

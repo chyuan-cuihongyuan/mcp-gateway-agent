@@ -273,7 +273,7 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     @Override
     public ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(String fromDate, String toDate,
             Long virtualKeyId, String toolOrModel, String status, String trafficType,
-            String channelId, int page, int size) {
+            String channelId, String tag, int page, int size) {
         UsageQueryVO query = UsageQueryVO.builder()
                 .fromDate(blankToNull(fromDate))
                 .toDate(blankToNull(toDate))
@@ -282,6 +282,7 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .status(blankToNull(status))
                 .trafficType(blankToNull(trafficType))
                 .channelId(blankToNull(channelId))
+                .tag(blankToNull(tag))
                 .build();
         List<UsageLogResponseDTO> list = usageLedgerService.page(query, page, size).stream()
                 .map(this::toUsageDto)
@@ -303,6 +304,22 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .toList();
     }
 
+    @Override
+    public java.util.List<cn.chyuan.ai.api.dto.UsageTagDailyDTO> dailyUsageByTag(
+            String tag, String fromDate, String toDate) {
+        java.util.List<cn.chyuan.ai.api.dto.UsageTagDailyDTO> result = new java.util.ArrayList<>();
+        for (java.util.Map<String, Object> row : usageLedgerService.tagDaily(tag, blankToNull(fromDate), blankToNull(toDate))) {
+            cn.chyuan.ai.api.dto.UsageTagDailyDTO dto = new cn.chyuan.ai.api.dto.UsageTagDailyDTO();
+            dto.setStatDate(String.valueOf(row.get("statDate")));
+            dto.setCallCount(row.get("callCount") == null ? 0L : ((Number) row.get("callCount")).longValue());
+            dto.setFailCount(row.get("failCount") == null ? 0L : ((Number) row.get("failCount")).longValue());
+            Object costSum = row.get("costSum");
+            dto.setCostSum(costSum == null ? null : new java.math.BigDecimal(String.valueOf(costSum)));
+            result.add(dto);
+        }
+        return result;
+    }
+
     private UsageLogResponseDTO toUsageDto(UsageRecordVO vo) {
         return UsageLogResponseDTO.builder()
                 .requestId(vo.getRequestId())
@@ -318,6 +335,7 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .promptTokens(vo.getPromptTokens())
                 .completionTokens(vo.getCompletionTokens())
                 .cost(vo.getCost())
+                .tags(cn.chyuan.ai.types.util.TagParser.toDisplay(vo.getTags()))
                 .clientIp(vo.getClientIp())
                 .sessionId(vo.getSessionId())
                 .createdAt(formatDate(vo.getCreatedAt()))

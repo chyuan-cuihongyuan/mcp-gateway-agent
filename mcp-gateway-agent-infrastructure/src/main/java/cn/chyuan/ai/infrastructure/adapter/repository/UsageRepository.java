@@ -40,6 +40,7 @@ public class UsageRepository implements IUsageRepository {
                 .promptTokens(record.getPromptTokens())
                 .completionTokens(record.getCompletionTokens())
                 .cost(record.getCost())
+                .tags(record.getTags())
                 .clientIp(record.getClientIp())
                 .sessionId(record.getSessionId())
                 .createdAt(record.getCreatedAt())
@@ -85,6 +86,11 @@ public class UsageRepository implements IUsageRepository {
         return usageDao.dailyTotals(fromDate, toDate).stream().map(this::toDailyVo).toList();
     }
 
+    @Override
+    public List<Map<String, Object>> tagDaily(String tag, String fromDate, String toDate) {
+        return usageDao.tagDaily(tag, fromDate, toDate);
+    }
+
     private Map<String, Object> queryParams(UsageQueryVO query) {
         Map<String, Object> params = new HashMap<>();
         if (query != null) {
@@ -95,6 +101,7 @@ public class UsageRepository implements IUsageRepository {
             params.put("status", blankToNull(query.getStatus()));
             params.put("trafficType", blankToNull(query.getTrafficType()));
             params.put("channelId", blankToNull(query.getChannelId()));
+            params.put("tag", blankToNull(query.getTag()));
         }
         return params;
     }
@@ -117,6 +124,7 @@ public class UsageRepository implements IUsageRepository {
                 .promptTokens(po.getPromptTokens())
                 .completionTokens(po.getCompletionTokens())
                 .cost(po.getCost())
+                .tags(po.getTags())
                 .clientIp(po.getClientIp())
                 .sessionId(po.getSessionId())
                 .createdAt(po.getCreatedAt())

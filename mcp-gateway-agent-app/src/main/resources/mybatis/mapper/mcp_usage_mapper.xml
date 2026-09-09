@@ -16,6 +16,7 @@
         <result column="prompt_tokens" property="promptTokens"/>
         <result column="completion_tokens" property="completionTokens"/>
         <result column="cost" property="cost"/>
+        <result column="tags" property="tags"/>
         <result column="client_ip" property="clientIp"/>
         <result column="session_id" property="sessionId"/>
         <result column="created_at" property="createdAt"/>
@@ -57,6 +58,9 @@
             <if test="channelId != null and channelId != ''">
                 AND channel_id = #{channelId}
             </if>
+            <if test="tag != null and tag != ''">
+                AND tags LIKE CONCAT('%,', #{tag}, ',%')
+            </if>
         </where>
     </sql>
 
@@ -64,10 +68,10 @@
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_usage_log (request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                                    tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-                                   completion_tokens, cost, client_ip, session_id, created_at)
+                                   completion_tokens, cost, tags, client_ip, session_id, created_at)
         VALUES (#{requestId}, #{virtualKeyId}, #{apiKeyHash}, #{gatewayId}, #{trafficType},
                 #{toolOrModel}, #{channelId}, #{status}, #{durationMs}, #{promptTokens},
-                #{completionTokens}, #{cost}, #{clientIp}, #{sessionId}, NOW())
+                #{completionTokens}, #{cost}, #{tags}, #{clientIp}, #{sessionId}, NOW())
     </insert>
 
     <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
@@ -86,7 +90,7 @@
     <select id="pageLogs" parameterType="map" resultMap="McpUsageLogMap">
         SELECT id, request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-               completion_tokens, cost, client_ip, session_id, created_at
+               completion_tokens, cost, tags, client_ip, session_id, created_at
         FROM mcp_usage_log
         <include refid="log_query_conditions"/>
         ORDER BY id DESC
@@ -130,6 +134,26 @@
         </where>
         GROUP BY stat_date
         ORDER BY stat_date ASC
+    </select>
+
+    <!-- 按标签日聚合（工单 0088：明细表口径，含成本合计；规范形 ,a,b, 精确匹配） -->
+    <select id="tagDaily" resultType="map">
+        SELECT DATE(created_at) AS statDate,
+               COUNT(*) AS callCount,
+               SUM(CASE WHEN status != 'SUCCESS' THEN 1 ELSE 0 END) AS failCount,
+               SUM(cost) AS costSum
+        FROM mcp_usage_log
+        <where>
+            AND tags LIKE CONCAT('%,', #{tag}, ',%')
+            <if test="fromDate != null and fromDate != ''">
+                AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+            </if>
+            <if test="toDate != null and toDate != ''">
+                AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+            </if>
+        </where>
+        GROUP BY DATE(created_at)
+        ORDER BY statDate ASC
     </select>
 
 </mapper>

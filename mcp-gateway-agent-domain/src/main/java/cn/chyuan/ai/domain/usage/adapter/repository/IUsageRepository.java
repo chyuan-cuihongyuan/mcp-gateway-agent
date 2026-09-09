@@ -32,4 +32,7 @@ public interface IUsageRepository {
 
     /** 按日期汇总（仪表盘趋势：callCount/failCount/tokenSum/totalDurationMs 按日合计） */
     List<DailyUsageVO> dailyTotals(String fromDate, String toDate);
+
+    /** 按标签日聚合（工单 0088：键 statDate/callCount/failCount/costSum） */
+    java.util.List<java.util.Map<String, Object>> tagDaily(String tag, String fromDate, String toDate);
 }

@@ -27,4 +27,8 @@ public interface IUsageDao {
 
     /** 按日汇总行（group by stat_date） */
     List<McpUsageDailyPO> dailyTotals(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
+
+    /** 按标签日聚合（工单 0088：明细表按日期分组，含成本合计） */
+    List<Map<String, Object>> tagDaily(@Param("tag") String tag,
+            @Param("fromDate") String fromDate, @Param("toDate") String toDate);
 }

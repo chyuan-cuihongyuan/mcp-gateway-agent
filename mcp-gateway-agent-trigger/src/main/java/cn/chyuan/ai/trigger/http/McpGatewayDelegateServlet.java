@@ -720,6 +720,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
                     .toolOrModel(toolOrModel)
                     .status(status)
                     .durationMs(costMs)
+                    .tags(principal == null ? null : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags()))
                     .clientIp(principal == null ? null : principal.getClientIp())
                     .sessionId(request.getHeader(SESSION_HEADER))
                     .build());

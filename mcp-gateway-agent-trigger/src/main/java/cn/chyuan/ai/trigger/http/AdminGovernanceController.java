@@ -135,7 +135,7 @@ public class AdminGovernanceController {
 
     // ---- 用量账本（工单 0046）----
 
-    /** 用量明细分页（时间/密钥/工具/状态/流量类型过滤；读操作不记审计） */
+    /** 用量明细分页（时间/密钥/工具/状态/流量类型/标签过滤；读操作不记审计） */
     @GetMapping("/usage/logs")
     public ResponsePage<List<UsageLogResponseDTO>> pageUsageLogs(
             @RequestParam(required = false, defaultValue = "") String fromDate,
@@ -145,10 +145,11 @@ public class AdminGovernanceController {
             @RequestParam(required = false, defaultValue = "") String status,
             @RequestParam(required = false, defaultValue = "") String trafficType,
             @RequestParam(required = false, defaultValue = "") String channelId,
+            @RequestParam(required = false, defaultValue = "") String tag,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return adminGovernanceService.pageUsageLogs(fromDate, toDate, virtualKeyId,
-                toolOrModel, status, trafficType, channelId, page, size);
+                toolOrModel, status, trafficType, channelId, tag, page, size);
     }
 
     /** 用量日聚合明细（区间内全部维度行，对账/明细页用） */
@@ -191,6 +192,15 @@ public class AdminGovernanceController {
             @RequestParam(required = false, defaultValue = "") String fromDate,
             @RequestParam(required = false, defaultValue = "") String toDate) {
         return Response.success(adminGovernanceService.dailyUsageTotals(fromDate, toDate));
+    }
+
+    /** 按标签日聚合（工单 0088：标签维度调用/失败/成本趋势） */
+    @GetMapping("/usage/tags/daily")
+    public Response<List<cn.chyuan.ai.api.dto.UsageTagDailyDTO>> dailyUsageByTag(
+            @RequestParam String tag,
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate) {
+        return Response.success(adminGovernanceService.dailyUsageByTag(tag, fromDate, toDate));
     }
 
     // ---- CEL 工具治理规则（工单 0018）----

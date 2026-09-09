@@ -32,4 +32,7 @@ public class UsageQueryVO {
     private String trafficType;
 
     private String channelId;
+
+    /** 标签筛选（工单 0088：单标签精确匹配） */
+    private String tag;
 }

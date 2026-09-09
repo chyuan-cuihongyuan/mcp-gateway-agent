@@ -44,6 +44,9 @@ public class UsageLogResponseDTO implements Serializable {
     /** 本次调用成本（工单 0086：未定价为 null） */
     private java.math.BigDecimal cost;
 
+    /** 请求标签（工单 0088：展示形 "a,b"；无标签 null） */
+    private String tags;
+
     private String clientIp;
 
     private String sessionId;

@@ -76,6 +76,7 @@ public class LlmChatService {
      */
     public String chatCompletion(GovernancePrincipal principal, String requestBody) {
         JSONObject request = parse(requestBody);
+        mergeBodyTags(principal, request);
         String model = request.getString("model");
         if (StringUtils.isBlank(model)) {
             throw new AppException(McpErrorCodes.INVALID_PARAMS, "缺少 model 字段");
@@ -160,6 +161,7 @@ public class LlmChatService {
     public long chatCompletionStream(GovernancePrincipal principal, String requestBody,
             java.util.function.Consumer<String> onLine) {
         JSONObject request = parse(requestBody);
+        mergeBodyTags(principal, request);
         String model = request.getString("model");
         if (StringUtils.isBlank(model)) {
             throw new AppException(McpErrorCodes.INVALID_PARAMS, "缺少 model 字段");
@@ -337,6 +339,7 @@ public class LlmChatService {
                     .promptTokens(promptTokens)
                     .completionTokens(completionTokens)
                     .cost(costOf(principal, model, promptTokens, completionTokens))
+                    .tags(tagStorageOf(principal))
                     .clientIp(principal == null ? null : principal.getClientIp())
                     .build());
         } catch (Exception e) {
@@ -364,6 +367,30 @@ public class LlmChatService {
         java.math.BigDecimal cost = LAST_COST.get();
         LAST_COST.remove();
         return cost;
+    }
+
+    /** 标签落库形（工单 0088）：principal 头来源 + 请求体 metadata.tags 已并入 */
+    private static String tagStorageOf(GovernancePrincipal principal) {
+        return principal == null ? null
+                : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
+    }
+
+    /** 请求体 metadata.tags 并入 principal（工单 0088：LLM 面第二来源，body 优先） */
+    private static void mergeBodyTags(GovernancePrincipal principal, JSONObject request) {
+        if (principal == null || request == null) {
+            return;
+        }
+        JSONObject metadata = request.getJSONObject("metadata");
+        if (metadata == null) {
+            return;
+        }
+        java.util.List<String> bodyTags = new java.util.ArrayList<>();
+        for (Object item : metadata.getJSONArray("tags")) {
+            if (item != null) {
+                bodyTags.add(String.valueOf(item));
+            }
+        }
+        principal.setTags(cn.chyuan.ai.types.util.TagParser.merge(principal.getTags(), bodyTags));
     }
 
     /** 供给某模型的启用渠道（models 清单含该名，或映射目标含该名） */

@@ -50,6 +50,8 @@ public class GlobalTrafficAuthFilter implements Filter {
         String credential = resolveCredential(httpRequest);
         try {
             GovernancePrincipal principal = governanceAuthService.authenticateGlobal(credential, clientIp(httpRequest));
+            // 请求标签（工单 0088）：三流量面统一的成本归因维度
+            principal.setTags(cn.chyuan.ai.types.util.TagParser.parseHeader(httpRequest.getHeader("X-Gateway-Tags")));
             httpRequest.setAttribute(GovernancePrincipal.REQUEST_ATTR, principal);
             chain.doFilter(request, response);
         } catch (AppException e) {

@@ -64,6 +64,8 @@ public class GovernanceAuthFilter implements Filter {
         String credential = resolveCredential(httpRequest);
         try {
             GovernancePrincipal principal = governanceAuthService.authenticate(gatewayId, credential, resolveClientIp(httpRequest));
+            // 请求标签（工单 0088）：成本归因维度（与全局流量面同头）
+            principal.setTags(cn.chyuan.ai.types.util.TagParser.parseHeader(httpRequest.getHeader("X-Gateway-Tags")));
             httpRequest.setAttribute(PRINCIPAL_ATTR, principal);
             chain.doFilter(request, response);
         } catch (AppException e) {

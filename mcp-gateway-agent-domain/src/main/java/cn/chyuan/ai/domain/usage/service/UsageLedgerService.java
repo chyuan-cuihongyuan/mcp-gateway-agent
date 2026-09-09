@@ -118,4 +118,9 @@ public class UsageLedgerService implements IUsageLedgerService {
     public List<DailyUsageVO> dailyTotals(String fromDate, String toDate) {
         return repository.dailyTotals(fromDate, toDate);
     }
+
+    @Override
+    public java.util.List<java.util.Map<String, Object>> tagDaily(String tag, String fromDate, String toDate) {
+        return repository.tagDaily(tag, fromDate, toDate);
+    }
 }

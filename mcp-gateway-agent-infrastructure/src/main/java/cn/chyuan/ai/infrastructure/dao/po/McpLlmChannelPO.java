@@ -40,6 +40,19 @@ public class McpLlmChannelPO implements Serializable {
     private Integer status;
 
     private Integer timeoutMs;
+    /** 重试次数上限（工单 0105；0/空=不重试，≤3） */
+    private Integer numRetries;
+    /** 重试退避基值毫秒（指数 base*2^n） */
+    private Integer retryBackoffMs;
+    /** 重试错误类型（逗号分隔 429/5xx/timeout；空=不重试） */
+    private String retryOn;
+
+    /** 余额探测（工单 0108）：查询 URL + JSON 路径（可空=不探测） */
+    private String balanceProbeUrl;
+    private String balanceJsonPath;
+    /** 最近一次余额与时间（探测成功落列） */
+    private String balance;
+    private java.util.Date balanceTime;
 
     private Date testTime;
 

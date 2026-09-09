@@ -22,6 +22,9 @@ public class AuditService implements IAuditService {
 
     @Override
     public void record(AuditCommandEntity entity) {
+        if (entity.getType() == null || entity.getType().isBlank()) {
+            entity.setType(classify(entity.getAction()));
+        }
         try {
             repository.insert(entity);
         } catch (Exception e) {
@@ -33,11 +36,40 @@ public class AuditService implements IAuditService {
 
     @Override
     public List<IAuditLogRepository.AuditLogVO> page(String resourceType, String resourceId, int page, int size) {
-        return repository.queryPage(resourceType, resourceId, Math.max(page - 1, 0) * size, size);
+        return repository.queryPage(resourceType, resourceId, null, null, Math.max(page - 1, 0) * size, size);
     }
 
     @Override
     public long count(String resourceType, String resourceId) {
         return repository.count(resourceType, resourceId);
+    }
+
+    @Override
+    public java.util.List<cn.chyuan.ai.domain.governance.adapter.repository.IAuditLogRepository.AuditLogVO> page(
+            String resourceType, String resourceId, String type, String actor, int page, int size) {
+        return repository.queryPage(resourceType, resourceId, type, actor, (page - 1) * size, size);
+    }
+
+    @Override
+    public long count(String resourceType, String resourceId, String type, String actor) {
+        return repository.count(resourceType, resourceId, type, actor);
+    }
+
+    /** 动作 → 分型归类（工单 0111）：安全事件 SECURITY、系统动作 SYSTEM、测试动作 TEST，其余 ADMIN */
+    static String classify(String action) {
+        if (action == null) {
+            return "ADMIN";
+        }
+        if (action.contains("GUARDRAIL") || action.contains("BLOCK") || action.contains("LOGIN")
+                || action.contains("SKIP") || action.startsWith("BLOCK_")) {
+            return "SECURITY";
+        }
+        if (action.contains("MIGRATE") || action.contains("SEED") || action.contains("CONFIG_IMPORT")) {
+            return "SYSTEM";
+        }
+        if (action.contains("TEST") || action.contains("PROBE")) {
+            return "TEST";
+        }
+        return "ADMIN";
     }
 }

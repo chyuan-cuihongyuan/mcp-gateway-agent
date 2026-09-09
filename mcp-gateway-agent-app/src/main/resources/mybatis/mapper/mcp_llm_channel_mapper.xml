@@ -13,6 +13,13 @@
         <result column="priority" property="priority"/>
         <result column="status" property="status"/>
         <result column="timeout_ms" property="timeoutMs"/>
+        <result column="num_retries" property="numRetries"/>
+        <result column="retry_backoff_ms" property="retryBackoffMs"/>
+        <result column="retry_on" property="retryOn"/>
+        <result column="balance_probe_url" property="balanceProbeUrl"/>
+        <result column="balance_json_path" property="balanceJsonPath"/>
+        <result column="balance" property="balance"/>
+        <result column="balance_time" property="balanceTime"/>
         <result column="test_time" property="testTime"/>
         <result column="response_time_ms" property="responseTimeMs"/>
         <result column="create_time" property="createTime"/>
@@ -21,22 +28,34 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_llm_channel (name, base_url, credential, models, model_mapping,
-                                     weight, priority, status, timeout_ms)
+                                     weight, priority, status, timeout_ms,
+                                     num_retries, retry_backoff_ms, retry_on,
+                                     balance_probe_url, balance_json_path)
         VALUES (#{name}, #{baseUrl}, #{credential}, #{models}, #{modelMapping},
-                #{weight}, #{priority}, #{status}, #{timeoutMs})
+                #{weight}, #{priority}, #{status}, #{timeoutMs},
+                #{numRetries}, #{retryBackoffMs}, #{retryOn},
+                #{balanceProbeUrl}, #{balanceJsonPath})
     </insert>
 
     <update id="update">
         UPDATE mcp_llm_channel
         SET base_url = #{baseUrl}, credential = #{credential}, models = #{models},
             model_mapping = #{modelMapping}, weight = #{weight}, priority = #{priority},
-            status = #{status}, timeout_ms = #{timeoutMs}, update_time = NOW()
+            status = #{status}, timeout_ms = #{timeoutMs},
+            num_retries = #{numRetries}, retry_backoff_ms = #{retryBackoffMs}, retry_on = #{retryOn},
+            balance_probe_url = #{balanceProbeUrl}, balance_json_path = #{balanceJsonPath},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
     <delete id="deleteById">
         DELETE FROM mcp_llm_channel WHERE id = #{id}
     </delete>
+
+    <update id="updateBalance">
+        UPDATE mcp_llm_channel SET balance = #{balance}, balance_time = #{balanceTime}
+        WHERE id = #{id}
+    </update>
 
     <select id="queryById" resultMap="ChannelMap">
         SELECT * FROM mcp_llm_channel WHERE id = #{id}

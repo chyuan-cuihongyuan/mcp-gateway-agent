@@ -21,6 +21,7 @@ public class AuditLogResponseDTO implements Serializable {
     private Long id;
 
     private String actor;
+    private String type;
 
     private String action;
 

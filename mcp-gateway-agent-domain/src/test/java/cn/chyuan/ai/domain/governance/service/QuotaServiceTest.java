@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -88,7 +89,7 @@ public class QuotaServiceTest {
     @DisplayName("RPM=1 场景 — 同 key 第二次请求被拒，含剩余额度与重试提示")
     public void testRpmOne_SecondRequestDenied() {
         IQuotaBucketBackend.QuotaBucket bucket = localBucket(1, null, Instant.now());
-        when(backend.getBucket(42L, 1, null)).thenReturn(bucket);
+        when(backend.getBucket(eq(42L), isNull(), eq(1), isNull())).thenReturn(bucket);
         GovernancePrincipal principal = vkPrincipal(1, null);
 
         IQuotaService.QuotaVerdict first = service.checkAndConsume("gw-1", principal);
@@ -107,7 +108,7 @@ public class QuotaServiceTest {
     @DisplayName("双带宽同桶 — RPM 先耗尽时拒绝，日配额独立计数")
     public void testMultiBandwidth_SingleBucket() {
         IQuotaBucketBackend.QuotaBucket bucket = localBucket(2, 100, Instant.now());
-        when(backend.getBucket(42L, 2, 100)).thenReturn(bucket);
+        when(backend.getBucket(eq(42L), isNull(), eq(2), eq(100))).thenReturn(bucket);
         GovernancePrincipal principal = vkPrincipal(2, 100);
 
         assertTrue(service.checkAndConsume("gw-1", principal).allowed());
@@ -125,13 +126,13 @@ public class QuotaServiceTest {
                 .authType(GovernancePrincipal.AuthType.JWT).build()).allowed());
         assertTrue(service.checkAndConsume("gw-1", vkPrincipal(null, null)).allowed(),
                 "RPM 与日配额均为 NULL（不限）应直通");
-        verify(backend, never()).getBucket(anyLong(), any(), any());
+        verify(backend, never()).getBucket(anyLong(), any(), any(), any());
     }
 
     @Test
     @DisplayName("Redis 故障 — fail-closed：上抛配额服务不可用，不降级放行")
     public void testBackendFailure_FailClosed() {
-        when(backend.getBucket(eq(42L), any(), any()))
+        when(backend.getBucket(eq(42L), any(), any(), any()))
                 .thenThrow(new RuntimeException("redis connection refused"));
         GovernancePrincipal principal = vkPrincipal(10, 100);
 
@@ -146,7 +147,7 @@ public class QuotaServiceTest {
         // 共享后端 = 同一 Redis 桶状态（生产由 Lettuce ProxyManager 提供）
         IQuotaBucketBackend sharedBackend = mock(IQuotaBucketBackend.class);
         IQuotaBucketBackend.QuotaBucket sharedBucket = localBucket(1, null, Instant.now());
-        when(sharedBackend.getBucket(eq(42L), any(), any())).thenReturn(sharedBucket);
+        when(sharedBackend.getBucket(eq(42L), any(), any(), any())).thenReturn(sharedBucket);
 
         QuotaService instanceA = new QuotaService();
         ReflectionTestUtils.setField(instanceA, "quotaBucketBackend", sharedBackend);

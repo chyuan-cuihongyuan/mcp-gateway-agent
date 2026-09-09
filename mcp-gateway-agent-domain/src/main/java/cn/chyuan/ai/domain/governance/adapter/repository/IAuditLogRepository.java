@@ -18,9 +18,11 @@ public interface IAuditLogRepository {
 
     void insert(AuditCommandEntity entity);
 
-    List<AuditLogVO> queryPage(String resourceType, String resourceId, int page, int size);
+    List<AuditLogVO> queryPage(String resourceType, String resourceId, String type, String actor, int page, int size);
 
     long count(String resourceType, String resourceId);
+
+    long count(String resourceType, String resourceId, String type, String actor);
 
     /** 审计日志值对象 */
     @Data
@@ -30,6 +32,7 @@ public interface IAuditLogRepository {
     class AuditLogVO {
         private Long id;
         private String actor;
+        private String type;
         private String action;
         private String resourceType;
         private String resourceId;

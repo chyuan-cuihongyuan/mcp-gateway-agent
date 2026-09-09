@@ -63,6 +63,11 @@ public class LlmChannelRepository implements ILlmChannelRepository {
         return list == null ? Collections.emptyList() : list.stream().map(this::toVo).toList();
     }
 
+    @Override
+    public void updateBalance(Long id, String balance, java.util.Date balanceTime) {
+        dao.updateBalance(id, balance, balanceTime);
+    }
+
     private McpLlmChannelPO toPo(LlmChannelVO vo) {
         return McpLlmChannelPO.builder()
                 .id(vo.getId()).name(vo.getName()).baseUrl(vo.getBaseUrl())
@@ -72,6 +77,11 @@ public class LlmChannelRepository implements ILlmChannelRepository {
                 .priority(vo.getPriority() == null ? 0 : vo.getPriority())
                 .status(vo.getStatus() == null ? 1 : vo.getStatus())
                 .timeoutMs(vo.getTimeoutMs() == null ? 60_000 : vo.getTimeoutMs())
+                .numRetries(vo.getNumRetries())
+                .retryBackoffMs(vo.getRetryBackoffMs())
+                .retryOn(vo.getRetryOn())
+                .balanceProbeUrl(vo.getBalanceProbeUrl()).balanceJsonPath(vo.getBalanceJsonPath())
+                .balance(vo.getBalance()).balanceTime(vo.getBalanceTime())
                 .build();
     }
 
@@ -85,6 +95,9 @@ public class LlmChannelRepository implements ILlmChannelRepository {
                 .models(po.getModels()).modelMapping(po.getModelMapping())
                 .weight(po.getWeight()).priority(po.getPriority()).status(po.getStatus())
                 .timeoutMs(po.getTimeoutMs()).testTime(po.getTestTime())
+                .numRetries(po.getNumRetries()).retryBackoffMs(po.getRetryBackoffMs()).retryOn(po.getRetryOn())
+                .balanceProbeUrl(po.getBalanceProbeUrl()).balanceJsonPath(po.getBalanceJsonPath())
+                .balance(po.getBalance()).balanceTime(po.getBalanceTime())
                 .responseTimeMs(po.getResponseTimeMs())
                 .createTime(po.getCreateTime()).updateTime(po.getUpdateTime())
                 .build();

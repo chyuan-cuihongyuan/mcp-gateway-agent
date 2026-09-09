@@ -56,6 +56,13 @@ public class RedisQuotaBucketBackend implements IQuotaBucketBackend {
     }
 
     @Override
+    public QuotaBucket getBucket(long keyId, String scope, Integer rpmLimit, Integer dailyLimit) {
+        String key = QuotaBuckets.bucketKey(keyId, scope, rpmLimit, dailyLimit);
+        BucketConfiguration configuration = QuotaBuckets.buildConfiguration(rpmLimit, dailyLimit, Instant.now());
+        return new ProxyQuotaBucket(key.getBytes(StandardCharsets.UTF_8), configuration);
+    }
+
+    @Override
     public QuotaBucket getTpmBucket(long keyId, Integer tpmLimit) {
         String key = QuotaBuckets.tpmBucketKey(keyId, tpmLimit);
         return new ProxyQuotaBucket(key.getBytes(StandardCharsets.UTF_8),

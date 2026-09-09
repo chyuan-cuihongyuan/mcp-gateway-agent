@@ -130,6 +130,11 @@ public final class McpErrorCodes {
      */
     public static final int CONTENT_BLOCKED = -32018;
 
+    /**
+     * 渠道组容量耗尽 —— 可用 weight 占比低于阈值（工单 0106，HTTP 503 语义）
+     */
+    public static final int GROUP_CAPACITY_EXHAUSTED = -32019;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

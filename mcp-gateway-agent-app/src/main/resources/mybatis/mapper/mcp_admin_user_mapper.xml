@@ -35,4 +35,21 @@
         UPDATE mcp_admin_user SET role = #{role} WHERE username = #{username}
     </update>
 
+    <select id="queryAll" resultMap="McpAdminUserMap">
+        SELECT id, username, password_hash, role, status, created_at, updated_at
+        FROM mcp_admin_user ORDER BY id
+    </select>
+
+    <update id="updateStatus">
+        UPDATE mcp_admin_user SET status = #{status} WHERE username = #{username}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE mcp_admin_user SET password_hash = #{passwordHash} WHERE username = #{username}
+    </update>
+
+    <delete id="deleteByUsername">
+        DELETE FROM mcp_admin_user WHERE username = #{username}
+    </delete>
+
 </mapper>

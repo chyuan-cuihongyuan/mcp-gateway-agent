@@ -5,6 +5,7 @@ import cn.chyuan.ai.domain.governance.adapter.repository.IWebhookEndpointReposit
 import cn.chyuan.ai.domain.governance.adapter.IWebhookHttpClient;
 import cn.chyuan.ai.domain.governance.model.valobj.WebhookEndpointVO;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.PreDestroy;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -98,9 +99,52 @@ public class WebhookEventDeliveryService implements IGovernanceEventPublisher {
         }
     }
 
-    private void deliverToAll(List<WebhookEndpointVO> endpoints, String type, String body) {
+    private void deliverToAll(List<WebhookEndpointVO> endpoints, String type, String genericBody) {
         for (WebhookEndpointVO endpoint : endpoints) {
-            deliverWithRetry(endpoint, type, body);
+            deliverWithRetry(endpoint, type, renderFor(endpoint, type, genericBody));
+        }
+    }
+
+    /** 按 endpoint.format 渲染载荷（工单 0116）：GENERIC 原样；钉钉/飞书/Slack markdown 卡片含深链；未知回退 GENERIC */
+    String renderFor(WebhookEndpointVO endpoint, String type, String genericBody) {
+        String format = endpoint.getFormat() == null ? "GENERIC" : endpoint.getFormat().toUpperCase();
+        if (!"DINGTALK".equals(format) && !"FEISHU".equals(format) && !"SLACK".equals(format)) {
+            return genericBody;
+        }
+        try {
+            JSONObject envelope = JSON.parseObject(genericBody);
+            String title = String.valueOf(envelope.get("eventType"));
+            String deepLink = String.valueOf(envelope.get("deepLink"));
+            String data = String.valueOf(envelope.get("data"));
+            String text = "### 网关告警：" + title + "\n\n" + data
+                    + (deepLink == null || "null".equals(deepLink) ? "" : "\n\n[查看治理台](" + deepLink + ")");
+            switch (format) {
+                case "DINGTALK": {
+                    JSONObject md = new JSONObject(true);
+                    md.put("msgtype", "markdown");
+                    JSONObject inner = new JSONObject(true);
+                    inner.put("title", title);
+                    inner.put("text", text);
+                    md.put("markdown", inner);
+                    return md.toJSONString();
+                }
+                case "FEISHU": {
+                    JSONObject card = new JSONObject(true);
+                    card.put("msg_type", "text");
+                    JSONObject inner = new JSONObject(true);
+                    inner.put("text", title + "\n" + data + (deepLink == null || "null".equals(deepLink) ? "" : "\n" + deepLink));
+                    card.put("content", inner);
+                    return card.toJSONString();
+                }
+                default: {
+                    JSONObject slack = new JSONObject(true);
+                    slack.put("text", "*" + title + "*\n" + data
+                            + (deepLink == null || "null".equals(deepLink) ? "" : "\n" + deepLink));
+                    return slack.toJSONString();
+                }
+            }
+        } catch (Exception e) {
+            return genericBody;
         }
     }
 

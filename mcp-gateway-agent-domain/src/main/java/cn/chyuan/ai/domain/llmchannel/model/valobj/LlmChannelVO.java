@@ -55,6 +55,18 @@ public class LlmChannelVO {
 
     /** 上游请求超时毫秒（默认 60000） */
     private Integer timeoutMs;
+    /** 重试次数上限（工单 0105；0/空=不重试，≤3） */
+    private Integer numRetries;
+    /** 重试退避基值毫秒（指数 base*2^n） */
+    private Integer retryBackoffMs;
+    /** 重试错误类型（逗号分隔 429/5xx/timeout；空=不重试） */
+    private String retryOn;
+
+    /** 余额探测（工单 0108） */
+    private String balanceProbeUrl;
+    private String balanceJsonPath;
+    private String balance;
+    private java.util.Date balanceTime;
 
     /** 最近探测时间/耗时 */
     private Date testTime;

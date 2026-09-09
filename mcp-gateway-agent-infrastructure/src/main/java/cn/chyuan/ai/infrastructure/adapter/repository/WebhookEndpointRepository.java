@@ -62,6 +62,7 @@ public class WebhookEndpointRepository implements IWebhookEndpointRepository {
                 .name(vo.getName())
                 .url(vo.getUrl())
                 .events(vo.getEvents() == null || vo.getEvents().isEmpty() ? null : JSON.toJSONString(vo.getEvents()))
+                .format(vo.getFormat())
                 .secret(vo.getSecret())
                 .enabled(vo.getEnabled())
                 .build();
@@ -79,6 +80,7 @@ public class WebhookEndpointRepository implements IWebhookEndpointRepository {
                 .name(po.getName())
                 .url(po.getUrl())
                 .events(events)
+                .format(po.getFormat())
                 .secret(po.getSecret())
                 .enabled(po.getEnabled())
                 .createTime(po.getCreateTime())

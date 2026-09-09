@@ -19,4 +19,12 @@ public interface IAdminUserDao {
     Integer countByRole(@Param("role") String role);
 
     int updateRole(@Param("username") String username, @Param("role") String role);
+
+    java.util.List<McpAdminUserPO> queryAll();
+
+    int updateStatus(@Param("username") String username, @Param("status") String status);
+
+    int updatePassword(@Param("username") String username, @Param("passwordHash") String passwordHash);
+
+    int deleteByUsername(@Param("username") String username);
 }

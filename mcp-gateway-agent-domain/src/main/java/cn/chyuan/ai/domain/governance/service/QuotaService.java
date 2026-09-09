@@ -34,10 +34,16 @@ public class QuotaService implements IQuotaService {
 
     /** 限流降级开关（工单 0071：true=存储故障放行并计数降级；默认 false 维持 0011 fail-closed） */
     @Value("${governance.quota.fail-open:false}")
+    private String rateKeyDimension;
     private boolean failOpen;
 
     @Override
     public QuotaVerdict checkAndConsume(String gatewayId, GovernancePrincipal principal) {
+        return checkAndConsume(gatewayId, principal, null);
+    }
+
+    /** 组合限流键（工单 0107）：dimension=vk_tool/vk_channel 时按调用点上下文拼 scope（vk 维度 scope=null 零回归） */
+    public QuotaVerdict checkAndConsume(String gatewayId, GovernancePrincipal principal, String contextValue) {
         if (!isPerKeyQuotaApplicable(principal)) {
             return QuotaVerdict.notLimited();
         }
@@ -51,7 +57,7 @@ public class QuotaService implements IQuotaService {
         ConsumptionProbe probe;
         try {
             IQuotaBucketBackend.QuotaBucket bucket = quotaBucketBackend.getBucket(
-                    principal.getVirtualKeyId(), rpmLimit, dailyLimit);
+                    principal.getVirtualKeyId(), scopeOf(contextValue), rpmLimit, dailyLimit);
             probe = bucket.tryConsume(1);
         } catch (Exception e) {
             if (failOpen) {
@@ -153,5 +159,15 @@ public class QuotaService implements IQuotaService {
                     "gateway", gatewayId == null ? "" : gatewayId,
                     "key", "vk-" + keyId).increment();
         }
+    }
+    /** 维度 → 桶键 scope 段：vk_tool=:t:{值}、vk_channel=:c:{值}；vk/未知=null（与旧键一致） */
+    private String scopeOf(String contextValue) {
+        if ("vk_tool".equals(rateKeyDimension) && contextValue != null && !contextValue.isBlank()) {
+            return "t:" + contextValue;
+        }
+        if ("vk_channel".equals(rateKeyDimension) && contextValue != null && !contextValue.isBlank()) {
+            return "c:" + contextValue;
+        }
+        return null;
     }
 }

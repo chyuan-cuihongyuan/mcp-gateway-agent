@@ -54,7 +54,11 @@ public interface IAdminGovernanceService {
 
     ResponsePage<List<VirtualKeyResponseDTO>> pageVirtualKeys(String keyword, int page, int size);
 
-    ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(String resourceType, String resourceId, int page, int size);
+    ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(String resourceType, String resourceId,
+            String type, String actor, int page, int size);
+
+    /** 审计导出（工单 0112）：CSV/JSON 流式文本 */
+    String exportAuditLogs(String format, String fromDate, String toDate, String type, String actor);
 
     /** 创建 CEL 规则：保存时编译校验，非法表达式拒绝并返回原因（工单 0018） */
     CelRuleResponseDTO createCelRule(CelRuleUpsertRequestDTO requestDTO);

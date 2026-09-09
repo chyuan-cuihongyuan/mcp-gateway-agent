@@ -39,4 +39,15 @@ public class LlmChannelRequestDTO implements Serializable {
     private Integer status;
 
     private Integer timeoutMs;
+
+    /** 重试策略（工单 0105）：次数上限（≤3）/退避基值毫秒/retry_on（429,5xx,timeout） */
+    private Integer numRetries;
+    private Integer retryBackoffMs;
+    private String retryOn;
+
+    /** 余额探测（工单 0108） */
+    private String balanceProbeUrl;
+    private String balanceJsonPath;
+    private String balance;
+    private String balanceTime;
 }

@@ -33,9 +33,15 @@ public final class QuotaBuckets {
 
     /** 桶键：governance:quota:v1:{keyId}:{rpm|-}:{daily|-} */
     public static String bucketKey(long keyId, Integer rpmLimit, Integer dailyLimit) {
+        return bucketKey(keyId, null, rpmLimit, dailyLimit);
+    }
+
+    /** 组合维度桶键（工单 0107）：scope 非空时追加维度段（如 :t:queryOrder）；空=与旧键完全一致（零回归） */
+    public static String bucketKey(long keyId, String scope, Integer rpmLimit, Integer dailyLimit) {
         return KEY_PREFIX + ":" + keyId + ":"
                 + (rpmLimit == null || rpmLimit <= 0 ? "-" : rpmLimit) + ":"
-                + (dailyLimit == null || dailyLimit <= 0 ? "-" : dailyLimit);
+                + (dailyLimit == null || dailyLimit <= 0 ? "-" : dailyLimit)
+                + (scope == null || scope.isBlank() ? "" : ":" + scope);
     }
 
     /** TPM 桶键前缀（工单 0065：token 粒度，与请求粒度桶分离） */

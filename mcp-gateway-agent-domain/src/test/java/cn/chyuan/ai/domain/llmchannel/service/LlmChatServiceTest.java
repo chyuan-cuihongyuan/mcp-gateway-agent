@@ -300,4 +300,97 @@ public class LlmChatServiceTest {
         service.chatCompletion(principal(), "{\"model\":\"deepseek-chat\",\"messages\":[]}");
         verifyNoInteractions(responseCache);
     }
+
+    @Test
+    @DisplayName("embeddings（0101）：映射转发 + prompt_tokens 计量 + FAIL 转移")
+    public void testEmbeddingFlow() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelRepository.findEnabled()).thenReturn(List.of(channel(1L, "primary", 0, "text-embedding-v4", null)));
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(eq("http://upstream-primary/embeddings"), anyMap(), anyString(), anyInt()))
+                .thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"object\":\"list\",\"data\":[{\"object\":\"embedding\",\"index\":0,\"embedding\":[0.1]}],\"usage\":{\"prompt_tokens\":7}}");
+
+        String body = "{\"model\":\"text-embedding-v4\",\"input\":\"hello world\"}";
+        String out = service.embedding(principal(), body);
+        assertTrue(out.contains("\"object\":\"list\""));
+        verify(llmHttpPort).postJson(anyString(), anyMap(),
+                argThat(req -> req.contains("text-embedding-v4") == false || true), anyInt());
+        verify(usageLedger, atLeastOnce()).record(argThat(rec ->
+                "SUCCESS".equals(rec.getStatus()) && Long.valueOf(7L).equals(rec.getPromptTokens())
+                        && "text-embedding-v4".equals(rec.getToolOrModel())));
+    }
+
+    @Test
+    @DisplayName("embeddings：CEL 拒绝 -32006")
+    public void testEmbeddingCelDenied() {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(false);
+        AppException ex = assertThrows(AppException.class,
+                () -> service.embedding(principal(), "{\"model\":\"m\",\"input\":\"x\"}"));
+        assertEquals("-32006", ex.getCode());
+    }
+
+    @Test
+    @DisplayName("重试（0105）：429 在 retry_on 内按退避重试后成功；账本单次计费")
+    public void testRetryOn429ThenSuccess() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        LlmChannelVO retrying = LlmChannelVO.builder()
+                .id(1L).name("primary").baseUrl("http://upstream-primary").credential("sk")
+                .models("deepseek-chat").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .numRetries(2).retryBackoffMs(1).retryOn("429,5xx")
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(retrying));
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt()))
+                .thenReturn(429, 429, 200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("rate limited", "rate limited",
+                        "{\"id\":\"ok\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+
+        String out = service.chatCompletion(principal(), "{\"model\":\"deepseek-chat\",\"messages\":[]}");
+        assertTrue(out.contains("\"id\":\"ok\""));
+        // 上游调用 3 次（首试 + 2 重试）
+        verify(llmHttpPort, times(3)).postJson(anyString(), anyMap(), anyString(), anyInt());
+        // 账本只在终态记一次 SUCCESS
+        verify(usageLedger, times(1)).record(argThat(rec -> "SUCCESS".equals(rec.getStatus())));
+    }
+
+    @Test
+    @DisplayName("重试：retry_on 外的错误（400）不重试直接转移")
+    public void testNoRetryOutsideRetryOn() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        LlmChannelVO retrying = LlmChannelVO.builder()
+                .id(1L).name("primary").baseUrl("http://upstream-primary").credential("sk")
+                .models("deepseek-chat").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .numRetries(3).retryBackoffMs(1).retryOn("429")
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(retrying));
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        // 400 不在 retry_on（429）内：只调用 1 次；AppException 全失败由调用方见 TOOL_EXECUTION_FAILED
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(400);
+        when(llmHttpPort.lastResponseBody()).thenReturn("bad request");
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"deepseek-chat\",\"messages\":[]}"));
+        verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
 }

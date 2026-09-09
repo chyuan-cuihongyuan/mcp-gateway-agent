@@ -30,6 +30,9 @@ public class WebhookEndpointVO {
     /** 订阅事件类型列表（空=全部） */
     private List<String> events;
 
+    /** 载荷格式（工单 0116）：GENERIC/DINGTALK/FEISHU/SLACK；默认 GENERIC */
+    private String format;
+
     /** HMAC-SHA256 签名密钥（可选；配置后请求带 X-Gw-Signature 头） */
     private String secret;
 

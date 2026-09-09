@@ -91,6 +91,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider;
 
+    /** 组容量事件（工单 0106；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> groupEventPublisher;
+
     /** 审计（工单 0095 跳过留痕；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IAuditService> auditServiceProvider;
@@ -131,6 +135,7 @@ public class LlmChatService {
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
         }
+        assertGroupCapacity(model, candidates);
 
         // 渠道按调度顺序尝试，失败转移下一个（非流式安全重试）
         List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> ordered =
@@ -146,25 +151,76 @@ public class LlmChatService {
                 if (StringUtils.isNotBlank(channel.getCredential())) {
                     headers.put("Authorization", "Bearer " + channel.getCredential());
                 }
+                // 同渠道重试（工单 0105）：retry_on 分类（429/5xx/timeout）+ 指数退避 base*2^n；
+                // 流式已出首字节不重试（0064 口径在流式路径天然保证）；账本终态只记一次
+                int maxRetries = channel.getNumRetries() == null ? 0 : Math.min(3, channel.getNumRetries());
+                long backoffBase = channel.getRetryBackoffMs() == null ? 200 : channel.getRetryBackoffMs();
+                java.util.List<String> retryOn = retryOnOf(channel.getRetryOn());
                 long start = System.currentTimeMillis();
-                int status = llmHttpPort.postJson(channel.getBaseUrl() + "/chat/completions",
-                        headers, upstreamBody, channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs());
-                String response = llmHttpPort.lastResponseBody();
-                int cost = (int) (System.currentTimeMillis() - start);
-                if (status >= 200 && status < 300 && response != null) {
-                    // 响应侧护栏 POST_CALL（工单 0094）：阻断丢弃响应；脱敏改写后返回调用方
-                    response = applyResponseGuardrails(response);
-                    recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
-                    consumeTpmQuietly(principal, response);
-                    countCacheMiss(model);
-                    if (cacheKey != null) {
-                        cachePut(cacheKey, response);
+                int status = 0;
+                String response = null;
+                int cost = 0;
+                String transportError = null;
+                int attempt = 0;
+                while (true) {
+                    transportError = null;
+                    try {
+                        status = llmHttpPort.postJson(channel.getBaseUrl() + "/chat/completions",
+                                headers, upstreamBody, channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs());
+                        response = llmHttpPort.lastResponseBody();
+                    } catch (Exception te) {
+                        status = 0;
+                        response = null;
+                        transportError = te.getMessage() == null ? "transport" : te.getMessage();
                     }
-                    return response;
+                    cost = (int) (System.currentTimeMillis() - start);
+                    boolean success = transportError == null && status >= 200 && status < 300 && response != null;
+                    if (success) {
+                        // 响应侧护栏 POST_CALL（工单 0094）：阻断丢弃响应；脱敏改写后返回调用方
+                        response = applyResponseGuardrails(response);
+                        recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
+                        consumeTpmQuietly(principal, response);
+                        countCacheMiss(model);
+                        if (cacheKey != null) {
+                            cachePut(cacheKey, response);
+                        }
+                        if (attempt > 0) {
+                            countRetry(channel.getName(), true);
+                        }
+                        return response;
+                    }
+                    boolean retryable = transportError != null
+                            ? retryOn.contains("timeout")
+                            : (retryOn.contains("429") && status == 429)
+                                    || (retryOn.contains("5xx") && status >= 500);
+                    if (!retryable || attempt >= maxRetries) {
+                        break;
+                    }
+                    attempt++;
+                    try {
+                        Thread.sleep(backoffBase * (1L << (attempt - 1)));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
-                lastError = "渠道 " + channel.getName() + " 返回 " + status;
-                recordUsage(principal, model, channel.getName(), "FAIL", cost, null);
-                log.warn("LLM 渠道失败转移: channel={} status={}", channel.getName(), status);
+                if (attempt > 0) {
+                    countRetry(channel.getName(), false);
+                }
+                if (transportError != null) {
+                    lastError = "渠道 " + channel.getName() + " 传输失败: " + transportError;
+                    recordUsage(principal, model, channel.getName(), "FAIL", cost, null);
+                    log.warn("LLM 渠道失败转移: channel={} reason={} attempts={}",
+                            channel.getName(), transportError, attempt);
+                } else {
+                    lastError = "渠道 " + channel.getName() + " 返回 " + status;
+                    recordUsage(principal, model, channel.getName(), "FAIL", cost, null);
+                    log.warn("LLM 渠道失败转移: channel={} status={} attempts={}",
+                            channel.getName(), status, attempt);
+                }
+            } catch (cn.chyuan.ai.types.exception.AppException e) {
+                // 治理类异常（护栏 -32018 等）必须透传，不得按传输失败转移
+                throw e;
             } catch (Exception e) {
                 lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
                 recordUsage(principal, model, channel.getName(), "FAIL", 0, null);
@@ -462,6 +518,119 @@ public class LlmChatService {
         }
     }
 
+    /**
+     * /v1/embeddings（工单 0101）：模型解析/CEL/渠道调度/故障转移与 chat 同链；
+     * usage.prompt_tokens 计量入账本与 TPM。返回上游标准响应 JSON。
+     */
+    public String embedding(GovernancePrincipal principal, String requestBody) {
+        JSONObject request = parse(requestBody);
+        mergeBodyTags(principal, request);
+        String model = request.getString("model");
+        if (StringUtils.isBlank(model)) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "缺少 model 字段");
+        }
+        if (!celEvaluationService.isToolAllowed(principal, TRAFFIC_LLM_GATEWAY,
+                "embeddings", model, SOURCE_LLM)) {
+            throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
+        }
+        List<LlmChannelVO> candidates = candidatesFor(model);
+        if (candidates.isEmpty()) {
+            throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
+        }
+        List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> ordered =
+                orderCandidates(candidates);
+        String lastError = null;
+        for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
+            LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
+            try {
+                String upstreamModel = mapModel(channel, model);
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Content-Type", "application/json");
+                if (StringUtils.isNotBlank(channel.getCredential())) {
+                    headers.put("Authorization", "Bearer " + channel.getCredential());
+                }
+                long start = System.currentTimeMillis();
+                int status = llmHttpPort.postJson(channel.getBaseUrl() + "/embeddings",
+                        headers, rewriteModel(request, upstreamModel),
+                        channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs());
+                String response = llmHttpPort.lastResponseBody();
+                int cost = (int) (System.currentTimeMillis() - start);
+                if (status >= 200 && status < 300 && response != null) {
+                    long tokens = extractEmbeddingTokens(response);
+                    recordUsageTokens(principal, model, channel.getName(), "SUCCESS", cost, tokens, 0L);
+                    consumeTpmQuietly(principal, tokens, 0L);
+                    countCacheMiss(model);
+                    return response;
+                }
+                lastError = "渠道 " + channel.getName() + " 返回 " + status;
+                recordUsageTokens(principal, model, channel.getName(), "FAIL", cost, null, null);
+            } catch (AppException e) {
+                throw e;
+            } catch (Exception e) {
+                lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
+                recordUsageTokens(principal, model, channel.getName(), "FAIL", 0, null, null);
+            }
+        }
+        throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,
+                "全部渠道失败：" + lastError);
+    }
+
+    /** embeddings 响应 usage.prompt_tokens 提取（缺省 0） */
+    private long extractEmbeddingTokens(String response) {
+        try {
+            JSONObject body = JSON.parseObject(response);
+            JSONObject usage = body.getJSONObject("usage");
+            if (usage != null && usage.getLong("prompt_tokens") != null) {
+                return usage.getLong("prompt_tokens");
+            }
+            if (usage != null && usage.getLong("total_tokens") != null) {
+                return usage.getLong("total_tokens");
+            }
+        } catch (Exception ignored) {
+            // 无 usage 不计量
+        }
+        return 0L;
+    }
+
+    /** 组容量阈值百分比（工单 0106：0=关；可用 weight 占比低于阈值整组快速失败） */
+    @org.springframework.beans.factory.annotation.Value("${governance.upstream.capacity-threshold-percent:0}")
+    private int capacityThresholdPercent;
+
+    /** 组容量守卫（工单 0106）：可用 weight 占比 < 阈值 → -32019 整组快速失败 + 事件 + 指标 */
+    private void assertGroupCapacity(String model, List<LlmChannelVO> candidates) {
+        if (capacityThresholdPercent <= 0 || candidates.isEmpty()) {
+            return;
+        }
+        int totalWeight = candidates.stream()
+                .mapToInt(ch -> ch.getWeight() == null || ch.getWeight() <= 0 ? 1 : ch.getWeight())
+                .sum();
+        int enabledWeight = (int) candidates.stream()
+                .filter(ch -> ch.getStatus() == null || ch.getStatus() == LlmChannelVO.STATUS_ENABLED)
+                .mapToInt(ch -> ch.getWeight() == null || ch.getWeight() <= 0 ? 1 : ch.getWeight())
+                .sum();
+        int percent = totalWeight == 0 ? 0 : enabledWeight * 100 / totalWeight;
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.gauge("gateway.group.capacity",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("group", model)),
+                    percent);
+        }
+        if (percent < capacityThresholdPercent) {
+            try {
+                cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher publisher =
+                        groupEventPublisher == null ? null : groupEventPublisher.getIfAvailable();
+                if (publisher != null) {
+                    publisher.publish("GROUP_CAPACITY_EXHAUSTED", java.util.Map.of(
+                            "group", model, "percent", percent, "threshold", capacityThresholdPercent));
+                }
+            } catch (Exception ignored) {
+                // 事件尽力而为
+            }
+            throw new AppException(McpErrorCodes.GROUP_CAPACITY_EXHAUSTED,
+                    "渠道组可用容量不足：" + percent + "%（阈值 " + capacityThresholdPercent + "%）");
+        }
+    }
+
     // ---- 精确缓存（工单 0097；0098 扩展字段白名单与请求级覆盖） ----
 
     /** 缓存键：vk 隔离 + model + 参与字段规范化（messages/temperature/top_p 原样序列化） */
@@ -539,6 +708,26 @@ public class LlmChatService {
         boolean hit = Boolean.TRUE.equals(LAST_CACHE_HIT.get());
         LAST_CACHE_HIT.remove();
         return hit;
+    }
+
+    /** retry_on 配置解析（逗号分隔；空=不重试） */
+    private static java.util.List<String> retryOnOf(String retryOn) {
+        if (retryOn == null || retryOn.isBlank()) {
+            return java.util.List.of();
+        }
+        return java.util.Arrays.stream(retryOn.split(","))
+                .map(String::trim).filter(x -> !x.isEmpty()).toList();
+    }
+
+    /** 重试指标（工单 0105）：gateway.llm.retry{channel,result}；registry 可缺省 */
+    private void countRetry(String channel, boolean success) {
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.counter("gateway.llm.retry",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("channel", channel),
+                            io.micrometer.core.instrument.Tag.of("result", success ? "success" : "exhausted")))
+                    .increment();
+        }
     }
 
     /** 护栏跳过（工单 0095）：admin 授权密钥 + X-Gateway-Skip-Guardrails 头才生效（标记由认证过滤器写入 principal） */

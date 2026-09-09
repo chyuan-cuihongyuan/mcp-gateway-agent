@@ -59,4 +59,29 @@ public class AdminUserRepository implements IAdminUserRepository {
     public int updateRole(String username, String role) {
         return adminUserDao.updateRole(username, role);
     }
+
+    @Override
+    public java.util.List<AdminUserVO> findAll() {
+        return adminUserDao.queryAll().stream()
+                .map(po -> AdminUserVO.builder()
+                        .id(po.getId()).username(po.getUsername()).passwordHash(po.getPasswordHash())
+                        .role(po.getRole()).status(po.getStatus()).createdAt(po.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    public int updateStatus(String username, String status) {
+        return adminUserDao.updateStatus(username, status);
+    }
+
+    @Override
+    public int updatePassword(String username, String passwordHash) {
+        return adminUserDao.updatePassword(username, passwordHash);
+    }
+
+    @Override
+    public int deleteByUsername(String username) {
+        return adminUserDao.deleteByUsername(username);
+    }
 }

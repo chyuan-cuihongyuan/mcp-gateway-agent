@@ -207,11 +207,13 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     }
 
     @Override
-    public ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(String resourceType, String resourceId, int page, int size) {
-        List<AuditLogResponseDTO> list = auditService.page(resourceType, resourceId, page, size).stream()
+    public ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(String resourceType, String resourceId,
+            String type, String actor, int page, int size) {
+        List<AuditLogResponseDTO> list = auditService.page(resourceType, resourceId, type, actor, page, size).stream()
                 .map(log -> AuditLogResponseDTO.builder()
                         .id(log.getId())
                         .actor(log.getActor())
+                        .type(log.getType())
                         .action(log.getAction())
                         .resourceType(log.getResourceType())
                         .resourceId(log.getResourceId())
@@ -220,7 +222,7 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                         .createdAt(formatDate(log.getCreatedAt()))
                         .build())
                 .toList();
-        long total = auditService.count(resourceType, resourceId);
+        long total = auditService.count(resourceType, resourceId, type, actor);
         return ResponsePage.success(list, total);
     }
 
@@ -407,6 +409,57 @@ public class AdminGovernanceService implements IAdminGovernanceService {
         csv.append("汇总,,,,").append(totalCalls).append(",,")
                 .append(anyCost ? totalCost.toPlainString() : "").append(",\r\n");
         return csv.toString();
+    }
+
+    @Override
+    public String exportAuditLogs(String format, String fromDate, String toDate, String type, String actor) {
+        auditService.record(cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity.builder()
+                .actor("admin").action("EXPORT_AUDIT").resourceType("AUDIT_LOG")
+                .resourceId((fromDate == null ? "" : fromDate) + "~" + (toDate == null ? "" : toDate))
+                .build());
+        var logs = auditService.page(null, null,
+                blankToNull(type), blankToNull(actor), 1, 100_000);
+        String from = blankToNull(fromDate);
+        String to = blankToNull(toDate);
+        var filtered = logs.stream().filter(log -> {
+            String date = formatDate(log.getCreatedAt());
+            if (from != null && date.compareTo(from) < 0) return false;
+            if (to != null && date.compareTo(to) > 0) return false;
+            return true;
+        }).toList();
+        boolean json = "json".equalsIgnoreCase(format);
+        StringBuilder out = new StringBuilder();
+        if (json) {
+            out.append("[");
+            boolean first = true;
+            for (var log : filtered) {
+                if (!first) out.append(",");
+                first = false;
+                out.append("{\"id\":").append(log.getId())
+                   .append(",\"createdAt\":\"").append(formatDate(log.getCreatedAt())).append("\"")
+                   .append(",\"actor\":\"").append(csvCell(log.getActor())).append("\"")
+                   .append(",\"type\":\"").append(log.getType() == null ? "ADMIN" : log.getType()).append("\"")
+                   .append(",\"action\":\"").append(csvCell(log.getAction())).append("\"")
+                   .append(",\"resourceType\":\"").append(csvCell(log.getResourceType())).append("\"")
+                   .append(",\"resourceId\":\"").append(csvCell(log.getResourceId())).append("\"}");
+            }
+            out.append("]");
+        } else {
+            out.append("时间,操作者,分型,动作,资源类型,资源ID,变更摘要\r\n");
+            for (var log : filtered) {
+                String summary = log.getAfterJson() == null ? (log.getBeforeJson() == null ? "" : log.getBeforeJson())
+                        : log.getAfterJson();
+                out.append(csvCell(formatDate(log.getCreatedAt()))).append(',')
+                   .append(csvCell(log.getActor())).append(',')
+                   .append(csvCell(log.getType() == null ? "ADMIN" : log.getType())).append(',')
+                   .append(csvCell(log.getAction())).append(',')
+                   .append(csvCell(log.getResourceType())).append(',')
+                   .append(csvCell(log.getResourceId())).append(',')
+                   .append(csvCell(summary == null ? "" : summary.substring(0, Math.min(80, summary.length()))))
+                   .append("\r\n");
+            }
+        }
+        return out.toString();
     }
 
     private static long numberOf(Object value) {

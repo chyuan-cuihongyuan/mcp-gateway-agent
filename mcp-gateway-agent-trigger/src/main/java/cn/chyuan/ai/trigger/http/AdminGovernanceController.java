@@ -128,9 +128,22 @@ public class AdminGovernanceController {
     public ResponsePage<List<AuditLogResponseDTO>> pageAuditLogs(
             @RequestParam(required = false, defaultValue = "") String resourceType,
             @RequestParam(required = false, defaultValue = "") String resourceId,
+            @RequestParam(required = false, defaultValue = "") String type,
+            @RequestParam(required = false, defaultValue = "") String actor,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
-        return adminGovernanceService.pageAuditLogs(resourceType, resourceId, page, size);
+        return adminGovernanceService.pageAuditLogs(resourceType, resourceId, type, actor, page, size);
+    }
+
+    /** 审计导出（工单 0112）：format=csv|json，时间/分型/操作者筛选 */
+    @GetMapping("/audit-logs/export")
+    public Response<String> exportAuditLogs(
+            @RequestParam(required = false, defaultValue = "csv") String format,
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate,
+            @RequestParam(required = false, defaultValue = "") String type,
+            @RequestParam(required = false, defaultValue = "") String actor) {
+        return Response.success(adminGovernanceService.exportAuditLogs(format, fromDate, toDate, type, actor));
     }
 
     // ---- 用量账本（工单 0046）----

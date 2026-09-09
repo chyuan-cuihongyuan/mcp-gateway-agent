@@ -138,6 +138,35 @@ public class OpenAiCompatController {
         }
     }
 
+    /** /v1/embeddings（工单 0101）：RAG 向量化流量，治理链全覆盖 */
+    @PostMapping("/v1/embeddings")
+    public void embeddings(HttpServletRequest request, HttpServletResponse response,
+            @RequestBody(required = false) String body) throws Exception {
+        GovernancePrincipal principal = principalOf(request);
+        admit(principal, response);
+        try {
+            String upstream = llmChatService.embedding(principal, body);
+            writeCostHeader(response);
+            response.setContentType("application/json");
+            response.getWriter().write(upstream);
+            response.getWriter().flush();
+        } catch (AppException e) {
+            int httpStatus = switch (e.getCode()) {
+                case "-32008" -> 401;
+                case "-32006" -> 403;
+                case "-32009", "-32014", "-32017" -> 429;
+                case "-32003", "-32004" -> 404;
+                default -> 400;
+            };
+            response.setStatus(httpStatus);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":{\"message\":" + quote(e.getInfo())
+                    + ",\"type\":\"" + (httpStatus == 429 ? "rate_limit_error" : "invalid_request_error")
+                    + "\"}}");
+            response.getWriter().flush();
+        }
+    }
+
     @GetMapping("/v1/models")
     public Map<String, Object> models(HttpServletRequest request) {
         GovernancePrincipal principal = principalOf(request);

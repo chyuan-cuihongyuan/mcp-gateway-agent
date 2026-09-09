@@ -26,9 +26,19 @@ public interface IAdminUserRepository {
     /** 改角色（工单 0109/0110：超管升级与账户管理） */
     int updateRole(String username, String role);
 
+    // ---- 账户管理（工单 0110）----
+
+    java.util.List<AdminUserVO> findAll();
+
+    int updateStatus(String username, String status);
+
+    int updatePassword(String username, String passwordHash);
+
+    int deleteByUsername(String username);
+
     /** admin 用户值对象 */
     @Data
-    @Builder
+    @Builder(toBuilder = true)
     @NoArgsConstructor
     @AllArgsConstructor
     class AdminUserVO {

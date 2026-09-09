@@ -7,6 +7,7 @@
         <result column="name" property="name"/>
         <result column="url" property="url"/>
         <result column="events" property="events"/>
+        <result column="format" property="format"/>
         <result column="secret" property="secret"/>
         <result column="enabled" property="enabled"/>
         <result column="create_time" property="createTime"/>
@@ -14,8 +15,8 @@
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_webhook_endpoint (name, url, events, secret, enabled)
-        VALUES (#{name}, #{url}, #{events}, #{secret}, #{enabled})
+        INSERT INTO mcp_webhook_endpoint (name, url, events, format, secret, enabled)
+        VALUES (#{name}, #{url}, #{events}, #{format}, #{secret}, #{enabled})
     </insert>
 
     <update id="update">
@@ -23,6 +24,7 @@
         SET name    = #{name},
             url     = #{url},
             events  = #{events},
+            format  = #{format},
             secret  = #{secret},
             enabled = #{enabled},
             update_time = NOW()

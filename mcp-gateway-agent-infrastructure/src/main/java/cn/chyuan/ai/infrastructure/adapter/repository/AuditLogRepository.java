@@ -25,6 +25,7 @@ public class AuditLogRepository implements IAuditLogRepository {
     public void insert(AuditCommandEntity entity) {
         auditLogDao.insert(McpAuditLogPO.builder()
                 .actor(entity.getActor())
+                .type(entity.getType())
                 .action(entity.getAction())
                 .resourceType(entity.getResourceType())
                 .resourceId(entity.getResourceId())
@@ -34,10 +35,12 @@ public class AuditLogRepository implements IAuditLogRepository {
     }
 
     @Override
-    public List<AuditLogVO> queryPage(String resourceType, String resourceId, int offset, int size) {
+    public List<AuditLogVO> queryPage(String resourceType, String resourceId, String type, String actor, int offset, int size) {
         McpAuditLogPO query = new McpAuditLogPO();
         query.setResourceType(resourceType);
         query.setResourceId(resourceId);
+        query.setType(type);
+        query.setActor(actor);
         query.setLimitStart(offset);
         query.setLimitCount(size);
         List<McpAuditLogPO> list = auditLogDao.queryPage(query);
@@ -46,9 +49,16 @@ public class AuditLogRepository implements IAuditLogRepository {
 
     @Override
     public long count(String resourceType, String resourceId) {
+        return count(resourceType, resourceId, null, null);
+    }
+
+    @Override
+    public long count(String resourceType, String resourceId, String type, String actor) {
         McpAuditLogPO query = new McpAuditLogPO();
         query.setResourceType(resourceType);
         query.setResourceId(resourceId);
+        query.setType(type);
+        query.setActor(actor);
         Long count = auditLogDao.queryCount(query);
         return count == null ? 0 : count;
     }
@@ -57,6 +67,7 @@ public class AuditLogRepository implements IAuditLogRepository {
         return AuditLogVO.builder()
                 .id(po.getId())
                 .actor(po.getActor())
+                .type(po.getType())
                 .action(po.getAction())
                 .resourceType(po.getResourceType())
                 .resourceId(po.getResourceId())

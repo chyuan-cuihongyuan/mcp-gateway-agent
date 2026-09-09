@@ -36,6 +36,10 @@ public class LlmChannelAdminService {
     @Resource
     private ConfigHotReloadService configHotReloadService;
 
+    /** HTTP 端口（工单 0108 余额探测；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmHttpPort> llmHttpPortProvider;
+
     public LlmChannelVO create(LlmChannelVO channel) {
         validate(channel, true);
         normalize(channel);
@@ -71,6 +75,46 @@ public class LlmChannelAdminService {
 
     public LlmChannelVO get(Long id) {
         return requireChannel(id);
+    }
+
+    /** 余额探测（工单 0108）：GET probe URL + JSON 路径提取；失败返回 null（不影响连通性测试） */
+    public String probeBalance(Long id, cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmHttpPort httpPort) {
+        LlmChannelVO channel = requireChannel(id);
+        if (channel.getBalanceProbeUrl() == null || channel.getBalanceProbeUrl().isBlank()
+                || channel.getBalanceJsonPath() == null || channel.getBalanceJsonPath().isBlank()) {
+            return null;
+        }
+        try {
+            cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmHttpPort port =
+                    llmHttpPortProvider == null ? null : llmHttpPortProvider.getIfAvailable();
+            if (port == null) {
+                return null;
+            }
+            String json = port.getJson(channel.getBalanceProbeUrl(), java.util.Map.of(), 5000);
+            String value = extractJsonPath(JSON.parseObject(json), channel.getBalanceJsonPath().split("\\."));
+            if (value != null) {
+                repository.updateBalance(id, value, new java.util.Date());
+            }
+            return value;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 点路径提取（data.total_amount）；缺失返回 null */
+    static String extractJsonPath(com.alibaba.fastjson.JSONObject body, String[] path) {
+        com.alibaba.fastjson.JSONObject current = body;
+        for (int i = 0; i < path.length - 1; i++) {
+            if (current == null) {
+                return null;
+            }
+            current = current.getJSONObject(path[i]);
+        }
+        if (current == null || path.length == 0) {
+            return null;
+        }
+        Object leaf = current.get(path[path.length - 1]);
+        return leaf == null ? null : String.valueOf(leaf);
     }
 
     public List<LlmChannelVO> list() {

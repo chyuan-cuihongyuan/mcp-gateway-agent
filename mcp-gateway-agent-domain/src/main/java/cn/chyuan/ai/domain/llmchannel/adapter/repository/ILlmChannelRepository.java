@@ -25,4 +25,7 @@ public interface ILlmChannelRepository {
 
     /** 启用态渠道（路由用） */
     List<LlmChannelVO> findEnabled();
+
+    /** 只更新余额探测结果（工单 0108） */
+    void updateBalance(Long id, String balance, java.util.Date balanceTime);
 }

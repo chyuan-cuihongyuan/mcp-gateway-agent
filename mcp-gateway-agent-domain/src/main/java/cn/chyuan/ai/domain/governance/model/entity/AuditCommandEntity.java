@@ -19,6 +19,9 @@ public class AuditCommandEntity {
     /** 操作者（admin 用户名或 system） */
     private String actor;
 
+    /** 审计分型（工单 0111）：ADMIN/SECURITY/SYSTEM/TEST；空=按 ADMIN 兜底 */
+    private String type;
+
     /** 动作：CREATE_KEY / UPDATE_KEY / REVOKE_KEY / GRANT / REVOKE_GRANT / MIGRATE / LOGIN 等 */
     private String action;
 

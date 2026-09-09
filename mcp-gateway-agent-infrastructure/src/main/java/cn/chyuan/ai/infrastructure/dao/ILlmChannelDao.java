@@ -25,4 +25,7 @@ public interface ILlmChannelDao {
     List<McpLlmChannelPO> queryAll();
 
     List<McpLlmChannelPO> queryEnabled();
+
+    int updateBalance(@Param("id") Long id, @Param("balance") String balance,
+            @Param("balanceTime") java.util.Date balanceTime);
 }

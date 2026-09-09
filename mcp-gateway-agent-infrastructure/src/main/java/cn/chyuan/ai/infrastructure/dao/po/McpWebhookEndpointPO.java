@@ -26,6 +26,9 @@ public class McpWebhookEndpointPO implements Serializable {
     /** 订阅事件类型 JSON 数组（空=全部） */
     private String events;
 
+    /** GENERIC/DINGTALK/FEISHU/SLACK（工单 0116） */
+    private String format;
+
     private String secret;
 
     /** 0-禁用，1-启用 */

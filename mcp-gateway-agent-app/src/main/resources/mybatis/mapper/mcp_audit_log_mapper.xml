@@ -14,12 +14,12 @@
     </resultMap>
 
     <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO mcp_audit_log (actor, action, resource_type, resource_id, before_json, after_json)
-        VALUES (#{actor}, #{action}, #{resourceType}, #{resourceId}, #{beforeJson}, #{afterJson})
+        INSERT INTO mcp_audit_log (actor, type, action, resource_type, resource_id, before_json, after_json)
+        VALUES (#{actor}, #{type}, #{action}, #{resourceType}, #{resourceId}, #{beforeJson}, #{afterJson})
     </insert>
 
     <select id="queryPage" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" resultMap="McpAuditLogMap">
-        SELECT id, actor, action, resource_type, resource_id, before_json, after_json, created_at
+        SELECT id, actor, type, action, resource_type, resource_id, before_json, after_json, created_at
         FROM mcp_audit_log
         <where>
             <if test="resourceType != null and resourceType != ''">
@@ -27,6 +27,12 @@
             </if>
             <if test="resourceId != null and resourceId != ''">
                 AND resource_id = #{resourceId}
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="actor != null and actor != ''">
+                AND actor LIKE CONCAT('%', #{actor}, '%')
             </if>
         </where>
         ORDER BY id DESC
@@ -42,6 +48,12 @@
             </if>
             <if test="resourceId != null and resourceId != ''">
                 AND resource_id = #{resourceId}
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="actor != null and actor != ''">
+                AND actor LIKE CONCAT('%', #{actor}, '%')
             </if>
         </where>
     </select>

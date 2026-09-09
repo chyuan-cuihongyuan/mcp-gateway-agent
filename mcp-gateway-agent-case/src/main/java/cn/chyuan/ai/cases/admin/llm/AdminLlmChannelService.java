@@ -77,6 +77,12 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
         } catch (Exception e) {
             throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED, "渠道测试失败: " + e.getMessage());
         }
+        // 余额探测（工单 0108）：配置了 probe 时顺带执行；失败不影响连通性结果
+        try {
+            channelAdminService.probeBalance(id, llmHttpPort);
+        } catch (Exception ignored) {
+            // 探测独立于连通性
+        }
         return System.currentTimeMillis() - start;
     }
 
@@ -86,6 +92,10 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
                 .models(dto.getModels()).modelMapping(dto.getModelMapping())
                 .weight(dto.getWeight()).priority(dto.getPriority())
                 .status(dto.getStatus()).timeoutMs(dto.getTimeoutMs())
+                .numRetries(dto.getNumRetries()).retryBackoffMs(dto.getRetryBackoffMs())
+                .retryOn(dto.getRetryOn())
+                .balanceProbeUrl(dto.getBalanceProbeUrl()).balanceJsonPath(dto.getBalanceJsonPath())
+                .balance(dto.getBalance())
                 .build();
     }
 
@@ -96,6 +106,10 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
                 .models(vo.getModels()).modelMapping(vo.getModelMapping())
                 .weight(vo.getWeight()).priority(vo.getPriority()).status(vo.getStatus())
                 .timeoutMs(vo.getTimeoutMs()).testTime(format(vo.getTestTime()))
+                .numRetries(vo.getNumRetries()).retryBackoffMs(vo.getRetryBackoffMs())
+                .retryOn(vo.getRetryOn())
+                .balanceProbeUrl(vo.getBalanceProbeUrl()).balanceJsonPath(vo.getBalanceJsonPath())
+                .balance(vo.getBalance()).balanceTime(format(vo.getBalanceTime()))
                 .responseTimeMs(vo.getResponseTimeMs())
                 .build();
     }

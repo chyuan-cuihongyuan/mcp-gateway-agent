@@ -22,6 +22,11 @@ public interface IQuotaBucketBackend {
      */
     QuotaBucket getBucket(long keyId, Integer rpmLimit, Integer dailyRequestLimit);
 
+    /** 组合维度桶（工单 0107：scope 空=与两参版本同键） */
+    default QuotaBucket getBucket(long keyId, String scope, Integer rpmLimit, Integer dailyRequestLimit) {
+        return getBucket(keyId, rpmLimit, dailyRequestLimit);
+    }
+
     /**
      * TPM 桶（工单 0065：token 粒度单带宽；null 表示不启用——调用方不取桶）。
      */

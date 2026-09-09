@@ -391,6 +391,17 @@ class StreamableHttpProtocolTest {
                 public long count(String resourceType, String resourceId) {
                     return 0;
                 }
+
+                @Override
+                public java.util.List<cn.chyuan.ai.domain.governance.adapter.repository.IAuditLogRepository.AuditLogVO> page(
+                        String resourceType, String resourceId, String type, String actor, int page, int size) {
+                    return List.of();
+                }
+
+                @Override
+                public long count(String resourceType, String resourceId, String type, String actor) {
+                    return 0;
+                }
             };
         }
 

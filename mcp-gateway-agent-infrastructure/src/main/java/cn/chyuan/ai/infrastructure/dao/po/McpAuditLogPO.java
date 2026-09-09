@@ -23,6 +23,9 @@ public class McpAuditLogPO extends BasePagePO {
     /** admin 用户名或 system */
     private String actor;
 
+    /** 分型（工单 0111）：ADMIN/SECURITY/SYSTEM/TEST；存量回填 ADMIN */
+    private String type;
+
     /** CREATE_KEY / UPDATE_KEY / REVOKE_KEY / GRANT / REVOKE_GRANT / MIGRATE / LOGIN 等 */
     private String action;
 

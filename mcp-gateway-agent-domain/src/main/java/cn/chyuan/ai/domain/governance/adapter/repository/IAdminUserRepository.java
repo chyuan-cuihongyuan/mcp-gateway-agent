@@ -20,6 +20,12 @@ public interface IAdminUserRepository {
 
     void insert(String username, String passwordHash, String role);
 
+    /** 是否存在指定角色的用户（工单 0109：超管保底升级判定） */
+    boolean existsByRole(String role);
+
+    /** 改角色（工单 0109/0110：超管升级与账户管理） */
+    int updateRole(String username, String role);
+
     /** admin 用户值对象 */
     @Data
     @Builder
@@ -29,7 +35,7 @@ public interface IAdminUserRepository {
         private Long id;
         private String username;
         private String passwordHash;
-        /** ADMIN（读写）/ READONLY（只读） */
+        /** SUPER_ADMIN / ADMIN / AUDITOR / READONLY（工单 0109 四态） */
         private String role;
         private String status;
         private Date createdAt;

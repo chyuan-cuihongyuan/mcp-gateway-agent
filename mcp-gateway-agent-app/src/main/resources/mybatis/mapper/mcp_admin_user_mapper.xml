@@ -27,4 +27,12 @@
         VALUES (#{username}, #{passwordHash}, #{role}, #{status})
     </insert>
 
+    <select id="countByRole" resultType="java.lang.Integer">
+        SELECT count(*) FROM mcp_admin_user WHERE role = #{role}
+    </select>
+
+    <update id="updateRole">
+        UPDATE mcp_admin_user SET role = #{role} WHERE username = #{username}
+    </update>
+
 </mapper>

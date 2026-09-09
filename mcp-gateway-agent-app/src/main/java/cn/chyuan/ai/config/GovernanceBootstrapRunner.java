@@ -45,6 +45,7 @@ public class GovernanceBootstrapRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         bootstrapAdminUser();
+        ensureSuperAdminExists();
         migrateLegacyKeys();
         seedBuiltinCelTemplates();
     }
@@ -60,10 +61,30 @@ public class GovernanceBootstrapRunner implements ApplicationRunner {
                         + "设置该环境变量后重启以引导默认 admin 用户");
                 return;
             }
-            adminUserRepository.insert("admin", passwordCodec.encode(initialPassword), "ADMIN");
-            log.info("已引导默认 admin 用户（ADMIN 角色），请尽快修改密码");
+            adminUserRepository.insert("admin", passwordCodec.encode(initialPassword), "SUPER_ADMIN");
+            log.info("已引导默认 admin 用户（SUPER_ADMIN 角色，工单 0109 四角色），请尽快修改密码");
         } catch (Exception e) {
             log.error("admin 用户引导失败（表未建或库不可达）", e);
+        }
+    }
+
+    /**
+     * 超管保底（工单 0109）：存量库无 SUPER_ADMIN 时把默认 admin 用户升级为超管；
+     * admin 用户已改名则告警指引手工提权（经 /admin/v1/users，工单 0110）。
+     */
+    private void ensureSuperAdminExists() {
+        try {
+            if (adminUserRepository.existsByRole("SUPER_ADMIN")) {
+                return;
+            }
+            int upgraded = adminUserRepository.updateRole("admin", "SUPER_ADMIN");
+            if (upgraded > 0) {
+                log.info("已将默认 admin 用户升级为 SUPER_ADMIN（存量库无超管，工单 0109 保底升级）");
+            } else if (adminUserRepository.existsAny()) {
+                log.warn("存量库无 SUPER_ADMIN 且默认 admin 用户不存在——请手工将任一用户提权为 SUPER_ADMIN");
+            }
+        } catch (Exception e) {
+            log.warn("超管保底升级跳过：{}", e.getMessage());
         }
     }
 

@@ -119,4 +119,84 @@ public class AdminJwtAuthFilterTest {
         assertNotNull(chain.getRequest(), "登录接口应免认证放行");
         verifyNoInteractions(jwtCodec);
     }
+
+    // ---- 工单 0109：四角色 × 端点组矩阵 ----
+
+    private boolean allowed(String role, String method, String path) throws Exception {
+        when(jwtCodec.verify("t")).thenReturn(new IJwtCodec.JwtClaims("u", List.of(role), 0));
+        MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+        request.addHeader("Authorization", "Bearer t");
+        MockFilterChain chain = new MockFilterChain();
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        return chain.getRequest() != null;
+    }
+
+    @Test
+    @DisplayName("矩阵：读类端点四角色全放行（READONLY 含）")
+    public void matrixReadEndpoints_AllRolesAllowed() throws Exception {
+        for (String role : List.of("SUPER_ADMIN", "ADMIN", "AUDITOR", "READONLY")) {
+            assertTrue(allowed(role, "GET", "/admin/v1/virtual-keys"), role + " 应可读");
+            assertTrue(allowed(role, "GET", "/admin/v1/audit-logs"), role + " 应可读审计");
+        }
+    }
+
+    @Test
+    @DisplayName("矩阵：治理写操作 ADMIN 起（AUDITOR/READONLY 403）")
+    public void matrixWrite_GovernanceAdminRoleRequired() throws Exception {
+        assertTrue(allowed("SUPER_ADMIN", "POST", "/admin/v1/virtual-keys"));
+        assertTrue(allowed("ADMIN", "POST", "/admin/v1/virtual-keys"));
+        assertFalse(allowed("AUDITOR", "POST", "/admin/v1/virtual-keys"));
+        assertFalse(allowed("READONLY", "POST", "/admin/v1/virtual-keys"));
+    }
+
+    @Test
+    @DisplayName("矩阵：用量查询 AUDITOR 起（READONLY 403）")
+    public void matrixUsage_AuditorRoleRequired() throws Exception {
+        assertTrue(allowed("SUPER_ADMIN", "GET", "/admin/v1/usage/logs"));
+        assertTrue(allowed("ADMIN", "GET", "/admin/v1/usage/logs"));
+        assertTrue(allowed("AUDITOR", "GET", "/admin/v1/usage/logs"));
+        assertFalse(allowed("READONLY", "GET", "/admin/v1/usage/logs"));
+    }
+
+    @Test
+    @DisplayName("矩阵：配置导出 AUDITOR 起、导入 SUPER_ADMIN 专属")
+    public void matrixConfig_ExportAuditorImportSuperAdmin() throws Exception {
+        assertTrue(allowed("AUDITOR", "GET", "/admin/v1/config/export"));
+        assertFalse(allowed("READONLY", "GET", "/admin/v1/config/export"));
+        assertTrue(allowed("SUPER_ADMIN", "POST", "/admin/v1/config/import"));
+        assertFalse(allowed("ADMIN", "POST", "/admin/v1/config/import"));
+    }
+
+    @Test
+    @DisplayName("矩阵：用户管理端点 SUPER_ADMIN 专属（ADMIN 403 且提示所需角色）")
+    public void matrixUsers_SuperAdminOnly() throws Exception {
+        assertTrue(allowed("SUPER_ADMIN", "GET", "/admin/v1/users"));
+        assertFalse(allowed("ADMIN", "POST", "/admin/v1/users"));
+
+        when(jwtCodec.verify("t")).thenReturn(new IJwtCodec.JwtClaims("u", List.of("ADMIN"), 0));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/admin/v1/users");
+        request.addHeader("Authorization", "Bearer t");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
+        assertEquals(403, response.getStatus());
+        assertTrue(response.getContentAsString().contains("SUPER_ADMIN"), "403 应提示所需角色");
+    }
+
+    @Test
+    @DisplayName("矩阵：多角色取最高秩；未知角色按 READONLY 兜底")
+    public void matrixMultiRole_TakesHighest() throws Exception {
+        when(jwtCodec.verify("t")).thenReturn(new IJwtCodec.JwtClaims("u", List.of("READONLY", "ADMIN"), 0));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/admin/v1/virtual-keys");
+        request.addHeader("Authorization", "Bearer t");
+        MockFilterChain chain = new MockFilterChain();
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
+        assertNotNull(chain.getRequest(), "多角色取最高秩（ADMIN）应可写");
+
+        when(jwtCodec.verify("t")).thenReturn(new IJwtCodec.JwtClaims("u", List.of("UNKNOWN_ROLE"), 0));
+        MockHttpServletRequest unknown = new MockHttpServletRequest("POST", "/admin/v1/virtual-keys");
+        unknown.addHeader("Authorization", "Bearer t");
+        MockFilterChain unknownChain = new MockFilterChain();
+        filter.doFilter(unknown, new MockHttpServletResponse(), unknownChain);
+        assertNull(unknownChain.getRequest(), "未知角色按 READONLY 兜底应拒写");
+    }
 }

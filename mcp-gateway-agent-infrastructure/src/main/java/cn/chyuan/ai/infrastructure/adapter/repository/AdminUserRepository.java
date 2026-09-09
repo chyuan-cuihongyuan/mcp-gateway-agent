@@ -48,4 +48,15 @@ public class AdminUserRepository implements IAdminUserRepository {
                 .status("ACTIVE")
                 .build());
     }
+
+    @Override
+    public boolean existsByRole(String role) {
+        Integer count = adminUserDao.countByRole(role);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public int updateRole(String username, String role) {
+        return adminUserDao.updateRole(username, role);
+    }
 }

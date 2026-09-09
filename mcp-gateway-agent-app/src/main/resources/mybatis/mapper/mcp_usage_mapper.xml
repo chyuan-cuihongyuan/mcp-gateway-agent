@@ -15,6 +15,7 @@
         <result column="duration_ms" property="durationMs"/>
         <result column="prompt_tokens" property="promptTokens"/>
         <result column="completion_tokens" property="completionTokens"/>
+        <result column="cost" property="cost"/>
         <result column="client_ip" property="clientIp"/>
         <result column="session_id" property="sessionId"/>
         <result column="created_at" property="createdAt"/>
@@ -63,10 +64,10 @@
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_usage_log (request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                                    tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-                                   completion_tokens, client_ip, session_id, created_at)
+                                   completion_tokens, cost, client_ip, session_id, created_at)
         VALUES (#{requestId}, #{virtualKeyId}, #{apiKeyHash}, #{gatewayId}, #{trafficType},
                 #{toolOrModel}, #{channelId}, #{status}, #{durationMs}, #{promptTokens},
-                #{completionTokens}, #{clientIp}, #{sessionId}, NOW())
+                #{completionTokens}, #{cost}, #{clientIp}, #{sessionId}, NOW())
     </insert>
 
     <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
@@ -85,7 +86,7 @@
     <select id="pageLogs" parameterType="map" resultMap="McpUsageLogMap">
         SELECT id, request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-               completion_tokens, client_ip, session_id, created_at
+               completion_tokens, cost, client_ip, session_id, created_at
         FROM mcp_usage_log
         <include refid="log_query_conditions"/>
         ORDER BY id DESC

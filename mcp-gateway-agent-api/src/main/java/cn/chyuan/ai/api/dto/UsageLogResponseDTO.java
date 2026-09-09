@@ -41,6 +41,9 @@ public class UsageLogResponseDTO implements Serializable {
 
     private Long completionTokens;
 
+    /** 本次调用成本（工单 0086：未定价为 null） */
+    private java.math.BigDecimal cost;
+
     private String clientIp;
 
     private String sessionId;

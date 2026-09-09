@@ -33,12 +33,28 @@ public class OpenAiCompatController {
     private final IQuotaService quotaService;
     private final IBudgetService budgetService;
 
+    /** 成本响应头开关（工单 0086：默认开；关闭时不出现头） */
+    @org.springframework.beans.factory.annotation.Value("${governance.pricing.cost-header-enabled:true}")
+    private boolean costHeaderEnabled;
+
     public OpenAiCompatController(LlmChatService llmChatService,
             org.springframework.beans.factory.ObjectProvider<IQuotaService> quotaServiceProvider,
             org.springframework.beans.factory.ObjectProvider<IBudgetService> budgetServiceProvider) {
         this.llmChatService = llmChatService;
         this.quotaService = quotaServiceProvider.getIfAvailable();
         this.budgetService = budgetServiceProvider.getIfAvailable();
+    }
+
+    /** 成本响应头（工单 0086）：读取线程暂存值并清理 */
+    private void writeCostHeader(HttpServletResponse response) {
+        if (!costHeaderEnabled) {
+            llmChatService.consumeLastCost();
+            return;
+        }
+        java.math.BigDecimal cost = llmChatService.consumeLastCost();
+        if (cost != null) {
+            response.setHeader("X-Gateway-Cost", cost.toPlainString());
+        }
     }
 
     @PostMapping(value = "/v1/chat/completions")
@@ -56,6 +72,7 @@ public class OpenAiCompatController {
         }
         try {
             String upstream = llmChatService.chatCompletion(principal, body);
+            writeCostHeader(response);
             response.setContentType("application/json");
             response.getWriter().write(upstream);
             response.getWriter().flush();
@@ -89,6 +106,8 @@ public class OpenAiCompatController {
                 throw new RuntimeException("客户端断开：上游取消传播", e);
             }
         });
+        // 流式响应头随首字节提交（成本在末块 usage 才已知）——成本头仅非流式返回，此处只清理线程暂存
+        llmChatService.consumeLastCost();
         if (ttft >= 0) {
             response.setHeader("X-Gw-Ttft-Ms", String.valueOf(ttft));
         }

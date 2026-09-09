@@ -88,4 +88,16 @@ class PricingServiceTest {
         Assertions.assertEquals(BigDecimal.ZERO.compareTo(pricing.costOf(null, null)), 0);
         Assertions.assertEquals(new BigDecimal("0.000016"), vo("m2", "0.016", null, 1).costOf(1000L, 0L));
     }
+
+    @Test
+    @DisplayName("按模型计价（0086）：命中返回成本；未定价/停用返回 null（miss 计数不抛错）")
+    void costOfByModel() {
+        Mockito.when(repository.findByModel("deepseek-chat")).thenReturn(vo("deepseek-chat", "2", "8", 1));
+        Mockito.when(repository.findByModel("qwen-plus")).thenReturn(vo("qwen-plus", "0.8", "2", 0));
+
+        Assertions.assertEquals(new BigDecimal("0.006000"), service.costOf("deepseek-chat", 1000L, 500L));
+        Assertions.assertNull(service.costOf("qwen-plus", 1000L, 500L), "停用计价按未定价处理");
+        Assertions.assertNull(service.costOf("not-priced", 1000L, 500L));
+        Assertions.assertNull(service.costOf(null, 1000L, 500L));
+    }
 }

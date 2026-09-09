@@ -317,6 +317,7 @@ public class AdminGovernanceService implements IAdminGovernanceService {
                 .durationMs(vo.getDurationMs())
                 .promptTokens(vo.getPromptTokens())
                 .completionTokens(vo.getCompletionTokens())
+                .cost(vo.getCost())
                 .clientIp(vo.getClientIp())
                 .sessionId(vo.getSessionId())
                 .createdAt(formatDate(vo.getCreatedAt()))

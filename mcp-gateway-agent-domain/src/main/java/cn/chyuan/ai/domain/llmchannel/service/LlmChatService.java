@@ -62,6 +62,13 @@ public class LlmChatService {
     @Resource
     private cn.chyuan.ai.domain.governance.service.IQuotaService quotaService;
 
+    /** 计价（工单 0086）：切片测试上下文可缺省（cost 记 null） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.PricingService> pricingServiceProvider;
+
+    /** 本次请求线程的成本（工单 0086 响应头消费；读后即清） */
+    private static final ThreadLocal<java.math.BigDecimal> LAST_COST = new ThreadLocal<>();
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -329,11 +336,34 @@ public class LlmChatService {
                     .durationMs(costMs)
                     .promptTokens(promptTokens)
                     .completionTokens(completionTokens)
+                    .cost(costOf(principal, model, promptTokens, completionTokens))
                     .clientIp(principal == null ? null : principal.getClientIp())
                     .build());
         } catch (Exception e) {
             log.debug("LLM 流式用量落账失败 model={}：{}", model, e.getMessage());
         }
+    }
+
+    /** 计价（工单 0086）：命中即落账并暂存线程上下文供响应头；未定价返回 null */
+    private java.math.BigDecimal costOf(GovernancePrincipal principal, String model,
+            Long promptTokens, Long completionTokens) {
+        cn.chyuan.ai.domain.governance.service.PricingService pricing =
+                pricingServiceProvider == null ? null : pricingServiceProvider.getIfAvailable();
+        if (pricing == null) {
+            return null;
+        }
+        java.math.BigDecimal cost = pricing.costOf(model, promptTokens, completionTokens);
+        if (cost != null) {
+            LAST_COST.set(cost);
+        }
+        return cost;
+    }
+
+    /** 取出并清除本次请求线程的成本（响应头 X-Gateway-Cost 消费；无则 null） */
+    public java.math.BigDecimal consumeLastCost() {
+        java.math.BigDecimal cost = LAST_COST.get();
+        LAST_COST.remove();
+        return cost;
     }
 
     /** 供给某模型的启用渠道（models 清单含该名，或映射目标含该名） */

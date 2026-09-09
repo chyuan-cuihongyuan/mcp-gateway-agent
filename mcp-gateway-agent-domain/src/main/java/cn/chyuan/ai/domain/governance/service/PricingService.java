@@ -33,6 +33,10 @@ public class PricingService {
     @Resource
     private IAuditService auditService;
 
+    /** 指标（工单 0086）：未定价计数——切片测试上下文可缺省 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider;
+
     /** 查价：唯一键精确匹配 + 启用态；未定价返回 null */
     public ModelPricingVO findEnabled(String model) {
         if (StringUtils.isBlank(model)) {
@@ -40,6 +44,29 @@ public class PricingService {
         }
         ModelPricingVO vo = repository.findByModel(model);
         return vo != null && Integer.valueOf(1).equals(vo.getEnabled()) ? vo : null;
+    }
+
+    /**
+     * 按模型计价（工单 0086 账本/响应头消费）：
+     * 命中返回 6 位舍入成本；未定价/停用返回 null 并计 gateway.pricing.miss（不阻塞）。
+     */
+    public BigDecimal costOf(String model, Long promptTokens, Long completionTokens) {
+        ModelPricingVO pricing = findEnabled(model);
+        if (pricing == null) {
+            countMiss(model);
+            return null;
+        }
+        return pricing.costOf(promptTokens, completionTokens);
+    }
+
+    private void countMiss(String model) {
+        io.micrometer.core.instrument.MeterRegistry registry =
+                meterRegistryProvider == null ? null : meterRegistryProvider.getIfAvailable();
+        if (registry != null) {
+            registry.counter("gateway.pricing.miss",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("model", model == null ? "" : model)))
+                    .increment();
+        }
     }
 
     public List<ModelPricingVO> listAll() {

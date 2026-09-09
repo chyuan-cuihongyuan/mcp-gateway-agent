@@ -49,4 +49,7 @@ public interface IUsageDao {
     /** 账单导出分组行（工单 0090：日×密钥×模型；键 statDate/virtualKeyId/toolOrModel/callCount/promptTokens/completionTokens/costSum/tags） */
     List<Map<String, Object>> billingRows(@Param("fromDate") String fromDate, @Param("toDate") String toDate,
             @Param("virtualKeyId") Long virtualKeyId, @Param("tag") String tag);
+
+    /** 缓存命中率（工单 0099/0100：LLM 面区间内 cache_hit 行占比） */
+    Map<String, Object> cacheHitStats(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
 }

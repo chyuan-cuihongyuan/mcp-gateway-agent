@@ -54,6 +54,9 @@ public class McpUsageLogPO implements Serializable {
     /** 请求标签（工单 0088：规范形 ",a,b,"） */
     private String tags;
 
+    /** 缓存命中（工单 0099） */
+    private Integer cacheHit;
+
     private String clientIp;
 
     private String sessionId;

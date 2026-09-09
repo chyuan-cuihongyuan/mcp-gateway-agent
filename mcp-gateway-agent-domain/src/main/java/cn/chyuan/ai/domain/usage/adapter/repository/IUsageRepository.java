@@ -51,4 +51,7 @@ public interface IUsageRepository {
     /** 账单导出分组行（工单 0090：日×密钥×模型） */
     java.util.List<java.util.Map<String, Object>> billingRows(String fromDate, String toDate,
             Long virtualKeyId, String tag);
+
+    /** 缓存命中率（工单 0099/0100：键 total/hits） */
+    java.util.Map<String, Object> cacheHitStats(String fromDate, String toDate);
 }

@@ -17,6 +17,7 @@
         <result column="completion_tokens" property="completionTokens"/>
         <result column="cost" property="cost"/>
         <result column="tags" property="tags"/>
+        <result column="cache_hit" property="cacheHit"/>
         <result column="client_ip" property="clientIp"/>
         <result column="session_id" property="sessionId"/>
         <result column="created_at" property="createdAt"/>
@@ -68,10 +69,10 @@
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_usage_log (request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                                    tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-                                   completion_tokens, cost, tags, client_ip, session_id, created_at)
+                                   completion_tokens, cost, tags, cache_hit, client_ip, session_id, created_at)
         VALUES (#{requestId}, #{virtualKeyId}, #{apiKeyHash}, #{gatewayId}, #{trafficType},
                 #{toolOrModel}, #{channelId}, #{status}, #{durationMs}, #{promptTokens},
-                #{completionTokens}, #{cost}, #{tags}, #{clientIp}, #{sessionId}, NOW())
+                #{completionTokens}, #{cost}, #{tags}, #{cacheHit}, #{clientIp}, #{sessionId}, NOW())
     </insert>
 
     <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
@@ -90,7 +91,7 @@
     <select id="pageLogs" parameterType="map" resultMap="McpUsageLogMap">
         SELECT id, request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                tool_or_model, channel_id, status, duration_ms, prompt_tokens,
-               completion_tokens, cost, tags, client_ip, session_id, created_at
+               completion_tokens, cost, tags, cache_hit, client_ip, session_id, created_at
         FROM mcp_usage_log
         <include refid="log_query_conditions"/>
         ORDER BY id DESC
@@ -154,6 +155,20 @@
         </where>
         GROUP BY DATE(created_at)
         ORDER BY statDate ASC
+    </select>
+
+    <!-- 缓存命中率（工单 0099/0100：LLM 面） -->
+    <select id="cacheHitStats" resultType="map">
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN cache_hit = 1 THEN 1 ELSE 0 END) AS hits
+        FROM mcp_usage_log
+        WHERE traffic_type = 'LLM'
+        <if test="fromDate != null and fromDate != ''">
+            AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+        </if>
+        <if test="toDate != null and toDate != ''">
+            AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+        </if>
     </select>
 
     <!-- 窗口内成本合计（工单 0087 金额预算；未计价行不计入） -->

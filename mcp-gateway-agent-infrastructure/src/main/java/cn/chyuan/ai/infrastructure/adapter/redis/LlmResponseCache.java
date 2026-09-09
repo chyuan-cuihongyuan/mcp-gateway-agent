@@ -29,10 +29,15 @@ public class LlmResponseCache implements cn.chyuan.ai.domain.llmchannel.adapter.
 
     private final long ttlSeconds;
 
+    /** 总开关（工单 0098：默认 false——显式开启才缓存） */
+    private final boolean enabled;
+
     public LlmResponseCache(ObjectProvider<StringRedisTemplate> redisTemplateProvider,
-            @Value("${governance.cache.llm.ttl-seconds:600}") long ttlSeconds) {
+            @Value("${governance.cache.llm.ttl-seconds:600}") long ttlSeconds,
+            @Value("${governance.cache.llm.enabled:false}") boolean enabled) {
         this.redisTemplateProvider = redisTemplateProvider;
         this.ttlSeconds = ttlSeconds;
+        this.enabled = enabled;
     }
 
     /** 缓存键：vk 隔离 + 模型 + 参与字段规范化串 */
@@ -86,10 +91,74 @@ public class LlmResponseCache implements cn.chyuan.ai.domain.llmchannel.adapter.
 
     @Override
     public boolean available() {
-        return redisTemplateProvider != null && redisTemplateProvider.getIfAvailable() != null;
+        return enabled && redisTemplateProvider != null && redisTemplateProvider.getIfAvailable() != null;
     }
 
     public long getTtlSeconds() {
         return ttlSeconds;
+    }
+
+    /** 按键删除（工单 0100；key 可从响应头 X-Gateway-Cache-Key 获取） */
+    public boolean delete(String cacheKey) {
+        try {
+            StringRedisTemplate template = redisTemplateProvider.getIfAvailable();
+            if (template == null || cacheKey == null || cacheKey.isBlank()) {
+                return false;
+            }
+            return Boolean.TRUE.equals(template.delete(cacheKey));
+        } catch (Exception e) {
+            log.debug("缓存键删除失败：{}", e.getMessage());
+            return false;
+        }
+    }
+
+    /** 前缀清空（工单 0100；SCAN 游标避免 keys 阻塞） */
+    public long purge() {
+        try {
+            StringRedisTemplate template = redisTemplateProvider.getIfAvailable();
+            if (template == null) {
+                return -1;
+            }
+            long removed = 0;
+            var options = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                    .match(KEY_PREFIX + "*").count(500).build();
+            try (var cursor = template.scan(options)) {
+                while (cursor.hasNext()) {
+                    if (Boolean.TRUE.equals(template.delete(cursor.next()))) {
+                        removed++;
+                    }
+                }
+            }
+            return removed;
+        } catch (Exception e) {
+            log.debug("缓存清空失败：{}", e.getMessage());
+            return -1;
+        }
+    }
+
+    /** 统计（工单 0100：键数 + 降级标识；命中率由账本口径出） */
+    public java.util.Map<String, Object> stats() {
+        java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("available", available());
+        stats.put("ttlSeconds", ttlSeconds);
+        long keys = -1;
+        try {
+            StringRedisTemplate template = redisTemplateProvider.getIfAvailable();
+            if (template != null && available()) {
+                keys = 0;
+                var options = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match(KEY_PREFIX + "*").count(500).build();
+                try (var cursor = template.scan(options)) {
+                    while (cursor.hasNext()) {
+                        cursor.next();
+                        keys++;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            keys = -1;
+        }
+        stats.put("keys", keys);
+        return stats;
     }
 }

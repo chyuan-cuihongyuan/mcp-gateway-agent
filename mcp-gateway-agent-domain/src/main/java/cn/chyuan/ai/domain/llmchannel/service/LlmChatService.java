@@ -87,6 +87,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort> responseCacheProvider;
 
+    /** 指标（工单 0099 缓存命中/未命中；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider;
+
     /** 审计（工单 0095 跳过留痕；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IAuditService> auditServiceProvider;
@@ -112,8 +116,10 @@ public class LlmChatService {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
         }
 
-        // 精确缓存（工单 0097）：命中即原样返回（CACHE_HIT 记账零 token 零成本），不触上游
-        String cacheKey = cacheKeyOf(principal, model, request);
+        // 精确缓存（工单 0097/0098）：请求体 cache.no-cache 跳过读（仍写）；命中即原样返回
+        boolean noCache = request.getJSONObject("cache") != null
+                && Boolean.TRUE.equals(request.getJSONObject("cache").getBoolean("no-cache"));
+        String cacheKey = noCache ? null : cacheKeyOf(principal, model, request);
         String cached = cacheKey == null ? null : cacheGet(cacheKey);
         if (cached != null) {
             recordCacheHit(principal, model, cached);
@@ -150,6 +156,7 @@ public class LlmChatService {
                     response = applyResponseGuardrails(response);
                     recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
                     consumeTpmQuietly(principal, response);
+                    countCacheMiss(model);
                     if (cacheKey != null) {
                         cachePut(cacheKey, response);
                     }
@@ -486,10 +493,45 @@ public class LlmChatService {
         }
     }
 
-    /** 命中记账（工单 0097）：CACHE_HIT + 零 token 零成本 */
+    /** 命中记账（工单 0097/0099）：CACHE_HIT + 零 token 零成本 + cache_hit=1 + hit 指标 */
     private void recordCacheHit(GovernancePrincipal principal, String model, String cached) {
-        recordUsageTokens(principal, model, "cache", "CACHE_HIT", 0, 0L, 0L);
+        try {
+            usageLedger.record(cn.chyuan.ai.domain.usage.model.valobj.UsageRecordVO.builder()
+                    .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())
+                    .apiKeyHash(principal == null ? null : principal.getApiKeyHash())
+                    .gatewayId(TRAFFIC_LLM_GATEWAY)
+                    .trafficType("LLM")
+                    .toolOrModel(model)
+                    .channelId("cache")
+                    .status("CACHE_HIT")
+                    .durationMs(0)
+                    .promptTokens(0L)
+                    .completionTokens(0L)
+                    .cacheHit(1)
+                    .clientIp(principal == null ? null : principal.getClientIp())
+                    .build());
+        } catch (Exception e) {
+            log.debug("缓存命中落账失败：{}", e.getMessage());
+        }
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.counter("gateway.cache.hit",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("model", model))).increment();
+        }
         log.debug("LLM 缓存命中 model={} bytes={}", model, cached.length());
+    }
+
+    /** miss 计数（工单 0099：上游成功回源时计） */
+    private void countCacheMiss(String model) {
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.counter("gateway.cache.miss",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("model", model))).increment();
+        }
+    }
+
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry() {
+        return meterRegistryProvider == null ? null : meterRegistryProvider.getIfAvailable();
     }
 
     /** 取出并清除缓存命中标记（响应头消费；无则 false） */

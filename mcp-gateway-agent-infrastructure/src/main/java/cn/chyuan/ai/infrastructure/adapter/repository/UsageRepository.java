@@ -41,6 +41,7 @@ public class UsageRepository implements IUsageRepository {
                 .completionTokens(record.getCompletionTokens())
                 .cost(record.getCost())
                 .tags(record.getTags())
+                .cacheHit(record.getCacheHit())
                 .clientIp(record.getClientIp())
                 .sessionId(record.getSessionId())
                 .createdAt(record.getCreatedAt())
@@ -118,6 +119,12 @@ public class UsageRepository implements IUsageRepository {
         return usageDao.billingRows(fromDate, toDate, virtualKeyId, tag);
     }
 
+    @Override
+    public Map<String, Object> cacheHitStats(String fromDate, String toDate) {
+        Map<String, Object> stats = usageDao.cacheHitStats(fromDate, toDate);
+        return stats == null ? Map.of("total", 0L, "hits", 0L) : stats;
+    }
+
     private Map<String, Object> queryParams(UsageQueryVO query) {
         Map<String, Object> params = new HashMap<>();
         if (query != null) {
@@ -152,6 +159,7 @@ public class UsageRepository implements IUsageRepository {
                 .completionTokens(po.getCompletionTokens())
                 .cost(po.getCost())
                 .tags(po.getTags())
+                .cacheHit(po.getCacheHit())
                 .clientIp(po.getClientIp())
                 .sessionId(po.getSessionId())
                 .createdAt(po.getCreatedAt())

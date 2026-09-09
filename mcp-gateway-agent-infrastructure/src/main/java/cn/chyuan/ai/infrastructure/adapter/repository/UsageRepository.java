@@ -97,6 +97,27 @@ public class UsageRepository implements IUsageRepository {
         return sum == null ? java.math.BigDecimal.ZERO : sum;
     }
 
+    @Override
+    public List<Map<String, Object>> costDaily(String fromDate, String toDate) {
+        return usageDao.costDaily(fromDate, toDate);
+    }
+
+    @Override
+    public List<Map<String, Object>> costTopN(String dimension, String fromDate, String toDate, int top) {
+        return usageDao.costTopN(dimension, fromDate, toDate, top);
+    }
+
+    @Override
+    public Map<String, Object> unpricedStats(String fromDate, String toDate) {
+        Map<String, Object> stats = usageDao.unpricedStats(fromDate, toDate);
+        return stats == null ? Map.of("total", 0L, "unpriced", 0L) : stats;
+    }
+
+    @Override
+    public List<Map<String, Object>> billingRows(String fromDate, String toDate, Long virtualKeyId, String tag) {
+        return usageDao.billingRows(fromDate, toDate, virtualKeyId, tag);
+    }
+
     private Map<String, Object> queryParams(UsageQueryVO query) {
         Map<String, Object> params = new HashMap<>();
         if (query != null) {

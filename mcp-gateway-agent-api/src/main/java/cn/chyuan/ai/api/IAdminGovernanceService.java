@@ -90,6 +90,20 @@ public interface IAdminGovernanceService {
     /** 按标签日聚合（工单 0088：标签维度调用/失败/成本趋势） */
     java.util.List<cn.chyuan.ai.api.dto.UsageTagDailyDTO> dailyUsageByTag(String tag, String fromDate, String toDate);
 
+    // ---- 成本面（工单 0089/0090） ----
+
+    /** 成本日趋势 */
+    java.util.List<cn.chyuan.ai.api.dto.CostDailyDTO> costDaily(String fromDate, String toDate);
+
+    /** 成本 TopN（dimension=model|tag） */
+    java.util.List<cn.chyuan.ai.api.dto.CostTopNDTO> costTopN(String dimension, String fromDate, String toDate, int top);
+
+    /** 未定价占比：键 total/unpriced/percent */
+    java.util.Map<String, Object> unpricedStats(String fromDate, String toDate);
+
+    /** 账单导出 CSV（工单 0090）：日×密钥×模型分组 + 月度汇总行 */
+    String billingExportCsv(String fromDate, String toDate, Long virtualKeyId, String tag);
+
     // ---- CEL 规则模板（工单 0057）----
 
     java.util.List<CelTemplateResponseDTO> listCelTemplates();

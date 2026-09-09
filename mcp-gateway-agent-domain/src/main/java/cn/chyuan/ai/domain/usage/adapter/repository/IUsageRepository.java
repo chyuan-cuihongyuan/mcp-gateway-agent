@@ -38,4 +38,17 @@ public interface IUsageRepository {
 
     /** 窗口内成本合计（工单 0087 金额预算派生；空窗口返回 0） */
     java.math.BigDecimal sumCostSince(Long virtualKeyId, java.util.Date since);
+
+    /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
+    java.util.List<java.util.Map<String, Object>> costDaily(String fromDate, String toDate);
+
+    /** 成本 TopN（工单 0089：dimension=model|tag；键 dim/callCount/costSum） */
+    java.util.List<java.util.Map<String, Object>> costTopN(String dimension, String fromDate, String toDate, int top);
+
+    /** 未定价占比（工单 0089：键 total/unpriced） */
+    java.util.Map<String, Object> unpricedStats(String fromDate, String toDate);
+
+    /** 账单导出分组行（工单 0090：日×密钥×模型） */
+    java.util.List<java.util.Map<String, Object>> billingRows(String fromDate, String toDate,
+            Long virtualKeyId, String tag);
 }

@@ -69,6 +69,10 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     @Resource
     private IUsageLedgerService usageLedgerService;
 
+    /** 账本仓储直读（工单 0089/0090 成本聚合与账单导出） */
+    @Resource
+    private cn.chyuan.ai.domain.usage.adapter.repository.IUsageRepository usageRepository;
+
     @Resource
     private CelTemplateAdminService celTemplateAdminService;
 
@@ -320,6 +324,107 @@ public class AdminGovernanceService implements IAdminGovernanceService {
             result.add(dto);
         }
         return result;
+    }
+
+    // ---- 成本面（工单 0089/0090） ----
+
+    @Override
+    public java.util.List<cn.chyuan.ai.api.dto.CostDailyDTO> costDaily(String fromDate, String toDate) {
+        java.util.List<cn.chyuan.ai.api.dto.CostDailyDTO> result = new java.util.ArrayList<>();
+        for (java.util.Map<String, Object> row : usageRepository.costDaily(blankToNull(fromDate), blankToNull(toDate))) {
+            cn.chyuan.ai.api.dto.CostDailyDTO dto = new cn.chyuan.ai.api.dto.CostDailyDTO();
+            dto.setStatDate(String.valueOf(row.get("statDate")));
+            dto.setCallCount(numberOf(row.get("callCount")));
+            dto.setCostSum(decimalOf(row.get("costSum")));
+            result.add(dto);
+        }
+        return result;
+    }
+
+    @Override
+    public java.util.List<cn.chyuan.ai.api.dto.CostTopNDTO> costTopN(
+            String dimension, String fromDate, String toDate, int top) {
+        String safeDimension = "tag".equals(dimension) ? "tag" : "model";
+        int safeTop = Math.min(Math.max(top, 1), 20);
+        java.util.List<cn.chyuan.ai.api.dto.CostTopNDTO> result = new java.util.ArrayList<>();
+        for (java.util.Map<String, Object> row : usageRepository.costTopN(
+                safeDimension, blankToNull(fromDate), blankToNull(toDate), safeTop)) {
+            cn.chyuan.ai.api.dto.CostTopNDTO dto = new cn.chyuan.ai.api.dto.CostTopNDTO();
+            dto.setDim(row.get("dim") == null ? "(未记录)" : String.valueOf(row.get("dim")));
+            dto.setCallCount(numberOf(row.get("callCount")));
+            dto.setCostSum(decimalOf(row.get("costSum")));
+            result.add(dto);
+        }
+        return result;
+    }
+
+    @Override
+    public java.util.Map<String, Object> unpricedStats(String fromDate, String toDate) {
+        java.util.Map<String, Object> stats = usageRepository.unpricedStats(blankToNull(fromDate), blankToNull(toDate));
+        long total = numberOf(stats.get("total"));
+        long unpriced = numberOf(stats.get("unpriced"));
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("total", total);
+        result.put("unpriced", unpriced);
+        result.put("percent", total == 0 ? 0.0 : Math.round(unpriced * 1000.0 / total) / 10.0);
+        return result;
+    }
+
+    @Override
+    public String billingExportCsv(String fromDate, String toDate, Long virtualKeyId, String tag) {
+        auditService.record(cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity.builder()
+                .actor("admin")
+                .action("EXPORT_BILLING")
+                .resourceType("USAGE_BILLING")
+                .resourceId(fromDate + "~" + toDate + (tag == null || tag.isBlank() ? "" : "/tag=" + tag))
+                .build());
+        StringBuilder csv = new StringBuilder();
+        csv.append("日期,密钥ID,模型,调用数,输入Token,输出Token,成本,标签\r\n");
+        long totalCalls = 0;
+        java.math.BigDecimal totalCost = java.math.BigDecimal.ZERO;
+        boolean anyCost = false;
+        for (java.util.Map<String, Object> row : usageRepository.billingRows(
+                blankToNull(fromDate), blankToNull(toDate), virtualKeyId, blankToNull(tag))) {
+            long calls = numberOf(row.get("callCount"));
+            java.math.BigDecimal cost = decimalOf(row.get("costSum"));
+            totalCalls += calls;
+            if (cost != null) {
+                totalCost = totalCost.add(cost);
+                anyCost = true;
+            }
+            csv.append(csvCell(String.valueOf(row.get("statDate")))).append(',')
+                    .append(csvCell(row.get("virtualKeyId") == null ? "" : String.valueOf(row.get("virtualKeyId")))).append(',')
+                    .append(csvCell(String.valueOf(row.get("toolOrModel")))).append(',')
+                    .append(calls).append(',')
+                    .append(numberOf(row.get("promptTokens"))).append(',')
+                    .append(numberOf(row.get("completionTokens"))).append(',')
+                    .append(cost == null ? "" : cost.toPlainString()).append(',')
+                    .append(csvCell(cn.chyuan.ai.types.util.TagParser.toDisplay(
+                            row.get("tags") == null ? null : String.valueOf(row.get("tags")))))
+                    .append("\r\n");
+        }
+        csv.append("汇总,,,,").append(totalCalls).append(",,")
+                .append(anyCost ? totalCost.toPlainString() : "").append(",\r\n");
+        return csv.toString();
+    }
+
+    private static long numberOf(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private static java.math.BigDecimal decimalOf(Object value) {
+        return value == null ? null : new java.math.BigDecimal(String.valueOf(value));
+    }
+
+    /** CSV 单元格转义（RFC 4180：含逗号/引号/换行整字段包裹，内部引号翻倍） */
+    static String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private UsageLogResponseDTO toUsageDto(UsageRecordVO vo) {

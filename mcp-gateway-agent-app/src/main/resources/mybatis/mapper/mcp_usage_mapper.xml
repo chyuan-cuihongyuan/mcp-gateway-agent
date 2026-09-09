@@ -165,4 +165,110 @@
           AND created_at &gt;= #{since}
     </select>
 
+    <!-- 成本日趋势（工单 0089） -->
+    <select id="costDaily" resultType="map">
+        SELECT DATE(created_at) AS statDate,
+               COUNT(*) AS callCount,
+               SUM(cost) AS costSum
+        FROM mcp_usage_log
+        WHERE cost IS NOT NULL
+        <if test="fromDate != null and fromDate != ''">
+            AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+        </if>
+        <if test="toDate != null and toDate != ''">
+            AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+        </if>
+        GROUP BY DATE(created_at)
+        ORDER BY statDate ASC
+    </select>
+
+    <!-- 成本 TopN（工单 0089；tag 维度按单标签子查询展开，model 维度直接分组） -->
+    <select id="costTopN" resultType="map">
+        <choose>
+            <when test="dimension == 'tag'">
+                SELECT t.tag AS dim, SUM(u.call_count) AS callCount, SUM(u.cost_sum) AS costSum
+                FROM (
+                    SELECT tags, COUNT(*) AS call_count, SUM(cost) AS cost_sum
+                    FROM mcp_usage_log
+                    WHERE cost IS NOT NULL AND tags IS NOT NULL
+                    <if test="fromDate != null and fromDate != ''">
+                        AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+                    </if>
+                    <if test="toDate != null and toDate != ''">
+                        AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+                    </if>
+                    GROUP BY tags
+                ) u
+                JOIN (
+                    SELECT DISTINCT tags,
+                           SUBSTRING_INDEX(SUBSTRING_INDEX(tags, ',', n.n), ',', -1) AS tag
+                    FROM mcp_usage_log
+                    JOIN (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                          UNION ALL SELECT 5 UNION ALL SELECT 6) n
+                      ON n.n &lt;= LENGTH(tags) - LENGTH(REPLACE(tags, ',', '')) - 1
+                    WHERE tags IS NOT NULL
+                ) t ON t.tags = u.tags
+                GROUP BY t.tag
+                ORDER BY costSum DESC
+                LIMIT #{top}
+            </when>
+            <otherwise>
+                SELECT tool_or_model AS dim, COUNT(*) AS callCount, SUM(cost) AS costSum
+                FROM mcp_usage_log
+                WHERE cost IS NOT NULL
+                <if test="fromDate != null and fromDate != ''">
+                    AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+                </if>
+                <if test="toDate != null and toDate != ''">
+                    AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+                </if>
+                GROUP BY tool_or_model
+                ORDER BY costSum DESC
+                LIMIT #{top}
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 未定价占比（工单 0089：LLM 面） -->
+    <select id="unpricedStats" resultType="map">
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN cost IS NULL THEN 1 ELSE 0 END) AS unpriced
+        FROM mcp_usage_log
+        WHERE traffic_type = 'LLM'
+        <if test="fromDate != null and fromDate != ''">
+            AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+        </if>
+        <if test="toDate != null and toDate != ''">
+            AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+        </if>
+    </select>
+
+    <!-- 账单导出分组行（工单 0090：日×密钥×模型） -->
+    <select id="billingRows" resultType="map">
+        SELECT DATE(created_at) AS statDate,
+               virtual_key_id AS virtualKeyId,
+               tool_or_model AS toolOrModel,
+               COUNT(*) AS callCount,
+               SUM(prompt_tokens) AS promptTokens,
+               SUM(completion_tokens) AS completionTokens,
+               SUM(cost) AS costSum,
+               MAX(tags) AS tags
+        FROM mcp_usage_log
+        WHERE traffic_type = 'LLM'
+        <if test="fromDate != null and fromDate != ''">
+            AND created_at &gt;= CONCAT(#{fromDate}, ' 00:00:00')
+        </if>
+        <if test="toDate != null and toDate != ''">
+            AND created_at &lt;= CONCAT(#{toDate}, ' 23:59:59')
+        </if>
+        <if test="virtualKeyId != null">
+            AND virtual_key_id = #{virtualKeyId}
+        </if>
+        <if test="tag != null and tag != ''">
+            AND tags LIKE CONCAT('%,', #{tag}, ',%')
+        </if>
+        GROUP BY DATE(created_at), virtual_key_id, tool_or_model
+        ORDER BY statDate ASC, virtual_key_id ASC, tool_or_model ASC
+    </select>
+
 </mapper>

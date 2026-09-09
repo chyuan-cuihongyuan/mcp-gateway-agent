@@ -35,4 +35,18 @@ public interface IUsageDao {
     /** 窗口内成本合计（工单 0087 金额预算派生口径） */
     java.math.BigDecimal sumCostSince(@Param("virtualKeyId") Long virtualKeyId,
             @Param("since") java.util.Date since);
+
+    /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
+    List<Map<String, Object>> costDaily(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
+
+    /** 成本 TopN（工单 0089：dimension=model|tag；键 dim/callCount/costSum） */
+    List<Map<String, Object>> costTopN(@Param("dimension") String dimension,
+            @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("top") int top);
+
+    /** 未定价占比（工单 0089：LLM 流量 cost IS NULL 行数与总行数） */
+    Map<String, Object> unpricedStats(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
+
+    /** 账单导出分组行（工单 0090：日×密钥×模型；键 statDate/virtualKeyId/toolOrModel/callCount/promptTokens/completionTokens/costSum/tags） */
+    List<Map<String, Object>> billingRows(@Param("fromDate") String fromDate, @Param("toDate") String toDate,
+            @Param("virtualKeyId") Long virtualKeyId, @Param("tag") String tag);
 }

@@ -203,6 +203,59 @@ public class AdminGovernanceController {
         return Response.success(adminGovernanceService.dailyUsageByTag(tag, fromDate, toDate));
     }
 
+    /** 成本日趋势（工单 0089） */
+    @GetMapping("/usage/cost/daily")
+    public Response<List<cn.chyuan.ai.api.dto.CostDailyDTO>> costDaily(
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate) {
+        return Response.success(adminGovernanceService.costDaily(fromDate, toDate));
+    }
+
+    /** 成本 TopN（工单 0089：dimension=model|tag） */
+    @GetMapping("/usage/cost/topn")
+    public Response<List<cn.chyuan.ai.api.dto.CostTopNDTO>> costTopN(
+            @RequestParam(required = false, defaultValue = "model") String dimension,
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate,
+            @RequestParam(required = false, defaultValue = "5") int top) {
+        return Response.success(adminGovernanceService.costTopN(dimension, fromDate, toDate, top));
+    }
+
+    /** 未定价占比（工单 0089） */
+    @GetMapping("/usage/cost/unpriced")
+    public Response<java.util.Map<String, Object>> unpricedStats(
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate) {
+        return Response.success(adminGovernanceService.unpricedStats(fromDate, toDate));
+    }
+
+    /** 账单导出 CSV（工单 0090：month=yyyy-MM 或自定义起止；text/csv 直出，AUDITOR 起） */
+    @GetMapping("/usage/billing/export")
+    public void billingExport(
+            jakarta.servlet.http.HttpServletResponse response,
+            @RequestParam(required = false, defaultValue = "") String month,
+            @RequestParam(required = false, defaultValue = "") String fromDate,
+            @RequestParam(required = false, defaultValue = "") String toDate,
+            @RequestParam(required = false) Long virtualKeyId,
+            @RequestParam(required = false, defaultValue = "") String tag) throws java.io.IOException {
+        if (!fromDate.isBlank() || !toDate.isBlank()) {
+            // 自定义区间
+        } else if (!month.isBlank() && month.matches("\\d{4}-\\d{2}")) {
+            fromDate = month + "-01";
+            toDate = month + "-31";
+        } else {
+            java.time.LocalDate now = java.time.LocalDate.now().withDayOfMonth(1);
+            fromDate = now.toString();
+            toDate = now.plusMonths(1).minusDays(1).toString();
+        }
+        String csv = adminGovernanceService.billingExportCsv(fromDate, toDate, virtualKeyId, tag);
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition",
+                "attachment; filename=billing-" + fromDate + "_" + toDate + ".csv");
+        response.getWriter().write("\uFEFF" + csv);
+        response.getWriter().flush();
+    }
+
     // ---- CEL 工具治理规则（工单 0018）----
 
     /** 仅校验表达式（不落库）：data 为 null 表示合法，否则为错误原因 */

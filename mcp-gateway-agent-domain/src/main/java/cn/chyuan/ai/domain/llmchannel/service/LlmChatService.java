@@ -126,6 +126,8 @@ public class LlmChatService {
                 String response = llmHttpPort.lastResponseBody();
                 int cost = (int) (System.currentTimeMillis() - start);
                 if (status >= 200 && status < 300 && response != null) {
+                    // 响应侧护栏 POST_CALL（工单 0094）：阻断丢弃响应；脱敏改写后返回调用方
+                    response = applyResponseGuardrails(response);
                     recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
                     consumeTpmQuietly(principal, response);
                     return response;
@@ -191,7 +193,7 @@ public class LlmChatService {
         String lastError = null;
         for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
-            StreamForwarder forwarder = new StreamForwarder(onLine);
+            StreamForwarder forwarder = new StreamForwarder(onLine, this::responseGuardrailGate);
             try {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(channel, model)));
                 Map<String, String> headers = new HashMap<>();
@@ -240,14 +242,18 @@ public class LlmChatService {
     static final class StreamForwarder implements java.util.function.Consumer<String> {
 
         private final java.util.function.Consumer<String> sink;
+        /** 响应护栏门（工单 0094）：阻断抛 AppException；脱敏改写；null=直通 */
+        private final java.util.function.UnaryOperator<String> responseGate;
         private volatile long ttftMs = -1;
         private volatile long start = System.currentTimeMillis();
         private volatile boolean firstByteSent = false;
         private Long usagePromptTokens;
         private Long usageCompletionTokens;
 
-        StreamForwarder(java.util.function.Consumer<String> sink) {
+        StreamForwarder(java.util.function.Consumer<String> sink,
+                java.util.function.UnaryOperator<String> responseGate) {
             this.sink = sink;
+            this.responseGate = responseGate == null ? l -> l : responseGate;
         }
 
         @Override
@@ -255,12 +261,15 @@ public class LlmChatService {
             if (line == null || line.isBlank()) {
                 return;
             }
+            // 响应侧护栏 POST_CALL（工单 0094）：首字节前完成判定——阻断中止（无字节已出，
+            // 控制器按 -32018 落错误结构）；脱敏改写首行后续写
+            String guarded = responseGate.apply(line);
             firstByteSent = true;
             if (ttftMs < 0) {
                 ttftMs = System.currentTimeMillis() - start;
             }
-            parseUsage(line);
-            sink.accept(line);
+            parseUsage(guarded);
+            sink.accept(guarded);
         }
 
         private void parseUsage(String line) {
@@ -406,6 +415,36 @@ public class LlmChatService {
     private static String tagStorageOf(GovernancePrincipal principal) {
         return principal == null ? null
                 : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
+    }
+
+    /** 响应侧护栏（工单 0094）：非流式整响应判定（阻断 -32018；脱敏改写） */
+    private String applyResponseGuardrails(String response) {
+        cn.chyuan.ai.domain.governance.service.GuardrailChain chain =
+                guardrailChainProvider == null ? null : guardrailChainProvider.getIfAvailable();
+        if (chain == null) {
+            return response;
+        }
+        cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome = chain.evaluate(
+                "LLM", cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_POST_CALL, response);
+        if (outcome.blocked()) {
+            throw new AppException(McpErrorCodes.CONTENT_BLOCKED, "响应命中安全护栏：" + outcome.hitRule());
+        }
+        return outcome.masked() ? outcome.text() : response;
+    }
+
+    /** 流式首行护栏门（静态上下文：链实例经 holder 注入，未装配直通） */
+    private String responseGuardrailGate(String line) {
+        cn.chyuan.ai.domain.governance.service.GuardrailChain chain =
+                guardrailChainProvider == null ? null : guardrailChainProvider.getIfAvailable();
+        if (chain == null) {
+            return line;
+        }
+        cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome = chain.evaluate(
+                "LLM", cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_POST_CALL, line);
+        if (outcome.blocked()) {
+            throw new AppException(McpErrorCodes.CONTENT_BLOCKED, "响应命中安全护栏：" + outcome.hitRule());
+        }
+        return outcome.masked() ? outcome.text() : line;
     }
 
     /** 内容护栏 PRE_CALL（工单 0091）：阻断抛 -32018；脱敏改写后转发（链未装配=直通） */

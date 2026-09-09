@@ -138,4 +138,29 @@ class GuardrailChainTest {
                         "{\"keepPrefix\":8,\"keepSuffix\":8}")));
         Assertions.assertEquals("***", chain.evaluate("LLM", GuardrailVO.MODE_PRE_CALL, "13812345678").text());
     }
+
+    @Test
+    @DisplayName("响应侧类型（0094）：RESPONSE_MASK/RESPONSE_FILTER 在 POST_CALL 求值；LOGGING_ONLY 不拦截不改写")
+    void responseModeAndLoggingOnly() {
+        Mockito.when(repository.findAll()).thenReturn(List.of(
+                rule("resp-mask", GuardrailVO.TYPE_RESPONSE_MASK, GuardrailVO.MODE_POST_CALL, "ALL", "{}"),
+                rule("resp-filter", GuardrailVO.TYPE_RESPONSE_FILTER, GuardrailVO.MODE_POST_CALL, "ALL",
+                        "{\"keywords\":[\"malicious\"]}")));
+        GuardrailChain.GuardrailOutcome masked =
+                chain.evaluate("LLM", GuardrailVO.MODE_POST_CALL, "邮箱 a@b.com");
+        Assertions.assertTrue(masked.masked());
+        Assertions.assertTrue(masked.text().contains("[PII:email]"));
+
+        GuardrailChain.GuardrailOutcome blocked =
+                chain.evaluate("MCP", GuardrailVO.MODE_POST_CALL, "contains malicious payload");
+        Assertions.assertTrue(blocked.blocked());
+        Assertions.assertEquals("resp-filter", blocked.hitRule());
+
+        // LOGGING_ONLY：链过滤后无规则作用（当前无原始载荷落库——隐私面不存原文，语义保留为接口位）
+        Mockito.when(repository.findAll()).thenReturn(List.of(
+                rule("log-only", GuardrailVO.TYPE_KEYWORD_BLOCK, GuardrailVO.MODE_LOGGING_ONLY, "ALL",
+                        "{\"keywords\":[\"secret\"]}")));
+        Assertions.assertFalse(chain.evaluate("LLM", GuardrailVO.MODE_PRE_CALL, "a secret").blocked());
+        Assertions.assertFalse(chain.evaluate("LLM", GuardrailVO.MODE_PRE_CALL, "a secret").masked());
+    }
 }

@@ -522,10 +522,25 @@ public class McpGatewayDelegateServlet extends HttpServlet {
     }
 
     private void writeJsonResult(HttpServletResponse response, ObjectNode body) throws IOException {
+        String payload = objectMapper.writeValueAsString(body);
+        // 响应侧护栏 POST_CALL（工单 0094）：MCP 工具结果出站前判定；阻断 -32018；脱敏改写
+        if (guardrailChain != null) {
+            cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome =
+                    guardrailChain.evaluate("MCP",
+                            cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_POST_CALL, payload);
+            if (outcome.blocked()) {
+                writeJsonRpcError(response, 400, McpErrorCodes.CONTENT_BLOCKED,
+                        "响应命中安全护栏：" + outcome.hitRule(), null);
+                return;
+            }
+            if (outcome.masked()) {
+                payload = outcome.text();
+            }
+        }
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType("application/json");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write(objectMapper.writeValueAsString(body));
+        response.getWriter().write(payload);
         response.getWriter().flush();
     }
 

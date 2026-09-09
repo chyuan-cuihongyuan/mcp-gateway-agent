@@ -49,7 +49,7 @@ class McpGatewayDelegateServletTest {
     @BeforeEach
     void setUp() {
         servlet = new McpGatewayDelegateServlet(registry, toolCatalogService, null,
-                observabilityHelper, null, null, null, null, null, 64 * 1024, 30L);
+                observabilityHelper, null, null, null, null, null, 64 * 1024, 30L, null);
     }
 
     private MockHttpServletRequest request(String method, String pathInfo, String body) {

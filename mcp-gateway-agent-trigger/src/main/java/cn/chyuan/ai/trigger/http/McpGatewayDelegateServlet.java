@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.springframework.beans.factory.ObjectProvider;
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServlet;
@@ -87,6 +88,9 @@ public class McpGatewayDelegateServlet extends HttpServlet {
 
     private final long sessionTimeoutMinutes;
 
+    /** 内容护栏链（工单 0091；可选注入——测试构造可缺省） */
+    private final cn.chyuan.ai.domain.governance.service.GuardrailChain guardrailChain;
+
     /** 本地会话表：sessionId → 最后访问时间（TTL 权威，与旧实现的内存会话等价） */
     private final ConcurrentHashMap<String, Long> localSessions = new ConcurrentHashMap<>();
 
@@ -111,7 +115,8 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             cn.chyuan.ai.domain.session.service.SessionAffinityService sessionAffinityService,
             cn.chyuan.ai.infrastructure.utils.GatewayMetrics gatewayMetrics,
             int maxBodyBytes,
-            long sessionTimeoutMinutes) {
+            long sessionTimeoutMinutes,
+            ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider) {
         this.registry = registry;
         this.toolCatalogService = toolCatalogService;
         this.sessionMetaRepository = sessionMetaRepository;
@@ -123,6 +128,7 @@ public class McpGatewayDelegateServlet extends HttpServlet {
         this.gatewayMetrics = gatewayMetrics;
         this.maxBodyBytes = maxBodyBytes;
         this.sessionTimeoutMinutes = sessionTimeoutMinutes;
+        this.guardrailChain = guardrailChainProvider == null ? null : guardrailChainProvider.getIfAvailable();
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
         log.info("Streamable HTTP 委派路由已初始化: sessionTimeoutMinutes={}", sessionTimeoutMinutes);
     }
@@ -216,6 +222,21 @@ public class McpGatewayDelegateServlet extends HttpServlet {
             return;
         }
         String messageBody = new String(bodyBytes, StandardCharsets.UTF_8);
+        // 内容护栏 PRE_CALL（工单 0091）：阻断 -32018；脱敏改写后转发（单条与 batch 共用此卡点）
+        if (guardrailChain != null) {
+            cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome =
+                    guardrailChain.evaluate("MCP",
+                            cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_PRE_CALL, messageBody);
+            if (outcome.blocked()) {
+                writeJsonRpcError(response, 400, McpErrorCodes.CONTENT_BLOCKED,
+                        "内容命中安全护栏：" + outcome.hitRule(), null);
+                return;
+            }
+            if (outcome.masked()) {
+                messageBody = outcome.text();
+                bodyBytes = messageBody.getBytes(StandardCharsets.UTF_8);
+            }
+        }
         JsonNode root = parseAndValidate(messageBody, response);
         if (root == null) {
             return;

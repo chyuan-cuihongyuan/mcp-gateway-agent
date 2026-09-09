@@ -76,6 +76,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IBudgetService> budgetServiceProvider;
 
+    /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -110,7 +114,7 @@ public class LlmChatService {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
             try {
                 String upstreamModel = mapModel(channel, model);
-                String upstreamBody = rewriteModel(request, upstreamModel);
+                String upstreamBody = applyGuardrails(principal, rewriteModel(request, upstreamModel));
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 if (StringUtils.isNotBlank(channel.getCredential())) {
@@ -189,7 +193,7 @@ public class LlmChatService {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
             StreamForwarder forwarder = new StreamForwarder(onLine);
             try {
-                String upstreamBody = rewriteModel(request, mapModel(channel, model));
+                String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(channel, model)));
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 headers.put("Accept", "text/event-stream");
@@ -402,6 +406,21 @@ public class LlmChatService {
     private static String tagStorageOf(GovernancePrincipal principal) {
         return principal == null ? null
                 : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
+    }
+
+    /** 内容护栏 PRE_CALL（工单 0091）：阻断抛 -32018；脱敏改写后转发（链未装配=直通） */
+    private String applyGuardrails(GovernancePrincipal principal, String upstreamBody) {
+        cn.chyuan.ai.domain.governance.service.GuardrailChain chain =
+                guardrailChainProvider == null ? null : guardrailChainProvider.getIfAvailable();
+        if (chain == null) {
+            return upstreamBody;
+        }
+        cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome = chain.evaluate(
+                "LLM", cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_PRE_CALL, upstreamBody);
+        if (outcome.blocked()) {
+            throw new AppException(McpErrorCodes.CONTENT_BLOCKED, "内容命中安全护栏：" + outcome.hitRule());
+        }
+        return outcome.masked() ? outcome.text() : upstreamBody;
     }
 
     /** 请求体 metadata.tags 并入 principal（工单 0088：LLM 面第二来源，body 优先） */

@@ -125,6 +125,11 @@ public final class McpErrorCodes {
      */
     public static final int COST_LIMIT_EXCEEDED = -32017;
 
+    /**
+     * 内容命中安全护栏 —— 关键词/正则拦截（工单 0091；JSON-RPC 面协议错误、/v1 面 OpenAI error）
+     */
+    public static final int CONTENT_BLOCKED = -32018;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

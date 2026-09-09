@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IGuardrailDao">
+
+    <resultMap id="McpGuardrailMap" type="cn.chyuan.ai.infrastructure.dao.po.McpGuardrailPO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="type" property="type"/>
+        <result column="mode" property="mode"/>
+        <result column="config" property="config"/>
+        <result column="traffic_mask" property="trafficMask"/>
+        <result column="priority" property="priority"/>
+        <result column="enabled" property="enabled"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGuardrailPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_guardrail (name, type, mode, config, traffic_mask, priority, enabled)
+        VALUES (#{name}, #{type}, #{mode}, #{config}, #{trafficMask}, #{priority}, #{enabled})
+    </insert>
+
+    <update id="update" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGuardrailPO">
+        UPDATE mcp_guardrail
+        SET name = #{name},
+            type = #{type},
+            mode = #{mode},
+            config = #{config},
+            traffic_mask = #{trafficMask},
+            priority = #{priority},
+            enabled = #{enabled}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_guardrail WHERE id = #{id}
+    </delete>
+
+    <select id="queryAll" resultMap="McpGuardrailMap">
+        SELECT * FROM mcp_guardrail ORDER BY priority ASC, id ASC
+    </select>
+
+    <select id="queryByName" resultMap="McpGuardrailMap">
+        SELECT * FROM mcp_guardrail WHERE name = #{name}
+    </select>
+
+    <select id="queryById" resultMap="McpGuardrailMap">
+        SELECT * FROM mcp_guardrail WHERE id = #{id}
+    </select>
+
+</mapper>

@@ -74,7 +74,22 @@ public class OpenAiCompatController {
 
         // 流式分支（工单 0064）：body 含 "stream":true 即走 SSE 透传
         if (body != null && body.contains("\"stream\": true") || body != null && body.contains("\"stream\":true")) {
-            handleStreaming(principal, body, response);
+            try {
+                handleStreaming(principal, body, response);
+            } catch (AppException e) {
+                // 出首字节前的治理拒绝（护栏/配额/预算）：以 OpenAI error 结构落 HTTP 状态
+                int httpStatus = switch (e.getCode()) {
+                    case "-32008" -> 401;
+                    case "-32006" -> 403;
+                    case "-32009", "-32014", "-32017" -> 429;
+                    default -> 400;
+                };
+                response.setStatus(httpStatus);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":{\"message\":" + quote(e.getInfo())
+                        + ",\"type\":\"invalid_request_error\"}}");
+                response.getWriter().flush();
+            }
             return;
         }
         try {

@@ -54,6 +54,9 @@ public class VirtualKeyResponseDTO implements Serializable {
     /** 金额预算软/硬线（工单 0087；已用金额从账本派生见 usage 查询） */
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;
+
+    /** 允许跳过内容护栏（工单 0095；admin 设置） */
+    private Boolean skipGuardrailAllowed;
     private String budgetResetAt;
     private Long budgetUsed;
 

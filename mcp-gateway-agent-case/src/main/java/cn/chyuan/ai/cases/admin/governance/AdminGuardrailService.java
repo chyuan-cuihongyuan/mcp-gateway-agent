@@ -78,6 +78,19 @@ public class AdminGuardrailService implements IAdminGuardrailService {
     }
 
     @Override
+    public java.util.Map<String, Object> dryRunGuardrail(String traffic, String mode, String text) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        java.util.List<String> hits = guardrailChain.explainHits(traffic, mode, text);
+        cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome =
+                guardrailChain.evaluate(traffic, mode, text);
+        result.put("hits", hits);
+        result.put("blocked", outcome.blocked());
+        result.put("masked", outcome.masked());
+        result.put("rewritten", outcome.masked() ? outcome.text() : null);
+        return result;
+    }
+
+    @Override
     public void deleteGuardrail(Long id) {
         GuardrailVO before = require(id);
         repository.deleteById(id);

@@ -71,6 +71,9 @@ public class VirtualKeyVO {
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;
 
+    /** 允许跳过内容护栏（工单 0095：admin 设置；带头才生效并审计 GUARDRAIL_SKIP） */
+    private Boolean skipGuardrailAllowed;
+
     /** 预算窗口内已用次数（工单 0050） */
     private Long budgetUsed;
 

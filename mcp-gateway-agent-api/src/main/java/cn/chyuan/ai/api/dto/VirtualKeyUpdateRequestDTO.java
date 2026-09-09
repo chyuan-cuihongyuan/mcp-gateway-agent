@@ -49,6 +49,9 @@ public class VirtualKeyUpdateRequestDTO implements Serializable {
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;
 
+    /** 允许跳过内容护栏（工单 0095；admin 设置） */
+    private Boolean skipGuardrailAllowed;
+
     /** 追加授权的网关 ID 列表（可选） */
     private List<String> grantGatewayIds;
 

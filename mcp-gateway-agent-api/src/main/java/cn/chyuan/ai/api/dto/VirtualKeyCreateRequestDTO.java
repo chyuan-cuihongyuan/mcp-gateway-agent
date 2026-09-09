@@ -49,6 +49,9 @@ public class VirtualKeyCreateRequestDTO implements Serializable {
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;
 
+    /** 允许跳过内容护栏（工单 0095；admin 设置） */
+    private Boolean skipGuardrailAllowed;
+
     /** 创建时一并授权的网关 ID 列表 */
     private java.util.List<String> grantGatewayIds;
 }

@@ -179,6 +179,7 @@ public class GovernanceAuthService implements IGovernanceAuthService {
                 .clientIp(clientIp)
                 .budgetSoft(vo.getBudgetSoft())
                 .budgetHard(vo.getBudgetHard())
+                .skipGuardrailAllowed(Boolean.TRUE.equals(vo.getSkipGuardrailAllowed()))
                 .tpmLimit(vo.getTpmLimit())
                 .rpmLimit(vo.getRpmLimit())
                 .dailyRequestLimit(vo.getDailyRequestLimit())

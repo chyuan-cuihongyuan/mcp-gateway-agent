@@ -66,6 +66,12 @@ public class GovernanceAuthFilter implements Filter {
             GovernancePrincipal principal = governanceAuthService.authenticate(gatewayId, credential, resolveClientIp(httpRequest));
             // 请求标签（工单 0088）：成本归因维度（与全局流量面同头）
             principal.setTags(cn.chyuan.ai.types.util.TagParser.parseHeader(httpRequest.getHeader("X-Gateway-Tags")));
+            // 护栏跳过头（工单 0095）：仅授权密钥生效（principal.skipGuardrailAllowed 来自库）
+            if ("true".equalsIgnoreCase(httpRequest.getHeader("X-Gateway-Skip-Guardrails"))) {
+                principal.setSkipGuardrail(Boolean.TRUE);
+                principal.setSkipGuardrailAllowed(
+                        Boolean.TRUE.equals(principal.getSkipGuardrailAllowed()));
+            }
             httpRequest.setAttribute(PRINCIPAL_ATTR, principal);
             chain.doFilter(request, response);
         } catch (AppException e) {

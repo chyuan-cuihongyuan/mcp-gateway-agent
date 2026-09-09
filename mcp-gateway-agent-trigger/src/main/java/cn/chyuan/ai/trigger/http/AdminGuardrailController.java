@@ -54,4 +54,12 @@ public class AdminGuardrailController {
         adminGuardrailService.deleteGuardrail(id);
         return Response.success(null);
     }
+
+    /** 护栏 dry-run（工单 0095）：假想载荷试跑（traffic=MCP|LLM|A2A，mode=PRE_CALL|POST_CALL|LOGGING_ONLY） */
+    @PostMapping("/dry-run")
+    public Response<java.util.Map<String, Object>> dryRun(@RequestBody java.util.Map<String, String> body) {
+        String traffic = body.getOrDefault("traffic", "LLM");
+        String mode = body.getOrDefault("mode", "PRE_CALL");
+        return Response.success(adminGuardrailService.dryRunGuardrail(traffic, mode, body.get("text")));
+    }
 }

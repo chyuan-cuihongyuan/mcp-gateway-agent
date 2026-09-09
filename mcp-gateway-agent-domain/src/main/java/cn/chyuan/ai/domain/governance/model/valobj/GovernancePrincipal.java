@@ -48,6 +48,12 @@ public class GovernancePrincipal {
     /** 请求标签（工单 0088：X-Gateway-Tags 头 + LLM metadata.tags，账本成本归因维度） */
     private List<String> tags;
 
+    /** 护栏跳过授权（工单 0095：vk 持久字段，admin 设置） */
+    private Boolean skipGuardrailAllowed;
+
+    /** 本次请求携带 X-Gateway-Skip-Guardrails 头（工单 0095：认证过滤器瞬态写入，不落库） */
+    private Boolean skipGuardrail;
+
     /** 预算软线（工单 0050；空=未启用） */
     private Long budgetSoft;
 

@@ -80,6 +80,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
 
+    /** 审计（工单 0095 跳过留痕；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IAuditService> auditServiceProvider;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -417,6 +421,28 @@ public class LlmChatService {
                 : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
     }
 
+    /** 跳过审计（工单 0095：SECURITY 型，尽力而为） */
+    private void auditGuardrailSkipQuietly(GovernancePrincipal principal) {
+        try {
+            auditServiceProvider.stream().findFirst().ifPresent(audit ->
+                    audit.record(cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity.builder()
+                            .actor("system")
+                            .action("GUARDRAIL_SKIP")
+                            .resourceType("VIRTUAL_KEY")
+                            .resourceId(String.valueOf(principal.getVirtualKeyId()))
+                            .build()));
+        } catch (Exception e) {
+            log.debug("护栏跳过审计失败（不阻断）：{}", e.getMessage());
+        }
+    }
+
+    /** 护栏跳过（工单 0095）：admin 授权密钥 + X-Gateway-Skip-Guardrails 头才生效（标记由认证过滤器写入 principal） */
+    private static boolean skipGuardrails(GovernancePrincipal principal) {
+        return principal != null
+                && Boolean.TRUE.equals(principal.getSkipGuardrail())
+                && Boolean.TRUE.equals(principal.getSkipGuardrailAllowed());
+    }
+
     /** 响应侧护栏（工单 0094）：非流式整响应判定（阻断 -32018；脱敏改写） */
     private String applyResponseGuardrails(String response) {
         cn.chyuan.ai.domain.governance.service.GuardrailChain chain =
@@ -452,6 +478,10 @@ public class LlmChatService {
         cn.chyuan.ai.domain.governance.service.GuardrailChain chain =
                 guardrailChainProvider == null ? null : guardrailChainProvider.getIfAvailable();
         if (chain == null) {
+            return upstreamBody;
+        }
+        if (skipGuardrails(principal)) {
+            auditGuardrailSkipQuietly(principal);
             return upstreamBody;
         }
         cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome = chain.evaluate(

@@ -83,6 +83,9 @@ public class McpVirtualKeyPO extends BasePagePO {
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;
 
+    /** 允许跳过内容护栏（工单 0095） */
+    private Boolean skipGuardrailAllowed;
+
     /** 临时提额硬线/到期时间（工单 0052；过期惰性回落） */
     private Long tempBudgetHard;
     private Date tempBudgetExpires;

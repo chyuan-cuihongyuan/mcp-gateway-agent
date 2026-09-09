@@ -640,6 +640,11 @@ class StreamableHttpProtocolTest {
     static class FakeGovernanceAuthService implements IGovernanceAuthService {
 
         @Override
+        public void invalidateAll() {
+            // 测试假实现：无缓存可失效
+        }
+
+        @Override
         public GovernancePrincipal authenticate(String gatewayId, String credential) {
             if (credential == null || credential.isBlank()) {
                 throw new AppException(McpErrorCodes.AUTH_REQUIRED, "缺少凭证");

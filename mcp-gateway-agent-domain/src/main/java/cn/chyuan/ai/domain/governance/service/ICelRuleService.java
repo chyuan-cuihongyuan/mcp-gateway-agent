@@ -15,6 +15,9 @@ public interface ICelRuleService {
     /** 校验表达式可编译且变量已声明；返回 null 表示合法，否则返回可读错误原因 */
     String validateExpression(String expression);
 
+    /** 失效规则快照缓存（写路径与跨实例热更新调用；30s TTL 兜底） */
+    void invalidateSnapshot();
+
     /** 创建规则：保存前编译校验，非法表达式抛 AppException（附原因）；写审计 */
     CelRuleVO create(CelRuleVO rule);
 

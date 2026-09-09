@@ -9,6 +9,9 @@ import cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal;
  */
 public interface IGovernanceAuthService {
 
+    /** 失效全部认证缓存（写路径与跨实例热更新调用；TTL 兜底） */
+    void invalidateAll();
+
     /**
      * 认证入口（过滤器调用）：
      * <ol>

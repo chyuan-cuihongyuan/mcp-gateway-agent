@@ -7,6 +7,7 @@ import cn.chyuan.ai.api.dto.ExternalAttachUpsertRequestDTO;
 import cn.chyuan.ai.domain.externalattach.adapter.port.IExternalMcpAttachPort;
 import cn.chyuan.ai.domain.externalattach.model.valobj.ExternalAttachVO;
 import cn.chyuan.ai.domain.externalattach.service.IExternalAttachAdminService;
+import cn.chyuan.ai.domain.governance.service.ConfigHotReloadService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -35,6 +36,9 @@ public class AdminExternalAttachService implements IAdminExternalAttachService {
     /** 端口可选注入（切片测试可缺省，探活/状态仅返回占位） */
     @Autowired(required = false)
     private IExternalMcpAttachPort externalMcpAttachPort;
+
+    @Resource
+    private ConfigHotReloadService configHotReloadService;
 
     @Override
     public ExternalAttachResponseDTO createAttach(ExternalAttachUpsertRequestDTO requestDTO) {
@@ -100,6 +104,8 @@ public class AdminExternalAttachService implements IAdminExternalAttachService {
         if (externalMcpAttachPort != null) {
             externalMcpAttachPort.evictAttach(attachId, gatewayId);
         }
+        // 跨实例广播（工单 0078）：其他实例的挂接注册表/密钥缓存即时失效
+        configHotReloadService.notifyChange(ConfigHotReloadService.TYPE_ATTACH, gatewayId);
     }
 
     private Map<Long, IExternalMcpAttachPort.AttachRuntimeStatus> runtimeStatusMap(String gatewayId) {

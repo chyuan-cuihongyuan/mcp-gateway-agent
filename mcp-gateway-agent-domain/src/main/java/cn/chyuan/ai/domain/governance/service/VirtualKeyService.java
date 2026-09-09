@@ -43,6 +43,10 @@ public class VirtualKeyService implements IVirtualKeyService {
     @Resource
     private IAuditService auditService;
 
+    /** 懒解析：切片测试上下文可能未装配热更新协调（此时仅本地失效） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<ConfigHotReloadService> configHotReloadServiceProvider;
+
     @Override
     public VirtualKeyVO create(VirtualKeyCommandEntity command) {
         String credential = KeyHashUtil.generateVirtualKey();
@@ -131,6 +135,7 @@ public class VirtualKeyService implements IVirtualKeyService {
 
         // 认证缓存兜底失效（状态变更影响全部缓存副本）
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     @Override
@@ -145,6 +150,7 @@ public class VirtualKeyService implements IVirtualKeyService {
         Date graceUntil = new Date(System.currentTimeMillis() + rotationGraceHours * 3600_000L);
         repository.rotateKey(id, newHash, graceUntil);
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
 
         VirtualKeyVO saved = getById(id);
         saved.setPlaintextOnce(credential);
@@ -176,6 +182,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .actor("admin").action("BLOCK_KEY").resourceType(RESOURCE_TYPE)
                 .resourceId(String.valueOf(id)).beforeJson(snapshot(existing)).build());
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     @Override
@@ -186,6 +193,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .actor("admin").action("UNBLOCK_KEY").resourceType(RESOURCE_TYPE)
                 .resourceId(String.valueOf(id)).beforeJson(snapshot(existing)).build());
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     @Override
@@ -225,6 +233,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .afterJson("{\"increase\":" + increase + ",\"expiresAt\":" + expiresAt.getTime() + "}")
                 .build());
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     /** 轮换宽限期（小时），工单 0049 */
@@ -247,6 +256,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .build());
 
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     @Override
@@ -263,6 +273,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .build());
 
         governanceAuthService.invalidateAll();
+        notifyKeyChange();
     }
 
     @Override
@@ -368,5 +379,14 @@ public class VirtualKeyService implements IVirtualKeyService {
         map.put("dailyRequestLimit", vo.getDailyRequestLimit());
         map.put("dailyToolCallLimit", vo.getDailyToolCallLimit());
         return JSON.toJSONString(map);
+    }
+
+    /** 跨实例广播密钥变更（协调服务未装配时仅本地失效） */
+    private void notifyKeyChange() {
+        ConfigHotReloadService coordinator = configHotReloadServiceProvider == null ? null
+                : configHotReloadServiceProvider.getIfAvailable();
+        if (coordinator != null) {
+            coordinator.notifyChange(ConfigHotReloadService.TYPE_VIRTUAL_KEY, null);
+        }
     }
 }

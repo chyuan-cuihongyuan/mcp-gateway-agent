@@ -2,6 +2,7 @@ package cn.chyuan.ai.domain.llmchannel.service;
 
 import cn.chyuan.ai.domain.governance.adapter.repository.IAuditLogRepository;
 import cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity;
+import cn.chyuan.ai.domain.governance.service.ConfigHotReloadService;
 import cn.chyuan.ai.domain.governance.service.IAuditService;
 import cn.chyuan.ai.domain.llmchannel.adapter.repository.ILlmChannelRepository;
 import cn.chyuan.ai.domain.llmchannel.model.valobj.LlmChannelVO;
@@ -32,12 +33,16 @@ public class LlmChannelAdminService {
     @Resource
     private IAuditService auditService;
 
+    @Resource
+    private ConfigHotReloadService configHotReloadService;
+
     public LlmChannelVO create(LlmChannelVO channel) {
         validate(channel, true);
         normalize(channel);
         Long id = repository.insert(channel);
         channel.setId(id);
         audit("CREATE_LLM_CHANNEL", channel.getName(), channel);
+        configHotReloadService.notifyChange(ConfigHotReloadService.TYPE_LLM_CHANNEL, channel.getName());
         return channel;
     }
 
@@ -53,6 +58,7 @@ public class LlmChannelAdminService {
         normalize(channel);
         repository.update(channel);
         audit("UPDATE_LLM_CHANNEL", channel.getName(), channel);
+        configHotReloadService.notifyChange(ConfigHotReloadService.TYPE_LLM_CHANNEL, channel.getName());
         return repository.findById(id);
     }
 
@@ -60,6 +66,7 @@ public class LlmChannelAdminService {
         LlmChannelVO existing = requireChannel(id);
         repository.deleteById(id);
         audit("DELETE_LLM_CHANNEL", existing.getName(), null);
+        configHotReloadService.notifyChange(ConfigHotReloadService.TYPE_LLM_CHANNEL, existing.getName());
     }
 
     public LlmChannelVO get(Long id) {

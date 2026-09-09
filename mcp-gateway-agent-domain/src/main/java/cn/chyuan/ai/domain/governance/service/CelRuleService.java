@@ -43,6 +43,10 @@ public class CelRuleService implements ICelRuleService {
     @Resource
     private ICelRuleRepository repository;
 
+    /** 懒解析：切片测试上下文可能未装配热更新协调（此时仅本地失效） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<ConfigHotReloadService> configHotReloadServiceProvider;
+
     @Resource
     private IAuditService auditService;
 
@@ -83,6 +87,7 @@ public class CelRuleService implements ICelRuleService {
         repository.insert(rule);
         audit("CREATE_RULE", String.valueOf(rule.getId()), null, rule);
         invalidateSnapshot();
+        notifyRuleChange(rule.getId());
         return rule;
     }
 
@@ -96,6 +101,7 @@ public class CelRuleService implements ICelRuleService {
         repository.update(rule);
         audit("UPDATE_RULE", String.valueOf(rule.getId()), before, rule);
         invalidateSnapshot();
+        notifyRuleChange(rule.getId());
         return repository.findById(rule.getId());
     }
 
@@ -108,6 +114,16 @@ public class CelRuleService implements ICelRuleService {
         repository.deleteById(id);
         audit("DELETE_RULE", String.valueOf(id), before, null);
         invalidateSnapshot();
+        notifyRuleChange(id);
+    }
+
+    /** 跨实例广播规则变更（协调服务未装配时仅本地失效） */
+    private void notifyRuleChange(Long id) {
+        ConfigHotReloadService coordinator = configHotReloadServiceProvider == null ? null
+                : configHotReloadServiceProvider.getIfAvailable();
+        if (coordinator != null) {
+            coordinator.notifyChange(ConfigHotReloadService.TYPE_CEL_RULE, String.valueOf(id));
+        }
     }
 
     @Override

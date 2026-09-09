@@ -69,6 +69,9 @@ public interface IAdminGovernanceService {
     /** 仅校验表达式（不落库），返回 null 表示合法 */
     String validateCelExpression(String expression);
 
+    /** 假想调用上下文试跑表达式（playground，不落库不计数） */
+    cn.chyuan.ai.api.dto.CelDryRunResponseDTO celDryRun(cn.chyuan.ai.api.dto.CelDryRunRequestDTO requestDTO);
+
     ResponsePage<List<CelRuleResponseDTO>> pageCelRules(String keyword, int page, int size);
 
     // ---- 用量账本（工单 0046）----

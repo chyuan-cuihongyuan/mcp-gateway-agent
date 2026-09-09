@@ -201,6 +201,13 @@ public class AdminGovernanceController {
         return Response.success(adminGovernanceService.validateCelExpression(expression));
     }
 
+    /** 假想调用上下文试跑（工单 0076 playground）：不落库不计数 */
+    @PostMapping("/cel-rules/dry-run")
+    public Response<cn.chyuan.ai.api.dto.CelDryRunResponseDTO> celDryRun(
+            @RequestBody cn.chyuan.ai.api.dto.CelDryRunRequestDTO requestDTO) {
+        return Response.success(adminGovernanceService.celDryRun(requestDTO));
+    }
+
     /** 创建规则：保存时编译校验，非法表达式返回错误原因 */
     @PostMapping("/cel-rules")
     public Response<CelRuleResponseDTO> createCelRule(@RequestBody CelRuleUpsertRequestDTO requestDTO) {

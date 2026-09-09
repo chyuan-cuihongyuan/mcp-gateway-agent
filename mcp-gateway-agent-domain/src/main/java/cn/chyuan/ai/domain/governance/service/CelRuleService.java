@@ -247,4 +247,20 @@ public class CelRuleService implements ICelRuleService {
             return DryRunResult.runtimeError(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
     }
+
+    @Override
+    public DryRunResult dryRunWithContext(String expression, String gatewayId, String method,
+            String toolName, String toolSource, String jwtSub,
+            java.util.List<String> jwtRoles, String clientIp) {
+        // 组装与线上求值一致的变量面：有 JWT 身份时按 JWT 主体绑定，否则匿名空形
+        cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal principal = null;
+        if (jwtSub != null && !jwtSub.isBlank() || (jwtRoles != null && !jwtRoles.isEmpty())) {
+            principal = new cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal();
+            principal.setAuthType(cn.chyuan.ai.domain.governance.model.valobj.GovernancePrincipal.AuthType.JWT);
+            principal.setOwnerUserId(jwtSub);
+            principal.setRoles(jwtRoles == null ? List.of() : jwtRoles);
+            principal.setClientIp(clientIp);
+        }
+        return dryRun(expression, CelVariables.of(principal, gatewayId, method, toolName, toolSource));
+    }
 }

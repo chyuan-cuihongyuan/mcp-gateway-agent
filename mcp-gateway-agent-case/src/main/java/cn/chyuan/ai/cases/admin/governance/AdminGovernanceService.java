@@ -2,6 +2,8 @@ package cn.chyuan.ai.cases.admin.governance;
 
 import cn.chyuan.ai.api.IAdminGovernanceService;
 import cn.chyuan.ai.api.dto.AuditLogResponseDTO;
+import cn.chyuan.ai.api.dto.CelDryRunRequestDTO;
+import cn.chyuan.ai.api.dto.CelDryRunResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleResponseDTO;
 import cn.chyuan.ai.api.dto.CelRuleUpsertRequestDTO;
 import cn.chyuan.ai.api.dto.LoginRequestDTO;
@@ -246,6 +248,24 @@ public class AdminGovernanceService implements IAdminGovernanceService {
     @Override
     public String validateCelExpression(String expression) {
         return celRuleService.validateExpression(expression);
+    }
+
+    @Override
+    public CelDryRunResponseDTO celDryRun(CelDryRunRequestDTO requestDTO) {
+        ICelRuleService.DryRunResult result = celRuleService.dryRunWithContext(
+                requestDTO.getExpression(),
+                requestDTO.getGatewayId(),
+                requestDTO.getMethod(),
+                requestDTO.getToolName(),
+                requestDTO.getToolSource(),
+                requestDTO.getJwtSub(),
+                requestDTO.getJwtRoles(),
+                requestDTO.getClientIp());
+        CelDryRunResponseDTO dto = new CelDryRunResponseDTO();
+        dto.setOutcome(result.outcome());
+        dto.setAllowed(result.allowed());
+        dto.setDetail(result.detail());
+        return dto;
     }
 
     // ---- 用量账本（工单 0046）----

@@ -168,4 +168,31 @@ public class CelRuleServiceTest {
                 "auth", java.util.Map.of(), "key", java.util.Map.of(),
                 "jwt", java.util.Map.of(), "client", java.util.Map.of())).outcome());
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("假想上下文 dry-run（0076 playground）— 身份/来源/IP 变量与线上绑定一致")
+    void dryRunWithContextOutcomes() {
+        // JWT 身份 + 角色 + 内网 IP：身份条件规则放行
+        org.junit.jupiter.api.Assertions.assertEquals("PASS",
+                service.dryRunWithContext(
+                        "\"admin\" in jwt.roles && client.ip.startsWith(\"10.\") && mcp.tool.target == \"admin-tools\"",
+                        "gateway_001", "tools/call", "dropTable", "admin-tools",
+                        "user-1", java.util.List.of("admin"), "10.0.0.8").outcome());
+        // 同表达式：无 JWT 身份（匿名空形）→ 拒绝
+        org.junit.jupiter.api.Assertions.assertEquals("DENIED",
+                service.dryRunWithContext(
+                        "\"admin\" in jwt.roles && client.ip.startsWith(\"10.\") && mcp.tool.target == \"admin-tools\"",
+                        "gateway_001", "tools/call", "dropTable", "admin-tools",
+                        null, null, "10.0.0.8").outcome());
+        // 来源渠道变量：外部挂接名直达 mcp.tool.target
+        org.junit.jupiter.api.Assertions.assertEquals("PASS",
+                service.dryRunWithContext("mcp.tool.target == \"partner-mcp\"",
+                        null, null, "queryOrder", "partner-mcp", null, null, null).outcome());
+        // 空表达式：编译错误
+        org.junit.jupiter.api.Assertions.assertEquals("COMPILE_ERROR",
+                service.dryRunWithContext("  ", null, null, null, null, null, null, null).outcome());
+        // 非布尔结果：运行时错误
+        org.junit.jupiter.api.Assertions.assertEquals("RUNTIME_ERROR",
+                service.dryRunWithContext("mcp.tool.name", null, null, "t1", null, null, null, null).outcome());
+    }
 }

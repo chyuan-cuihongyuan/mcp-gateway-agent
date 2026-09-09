@@ -43,6 +43,15 @@ public interface ICelRuleService {
     DryRunResult dryRun(String expression, Map<String, Object> variables);
 
     /**
+     * 假想调用上下文试跑（工单 0076：治理台 playground 入口）：
+     * 由工具名/来源渠道/网关/JWT 身份/客户端 IP 组装完整变量面后求值，
+     * 与线上求值共用 CelVariables 绑定，试出的行为与线上一致。
+     */
+    DryRunResult dryRunWithContext(String expression, String gatewayId, String method,
+            String toolName, String toolSource, String jwtSub,
+            java.util.List<String> jwtRoles, String clientIp);
+
+    /**
      * dry-run 结果：PASS/DENY 为正常求值；COMPILE_ERROR/RUNTIME_ERROR 为故障形态
      * （与线上 fail-closed 语义对应——线上故障即拒绝）。
      */

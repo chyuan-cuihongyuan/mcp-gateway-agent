@@ -53,6 +53,18 @@ public class GuardrailChain {
     @Resource
     private IGuardrailRepository repository;
 
+    /** 指标（工单 0092/0093）：mask{type}/block{rule} 计数——切片测试可缺省 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<io.micrometer.core.instrument.MeterRegistry> meterRegistryProvider;
+
+    /** 事件发布（工单 0093：GUARDRAIL_BLOCKED 可订阅） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> eventPublisherProvider;
+
+    /** 阻断审计（工单 0093：SECURITY 型） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<IAuditService> auditServiceProvider;
+
     @Value("${governance.guardrail.snapshot-ttl-seconds:30}")
     private long snapshotTtlSeconds;
 
@@ -78,6 +90,8 @@ public class GuardrailChain {
         for (GuardrailVO rule : snapshotOf(traffic, mode)) {
             MatcherOutcome outcome = evaluateRule(rule, text);
             if (outcome.blocked()) {
+                countBlock(rule.getName());
+                publishBlockedEvent(traffic, rule.getName());
                 return new GuardrailOutcome(true, false, rule.getName(), text);
             }
             if (outcome.masked()) {
@@ -143,6 +157,9 @@ public class GuardrailChain {
     private MatcherOutcome maskPii(JSONObject config, String text) {
         boolean masked = false;
         String result = text;
+        // 遮蔽策略（工单 0092）：keepPrefix/keepSuffix 保留首尾明文，中间 ***；默认全遮蔽
+        int keepPrefix = Math.max(0, config.getIntValue("keepPrefix"));
+        int keepSuffix = Math.max(0, config.getIntValue("keepSuffix"));
         // 固定顺序：长模式在前（idcard 先于 bankcard/phone，避免长数字被短模式抢先吞掉）
         for (String key : new String[] {"idcard", "bankcard", "phone", "email"}) {
             Boolean toggle = config.getBoolean(key);
@@ -152,10 +169,63 @@ public class GuardrailChain {
             Matcher matcher = PII_PATTERNS.get(key).matcher(result);
             if (matcher.find()) {
                 masked = true;
-                result = matcher.replaceAll("[PII:" + key + "]");
+                final String replacement = keepPrefix == 0 && keepSuffix == 0
+                        ? "[PII:" + key + "]"
+                        : matcher.group().length() <= keepPrefix + keepSuffix
+                                ? "***"
+                                : matcher.group().substring(0, keepPrefix) + "***"
+                                        + matcher.group().substring(matcher.group().length() - keepSuffix);
+                result = matcher.replaceAll(java.util.regex.Matcher.quoteReplacement(replacement));
+                countMask(key);
             }
         }
         return new MatcherOutcome(false, masked, masked, result);
+    }
+
+    // ---- 指标 / 事件 / 审计（工单 0092/0093；全部尽力而为不 fail 流量） ----
+
+    private void countMask(String piiType) {
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.counter("gateway.guardrail.mask",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("type", piiType))).increment();
+        }
+    }
+
+    private void countBlock(String ruleName) {
+        io.micrometer.core.instrument.MeterRegistry registry = meterRegistry();
+        if (registry != null) {
+            registry.counter("gateway.guardrail.block",
+                    java.util.List.of(io.micrometer.core.instrument.Tag.of("rule", ruleName))).increment();
+        }
+    }
+
+    private io.micrometer.core.instrument.MeterRegistry meterRegistry() {
+        return meterRegistryProvider == null ? null : meterRegistryProvider.getIfAvailable();
+    }
+
+    private void publishBlockedEvent(String traffic, String ruleName) {
+        try {
+            cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher publisher =
+                    eventPublisherProvider == null ? null : eventPublisherProvider.getIfAvailable();
+            if (publisher != null) {
+                publisher.publish("GUARDRAIL_BLOCKED", java.util.Map.of(
+                        "traffic", traffic, "rule", ruleName, "timestamp", System.currentTimeMillis()));
+            }
+            IAuditService auditService =
+                    auditServiceProvider == null ? null : auditServiceProvider.getIfAvailable();
+            if (auditService != null) {
+                auditService.record(cn.chyuan.ai.domain.governance.model.entity.AuditCommandEntity.builder()
+                        .actor("system")
+                        .action("GUARDRAIL_BLOCKED")
+                        .resourceType("GUARDRAIL")
+                        .resourceId(ruleName)
+                        .afterJson("{\"traffic\":\"" + traffic + "\"}")
+                        .build());
+            }
+        } catch (Exception e) {
+            log.debug("护栏阻断事件/审计发布失败（不阻断）：{}", e.getMessage());
+        }
     }
 
     private MatcherOutcome keywordBlock(JSONObject config, String text) {

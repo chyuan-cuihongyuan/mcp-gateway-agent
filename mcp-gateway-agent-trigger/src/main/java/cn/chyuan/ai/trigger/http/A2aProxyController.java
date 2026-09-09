@@ -50,6 +50,9 @@ public class A2aProxyController {
     private final IBudgetService budgetService;
     private final IUsageLedgerService usageLedger;
 
+    /** 内容护栏链（工单 0093；可选注入） */
+    private final cn.chyuan.ai.domain.governance.service.GuardrailChain guardrailChain;
+
     @Value("${governance.a2a.upstream-base-url:}")
     private String upstreamBaseUrl;
 
@@ -60,12 +63,14 @@ public class A2aProxyController {
             org.springframework.beans.factory.ObjectProvider<ICelEvaluationService> celProvider,
             org.springframework.beans.factory.ObjectProvider<IQuotaService> quotaProvider,
             org.springframework.beans.factory.ObjectProvider<IBudgetService> budgetProvider,
-            org.springframework.beans.factory.ObjectProvider<IUsageLedgerService> ledgerProvider) {
+            org.springframework.beans.factory.ObjectProvider<IUsageLedgerService> ledgerProvider,
+            org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailProvider) {
         this.httpPort = httpPort;
         this.celEvaluationService = celProvider.getIfAvailable();
         this.quotaService = quotaProvider.getIfAvailable();
         this.budgetService = budgetProvider.getIfAvailable();
         this.usageLedger = ledgerProvider.getIfAvailable();
+        this.guardrailChain = guardrailProvider.getIfAvailable();
     }
 
     /** agent card 代理：透传上游 card 并把服务地址重写为网关（发现面免认证） */
@@ -92,6 +97,19 @@ public class A2aProxyController {
         }
         String method = jsonRpcMethodOf(body);
         admit(principal, response);
+
+        // 内容护栏 PRE_CALL（工单 0093）：阻断 -32018；脱敏改写后透传
+        if (guardrailChain != null && body != null && !body.isBlank()) {
+            cn.chyuan.ai.domain.governance.service.GuardrailChain.GuardrailOutcome outcome =
+                    guardrailChain.evaluate("A2A",
+                            cn.chyuan.ai.domain.governance.model.valobj.GuardrailVO.MODE_PRE_CALL, body);
+            if (outcome.blocked()) {
+                throw new AppException(McpErrorCodes.CONTENT_BLOCKED, "内容命中安全护栏：" + outcome.hitRule());
+            }
+            if (outcome.masked()) {
+                body = outcome.text();
+            }
+        }
 
         if (celEvaluationService != null && !celEvaluationService.isToolAllowed(
                 principal, TRAFFIC_A2A_GATEWAY, method, method, SOURCE_A2A)) {

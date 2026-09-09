@@ -37,7 +37,7 @@ public class A2aProxyControllerTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        controller = new A2aProxyController(httpPort, provider(celEvaluationService), provider(null), provider(null), provider(null));
+        controller = new A2aProxyController(httpPort, provider(celEvaluationService), provider(null), provider(null), provider(null), provider(null));
     }
 
     private static <T> org.springframework.beans.factory.ObjectProvider<T> provider(T value) {

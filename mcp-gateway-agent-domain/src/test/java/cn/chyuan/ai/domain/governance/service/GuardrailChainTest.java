@@ -121,4 +121,21 @@ class GuardrailChainTest {
         Assertions.assertEquals(List.of("kw"),
                 chain.explainHits("LLM", GuardrailVO.MODE_PRE_CALL, "a secret"));
     }
+
+    @Test
+    @DisplayName("遮蔽策略（0092）：keepPrefix/keepSuffix 保留首尾明文；过短整体 ***")
+    void maskKeepStrategy() {
+        Mockito.when(repository.findAll()).thenReturn(List.of(
+                rule("pii-keep", GuardrailVO.TYPE_PII_MASK, GuardrailVO.MODE_PRE_CALL, "ALL",
+                        "{\"keepPrefix\":3,\"keepSuffix\":2}")));
+        GuardrailChain.GuardrailOutcome outcome = chain.evaluate("LLM", GuardrailVO.MODE_PRE_CALL,
+                "13812345678");
+        Assertions.assertTrue(outcome.masked());
+        Assertions.assertEquals("138***78", outcome.text());
+
+        Mockito.when(repository.findAll()).thenReturn(List.of(
+                rule("pii-keep", GuardrailVO.TYPE_PII_MASK, GuardrailVO.MODE_PRE_CALL, "ALL",
+                        "{\"keepPrefix\":8,\"keepSuffix\":8}")));
+        Assertions.assertEquals("***", chain.evaluate("LLM", GuardrailVO.MODE_PRE_CALL, "13812345678").text());
+    }
 }

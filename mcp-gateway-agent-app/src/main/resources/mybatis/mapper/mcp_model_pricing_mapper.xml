@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IModelPricingDao">
+
+    <resultMap id="McpModelPricingMap" type="cn.chyuan.ai.infrastructure.dao.po.McpModelPricingPO">
+        <id column="id" property="id"/>
+        <result column="model" property="model"/>
+        <result column="input_cost_per_m" property="inputCostPerM"/>
+        <result column="output_cost_per_m" property="outputCostPerM"/>
+        <result column="currency" property="currency"/>
+        <result column="enabled" property="enabled"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="all_columns">
+        id, model, input_cost_per_m, output_cost_per_m, currency, enabled, remark, create_time, update_time
+    </sql>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpModelPricingPO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_model_pricing (model, input_cost_per_m, output_cost_per_m, currency, enabled, remark)
+        VALUES (#{model}, #{inputCostPerM}, #{outputCostPerM}, #{currency}, #{enabled}, #{remark})
+    </insert>
+
+    <update id="update" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpModelPricingPO">
+        UPDATE mcp_model_pricing
+        SET input_cost_per_m = #{inputCostPerM},
+            output_cost_per_m = #{outputCostPerM},
+            currency = #{currency},
+            enabled = #{enabled},
+            remark = #{remark}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_model_pricing WHERE id = #{id}
+    </delete>
+
+    <select id="queryAll" resultMap="McpModelPricingMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_model_pricing
+        ORDER BY model
+    </select>
+
+    <select id="queryByModel" resultMap="McpModelPricingMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_model_pricing
+        WHERE model = #{model}
+    </select>
+
+    <select id="queryById" resultMap="McpModelPricingMap">
+        SELECT <include refid="all_columns"/>
+        FROM mcp_model_pricing
+        WHERE id = #{id}
+    </select>
+
+</mapper>

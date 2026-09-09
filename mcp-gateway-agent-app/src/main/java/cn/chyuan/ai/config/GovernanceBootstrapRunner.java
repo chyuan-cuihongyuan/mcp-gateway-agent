@@ -42,12 +42,51 @@ public class GovernanceBootstrapRunner implements ApplicationRunner {
     @Resource
     private ICelTemplateRepository celTemplateRepository;
 
+    @Resource
+    private cn.chyuan.ai.domain.governance.adapter.repository.IModelPricingRepository modelPricingRepository;
+
     @Override
     public void run(ApplicationArguments args) {
         bootstrapAdminUser();
         ensureSuperAdminExists();
         migrateLegacyKeys();
         seedBuiltinCelTemplates();
+        seedDefaultPricing();
+    }
+
+    /**
+     * 常见模型计价种子（工单 0085：幂等——按模型名跳过已存在，改价不被覆盖；
+     * 示例价为占位口径，上线后以运营数据校准）。
+     */
+    private void seedDefaultPricing() {
+        try {
+            int seeded = 0;
+            for (String[] entry : new String[][] {
+                    {"deepseek-chat", "2.0000", "8.0000"},
+                    {"deepseek-reasoner", "4.0000", "16.0000"},
+                    {"qwen-plus", "0.8000", "2.0000"},
+                    {"qwen-turbo", "0.3000", "0.6000"},
+                    {"glm-4-plus", "5.0000", "5.0000"},
+                    {"text-embedding-v4", "0.5000", "0.0000"},
+            }) {
+                if (modelPricingRepository.findByModel(entry[0]) == null) {
+                    modelPricingRepository.insert(cn.chyuan.ai.domain.governance.model.valobj.ModelPricingVO.builder()
+                            .model(entry[0])
+                            .inputCostPerM(new java.math.BigDecimal(entry[1]))
+                            .outputCostPerM(new java.math.BigDecimal(entry[2]))
+                            .currency("CNY")
+                            .enabled(1)
+                            .remark("内置种子（示例价，请按上游账单校准）")
+                            .build());
+                    seeded++;
+                }
+            }
+            if (seeded > 0) {
+                log.info("已种子常见模型计价 {} 条（幂等，已存在跳过）", seeded);
+            }
+        } catch (Exception e) {
+            log.warn("模型计价种子跳过：{}（表未建时先执行 DDL 文档 20）", e.getMessage());
+        }
     }
 
     private void bootstrapAdminUser() {

@@ -45,8 +45,20 @@ public class LlmChatServiceTest {
     @Mock
     private IUsageLedgerService usageLedger;
 
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort> responseCacheProvider;
+
+    @Mock
+    private cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort responseCache;
+
     @InjectMocks
     private LlmChatService service;
+
+    private void stubCacheAvailable() {
+        lenient().when(responseCacheProvider.getIfAvailable()).thenReturn(responseCache);
+        lenient().when(responseCache.available()).thenReturn(true);
+        lenient().when(responseCache.cacheKey(any(), anyString(), anyString())).thenReturn("k-test");
+    }
 
     private static LlmChannelVO channel(long id, String name, int priority, String models, String mapping) {
         return LlmChannelVO.builder()
@@ -233,5 +245,59 @@ public class LlmChatServiceTest {
                 principal(), "{\"model\":\"m\",\"stream\":true,\"messages\":[]}", replay::add));
         assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), broken.getCode());
         org.junit.jupiter.api.Assertions.assertEquals(1, replay.size(), "已出流内容不重放");
+    }
+
+    @Test
+    @DisplayName("精确缓存（0097）：命中零上游调用 + CACHE_HIT 记账；未命中写缓存")
+    public void testCacheHitAndMiss() throws Exception {
+        stubCacheAvailable();
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelRepository.findEnabled()).thenReturn(List.of(channel(1L, "primary", 0, "deepseek-chat", null)));
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"y\",\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2}}");
+
+        // 首次：未命中（get null）→ 上游 1 次 → 写缓存
+        when(responseCache.get("k-test")).thenReturn(null);
+        String body = "{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}";
+        service.chatCompletion(principal(), body);
+        verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+        verify(responseCache).put(eq("k-test"), anyString());
+
+        // 二次：命中 → 零上游调用 + CACHE_HIT 账本（零 token）
+        when(responseCache.get("k-test"))
+                .thenReturn("{\"id\":\"cached\",\"choices\":[]}");
+        service.chatCompletion(principal(), body);
+        verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+        verify(usageLedger, atLeastOnce()).record(argThat(rec ->
+                "CACHE_HIT".equals(rec.getStatus())
+                        && Long.valueOf(0L).equals(rec.getPromptTokens())
+                        && rec.getCost() == null));
+    }
+
+    @Test
+    @DisplayName("缓存不可用（Redis 缺省）：直通上游零缓存交互")
+    public void testCacheUnavailablePassthrough() throws Exception {
+        lenient().when(responseCacheProvider.getIfAvailable()).thenReturn(null);
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelRepository.findEnabled()).thenReturn(List.of(channel(1L, "primary", 0, "deepseek-chat", null)));
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"z\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+
+        service.chatCompletion(principal(), "{\"model\":\"deepseek-chat\",\"messages\":[]}");
+        verifyNoInteractions(responseCache);
     }
 }

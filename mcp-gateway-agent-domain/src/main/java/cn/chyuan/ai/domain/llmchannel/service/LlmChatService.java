@@ -69,6 +69,9 @@ public class LlmChatService {
     /** 本次请求线程的成本（工单 0086 响应头消费；读后即清） */
     private static final ThreadLocal<java.math.BigDecimal> LAST_COST = new ThreadLocal<>();
 
+    /** 本次请求是否命中缓存（工单 0097 响应头 X-Gateway-Cache 消费；读后即清） */
+    private static final ThreadLocal<Boolean> LAST_CACHE_HIT = new ThreadLocal<>();
+
     /** 金额软线告警标记（工单 0087 响应头消费；读后即清） */
     private static final ThreadLocal<Boolean> LAST_COST_WARNING = new ThreadLocal<>();
 
@@ -79,6 +82,10 @@ public class LlmChatService {
     /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
+
+    /** 响应精确缓存（工单 0097；切片测试上下文可缺省=缓存直通） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort> responseCacheProvider;
 
     /** 审计（工单 0095 跳过留痕；切片测试上下文可缺省） */
     @Resource
@@ -103,6 +110,15 @@ public class LlmChatService {
         if (!celEvaluationService.isToolAllowed(principal, TRAFFIC_LLM_GATEWAY,
                 "chat/completions", model, SOURCE_LLM)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
+        }
+
+        // 精确缓存（工单 0097）：命中即原样返回（CACHE_HIT 记账零 token 零成本），不触上游
+        String cacheKey = cacheKeyOf(principal, model, request);
+        String cached = cacheKey == null ? null : cacheGet(cacheKey);
+        if (cached != null) {
+            recordCacheHit(principal, model, cached);
+            LAST_CACHE_HIT.set(Boolean.TRUE);
+            return cached;
         }
 
         List<LlmChannelVO> candidates = candidatesFor(model);
@@ -134,6 +150,9 @@ public class LlmChatService {
                     response = applyResponseGuardrails(response);
                     recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
                     consumeTpmQuietly(principal, response);
+                    if (cacheKey != null) {
+                        cachePut(cacheKey, response);
+                    }
                     return response;
                 }
                 lastError = "渠道 " + channel.getName() + " 返回 " + status;
@@ -434,6 +453,50 @@ public class LlmChatService {
         } catch (Exception e) {
             log.debug("护栏跳过审计失败（不阻断）：{}", e.getMessage());
         }
+    }
+
+    // ---- 精确缓存（工单 0097；0098 扩展字段白名单与请求级覆盖） ----
+
+    /** 缓存键：vk 隔离 + model + 参与字段规范化（messages/temperature/top_p 原样序列化） */
+    private String cacheKeyOf(GovernancePrincipal principal, String model, JSONObject request) {
+        cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort cache =
+                responseCacheProvider == null ? null : responseCacheProvider.getIfAvailable();
+        if (cache == null || !cache.available()) {
+            return null;
+        }
+        JSONObject participation = new JSONObject();
+        participation.put("messages", request.get("messages"));
+        participation.put("temperature", request.get("temperature"));
+        participation.put("top_p", request.get("top_p"));
+        return cache.cacheKey(principal == null ? null : principal.getVirtualKeyId(),
+                model, participation.toJSONString());
+    }
+
+    private String cacheGet(String cacheKey) {
+        cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort cache =
+                responseCacheProvider == null ? null : responseCacheProvider.getIfAvailable();
+        return cache == null ? null : cache.get(cacheKey);
+    }
+
+    private void cachePut(String cacheKey, String response) {
+        cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort cache =
+                responseCacheProvider == null ? null : responseCacheProvider.getIfAvailable();
+        if (cache != null) {
+            cache.put(cacheKey, response);
+        }
+    }
+
+    /** 命中记账（工单 0097）：CACHE_HIT + 零 token 零成本 */
+    private void recordCacheHit(GovernancePrincipal principal, String model, String cached) {
+        recordUsageTokens(principal, model, "cache", "CACHE_HIT", 0, 0L, 0L);
+        log.debug("LLM 缓存命中 model={} bytes={}", model, cached.length());
+    }
+
+    /** 取出并清除缓存命中标记（响应头消费；无则 false） */
+    public boolean consumeLastCacheHit() {
+        boolean hit = Boolean.TRUE.equals(LAST_CACHE_HIT.get());
+        LAST_CACHE_HIT.remove();
+        return hit;
     }
 
     /** 护栏跳过（工单 0095）：admin 授权密钥 + X-Gateway-Skip-Guardrails 头才生效（标记由认证过滤器写入 principal） */

@@ -99,7 +99,7 @@
         </where>
         ORDER BY update_time DESC
         <if test="limitStart != null and limitCount != null">
-            LIMIT #{limitStart}, #{limitCount}
+            LIMIT #{limitCount} OFFSET #{limitStart}
         </if>
     </select>
 

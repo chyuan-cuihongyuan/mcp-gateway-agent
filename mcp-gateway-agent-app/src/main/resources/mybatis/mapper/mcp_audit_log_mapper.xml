@@ -36,7 +36,7 @@
             </if>
         </where>
         ORDER BY id DESC
-        LIMIT #{limitStart}, #{limitCount}
+        LIMIT #{limitCount} OFFSET #{limitStart}
     </select>
 
     <select id="queryCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpAuditLogPO" resultType="java.lang.Long">

@@ -27,7 +27,8 @@
             auth_config         = #{authConfig},
             connect_status      = 'UNKNOWN',
             connect_error       = NULL,
-            connect_time        = NULL
+            connect_time        = NULL,
+            update_time         = NOW()
         WHERE id = #{id}
     </update>
 
@@ -65,7 +66,7 @@
 
     <update id="updateChannelHealth">
         UPDATE mcp_external_attach
-        SET test_time = NOW(), response_time_ms = #{responseTimeMs}, updated_at = NOW()
+        SET test_time = NOW(), response_time_ms = #{responseTimeMs}, update_time = NOW()
         WHERE id = #{id}
     </update>
 
@@ -75,14 +76,14 @@
         SET status = #{status},
             cooldown_until = #{cooldownUntil},
             fail_connect = 0, fail_timeout = 0, fail_http = 0,
-            updated_at = NOW()
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
     <!-- 被动熔断计数递增（0059） -->
     <update id="incrementChannelFailure">
         UPDATE mcp_external_attach
-        SET ${column} = ${column} + 1, updated_at = NOW()
+        SET ${column} = ${column} + 1, update_time = NOW()
         WHERE id = #{id}
     </update>
 
@@ -105,7 +106,8 @@
         UPDATE mcp_external_attach
         SET connect_status = #{connectStatus},
             connect_error  = #{connectError},
-            connect_time   = NOW()
+            connect_time   = NOW(),
+            update_time    = NOW()
         WHERE id = #{id}
     </update>
 

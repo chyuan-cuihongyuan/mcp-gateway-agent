@@ -18,9 +18,16 @@
         VALUES (#{code}, #{name}, #{expression}, #{variablesDesc}, #{builtin})
     </insert>
 
-    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id">
+    <!-- 幂等种子：唯一键冲突即跳过。双方言（工单 0126）：冲突键 uk_template_code -->
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id" databaseId="mysql">
         INSERT IGNORE INTO mcp_cel_rule_template (code, name, expression, variables_desc, builtin)
         VALUES (#{po.code}, #{po.name}, #{po.expression}, #{po.variablesDesc}, #{po.builtin})
+    </insert>
+
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id" databaseId="postgresql">
+        INSERT INTO mcp_cel_rule_template (code, name, expression, variables_desc, builtin)
+        VALUES (#{po.code}, #{po.name}, #{po.expression}, #{po.variablesDesc}, #{po.builtin})
+        ON CONFLICT (code) DO NOTHING
     </insert>
 
     <update id="update">

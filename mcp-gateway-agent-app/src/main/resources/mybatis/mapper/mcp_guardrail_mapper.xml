@@ -28,7 +28,8 @@
             config = #{config},
             traffic_mask = #{trafficMask},
             priority = #{priority},
-            enabled = #{enabled}
+            enabled = #{enabled},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 

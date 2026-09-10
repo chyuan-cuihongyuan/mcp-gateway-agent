@@ -16,10 +16,25 @@
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO">
+    <!-- upsert 双方言（工单 0126）：冲突键 tool_id（uk_tool_id，支持同 tool 迁移网关） -->
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" databaseId="mysql">
         INSERT INTO mcp_gateway_tool (gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type)
         VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolDescription}, #{toolVersion}, #{protocolId}, #{protocolType})
         ON DUPLICATE KEY UPDATE
+        gateway_id = #{gatewayId},
+        tool_name = #{toolName},
+        tool_type = #{toolType},
+        tool_description = #{toolDescription},
+        tool_version = #{toolVersion},
+        protocol_id = #{protocolId},
+        protocol_type = #{protocolType},
+        update_time = NOW()
+    </insert>
+
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpGatewayToolPO" databaseId="postgresql">
+        INSERT INTO mcp_gateway_tool (gateway_id, tool_id, tool_name, tool_type, tool_description, tool_version, protocol_id, protocol_type)
+        VALUES (#{gatewayId}, #{toolId}, #{toolName}, #{toolType}, #{toolDescription}, #{toolVersion}, #{protocolId}, #{protocolType})
+        ON CONFLICT (tool_id) DO UPDATE SET
         gateway_id = #{gatewayId},
         tool_name = #{toolName},
         tool_type = #{toolType},
@@ -86,7 +101,7 @@
         </where>
         ORDER BY update_time DESC
         <if test="limitStart != null and limitCount != null">
-            LIMIT #{limitStart}, #{limitCount}
+            LIMIT #{limitCount} OFFSET #{limitStart}
         </if>
     </select>
 

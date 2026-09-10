@@ -75,7 +75,9 @@
                 #{completionTokens}, #{cost}, #{tags}, #{cacheHit}, #{clientIp}, #{sessionId}, NOW())
     </insert>
 
-    <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO">
+    <!-- 日聚合累加 upsert 双方言（工单 0126）：冲突键 = uk_daily_dim 四维；
+         PG 用 ON CONFLICT + EXCLUDED 引用拟插入行做累加 -->
+    <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO" databaseId="mysql">
         INSERT INTO mcp_usage_daily (stat_date, virtual_key_id, tool_or_model, channel_id,
                                      call_count, fail_count, total_duration_ms, token_sum)
         VALUES (#{statDate}, #{virtualKeyId}, #{toolOrModel}, #{channelId},
@@ -88,6 +90,19 @@
             updated_at = NOW()
     </insert>
 
+    <insert id="upsertDaily" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpUsageDailyPO" databaseId="postgresql">
+        INSERT INTO mcp_usage_daily (stat_date, virtual_key_id, tool_or_model, channel_id,
+                                     call_count, fail_count, total_duration_ms, token_sum)
+        VALUES (#{statDate}, #{virtualKeyId}, #{toolOrModel}, #{channelId},
+                #{callCount}, #{failCount}, #{totalDurationMs}, #{tokenSum})
+        ON CONFLICT (stat_date, virtual_key_id, tool_or_model, channel_id) DO UPDATE SET
+            call_count = mcp_usage_daily.call_count + EXCLUDED.call_count,
+            fail_count = mcp_usage_daily.fail_count + EXCLUDED.fail_count,
+            total_duration_ms = mcp_usage_daily.total_duration_ms + EXCLUDED.total_duration_ms,
+            token_sum = mcp_usage_daily.token_sum + EXCLUDED.token_sum,
+            updated_at = NOW()
+    </insert>
+
     <select id="pageLogs" parameterType="map" resultMap="McpUsageLogMap">
         SELECT id, request_id, virtual_key_id, api_key_hash, gateway_id, traffic_type,
                tool_or_model, channel_id, status, duration_ms, prompt_tokens,
@@ -95,7 +110,7 @@
         FROM mcp_usage_log
         <include refid="log_query_conditions"/>
         ORDER BY id DESC
-        LIMIT #{limitStart}, #{limitCount}
+        LIMIT #{limitCount} OFFSET #{limitStart}
     </select>
 
     <select id="countLogs" parameterType="map" resultType="java.lang.Long">

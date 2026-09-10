@@ -15,7 +15,8 @@
             scope_type     = #{scopeType},
             gateway_id     = #{gatewayId},
             virtual_key_id = #{virtualKeyId},
-            status         = #{status}
+            status         = #{status},
+            updated_at     = NOW()
         WHERE id = #{id}
     </update>
 
@@ -51,7 +52,7 @@
             </if>
         </where>
         ORDER BY id DESC
-        LIMIT #{offset}, #{size}
+        LIMIT #{size} OFFSET #{offset}
     </select>
 
     <select id="count" resultType="java.lang.Long">

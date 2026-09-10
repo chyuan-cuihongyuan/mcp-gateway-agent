@@ -53,7 +53,7 @@
     </delete>
 
     <update id="updateBalance">
-        UPDATE mcp_llm_channel SET balance = #{balance}, balance_time = #{balanceTime}
+        UPDATE mcp_llm_channel SET balance = #{balance}, balance_time = #{balanceTime}, update_time = NOW()
         WHERE id = #{id}
     </update>
 

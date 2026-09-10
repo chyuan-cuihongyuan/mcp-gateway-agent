@@ -16,7 +16,7 @@ public interface IUsageDao {
 
     int insertLog(McpUsageLogPO po);
 
-    /** 日聚合增量 upsert（ON DUPLICATE KEY UPDATE 累加） */
+    /** 日聚合增量 upsert 累加（双方言：MySQL ON DUPLICATE KEY / PG ON CONFLICT+EXCLUDED，工单 0126） */
     int upsertDaily(McpUsageDailyPO po);
 
     List<McpUsageLogPO> pageLogs(Map<String, Object> params);

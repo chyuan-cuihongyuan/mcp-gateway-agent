@@ -43,7 +43,8 @@
         created_at, updated_at
     </sql>
 
-    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id">
+    <!-- 双方言（工单 0126）：预算窗口起点 DATE_ADD(INTERVAL) 为 MySQL 专有，PG 用 make_interval -->
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id" databaseId="mysql">
         INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
                                      rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
                                      ip_allow_list, budget_soft, budget_hard, budget_duration_hours,
@@ -59,17 +60,40 @@
                 </if>)
     </insert>
 
-    <!-- 存量迁移专用：唯一键冲突即跳过（幂等） -->
-    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id">
+    <insert id="insert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" useGeneratedKeys="true" keyProperty="id" databaseId="postgresql">
+        INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
+                                     rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
+                                     ip_allow_list, budget_soft, budget_hard, budget_duration_hours,
+                                     budget_reset_at)
+        VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
+                #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit},
+                #{ipAllowList}, #{budgetSoft}, #{budgetHard}, #{budgetDurationHours},
+                <if test="budgetHard != null and budgetDurationHours != null">
+                    NOW() + make_interval(hours =&gt; #{budgetDurationHours}::int)
+                </if>
+                <if test="budgetHard == null or budgetDurationHours == null">
+                    NULL
+                </if>)
+    </insert>
+
+    <!-- 存量迁移专用：唯一键冲突即跳过（幂等）。双方言（工单 0126）：冲突键 uk_api_key_hash -->
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id" databaseId="mysql">
         INSERT IGNORE INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, status, expires_at, rpm_limit)
         VALUES (#{po.apiKeyHash}, #{po.keyName}, #{po.ownerUserId}, #{po.status}, #{po.expiresAt}, #{po.rpmLimit})
+    </insert>
+
+    <insert id="insertIgnore" useGeneratedKeys="true" keyProperty="po.id" databaseId="postgresql">
+        INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, status, expires_at, rpm_limit)
+        VALUES (#{po.apiKeyHash}, #{po.keyName}, #{po.ownerUserId}, #{po.status}, #{po.expiresAt}, #{po.rpmLimit})
+        ON CONFLICT (api_key_hash) DO NOTHING
     </insert>
 
     <update id="updateStatus">
         UPDATE mcp_virtual_key SET status = #{status}, updated_at = NOW() WHERE id = #{id}
     </update>
 
-    <update id="updateMeta" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO">
+    <!-- 双方言（工单 0126）：CASE 内预算窗口起点表达式分叉，其余列两库一致 -->
+    <update id="updateMeta" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" databaseId="mysql">
         UPDATE mcp_virtual_key
         SET key_name = #{keyName},
             owner_user_id = #{ownerUserId},
@@ -97,21 +121,60 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updateMeta" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" databaseId="postgresql">
+        UPDATE mcp_virtual_key
+        SET key_name = #{keyName},
+            owner_user_id = #{ownerUserId},
+            tenant_id = #{tenantId},
+            expires_at = #{expiresAt},
+            rpm_limit = #{rpmLimit},
+            daily_request_limit = #{dailyRequestLimit},
+            daily_tool_call_limit = #{dailyToolCallLimit},
+            tpm_limit = #{tpmLimit},
+            daily_cost_limit = #{dailyCostLimit},
+            ip_allow_list = #{ipAllowList},
+            budget_soft = #{budgetSoft},
+            budget_hard = #{budgetHard},
+            budget_duration_hours = #{budgetDurationHours},
+            budget_reset_at = CASE
+                WHEN #{budgetHard} IS NULL OR #{budgetDurationHours} IS NULL THEN NULL
+                WHEN #{budgetResetAt} IS NULL THEN NOW() + make_interval(hours =&gt; #{budgetDurationHours}::int)
+                ELSE budget_reset_at
+            END,
+            budget_used = CASE WHEN #{budgetHard} IS NULL THEN 0 ELSE budget_used END,
+            cost_soft_limit = #{costSoftLimit},
+            cost_hard_limit = #{costHardLimit},
+            skip_guardrail_allowed = #{skipGuardrailAllowed},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
     <!-- 最后活跃去抖更新（认证路径低频调用，工单 0045） -->
     <update id="touchLastActive">
-        UPDATE mcp_virtual_key SET last_active_at = NOW() WHERE id = #{id}
+        UPDATE mcp_virtual_key SET last_active_at = NOW(), updated_at = NOW() WHERE id = #{id}
     </update>
 
     <!-- 预算窗口惰性重置 + 已用递增（工单 0050） -->
-    <update id="resetBudgetWindow">
+    <!-- 预算窗口惰性重置：双方言（工单 0126）——DATE_ADD(INTERVAL) 为 MySQL 专有，
+         PG 用 make_interval 换算（budget_duration_hours 为列值，非字面量） -->
+    <update id="resetBudgetWindow" databaseId="mysql">
         UPDATE mcp_virtual_key
         SET budget_used = 0,
-            budget_reset_at = DATE_ADD(NOW(), INTERVAL budget_duration_hours HOUR)
+            budget_reset_at = DATE_ADD(NOW(), INTERVAL budget_duration_hours HOUR),
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="resetBudgetWindow" databaseId="postgresql">
+        UPDATE mcp_virtual_key
+        SET budget_used = 0,
+            budget_reset_at = NOW() + make_interval(hours => budget_duration_hours::int),
+            updated_at = NOW()
         WHERE id = #{id}
     </update>
 
     <update id="incrementBudgetUsed">
-        UPDATE mcp_virtual_key SET budget_used = budget_used + 1 WHERE id = #{id}
+        UPDATE mcp_virtual_key SET budget_used = budget_used + 1, updated_at = NOW() WHERE id = #{id}
     </update>
 
     <!-- 临时提额（工单 0052：增量并入当前生效硬线，到期惰性回落由查询 CASE 处理） -->
@@ -163,7 +226,7 @@
             </if>
         </where>
         ORDER BY id DESC
-        LIMIT #{limitStart}, #{limitCount}
+        LIMIT #{limitCount} OFFSET #{limitStart}
     </select>
 
     <select id="queryCount" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpVirtualKeyPO" resultType="java.lang.Long">

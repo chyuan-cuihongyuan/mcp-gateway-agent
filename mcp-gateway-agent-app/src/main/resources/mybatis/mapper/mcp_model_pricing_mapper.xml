@@ -29,7 +29,8 @@
             output_cost_per_m = #{outputCostPerM},
             currency = #{currency},
             enabled = #{enabled},
-            remark = #{remark}
+            remark = #{remark},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 

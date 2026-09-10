@@ -40,6 +40,13 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
         </dependency>
+        <!-- PostgreSQL 驱动（三期 PG 双轨，工单 0122）。BOM 已纳管但因 mvn install 门禁
+             无法重装本地仓库，按 0081 先例在模块 pom 显式钉版，口径与 platform-bom 一致 -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.13</version>
+        </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>

@@ -31,6 +31,15 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 30000
       connection-test-query: SELECT 1
+    # ── PostgreSQL 切换模板（三期 PG 双轨，工单 0122）────────────────────
+    # 切 PG 时将上方 url / driver-class-name / username / password 替换为：
+    #   username: ${POSTGRESQL_USERNAME:<your-username>}
+    #   password: ${POSTGRESQL_PASSWORD:<your-password>}
+    #   url: ${POSTGRESQL_URL:jdbc:postgresql://<your-host>:5432/<database>?currentSchema=public}
+    #   driver-class-name: org.postgresql.Driver
+    # 连接池与 connection-test-query: SELECT 1 对 PG 同样适用；
+    # 建表脚本：dev-ops/postgresql/01-gateway-seed.sql（MySQL 版见 dev-ops/mysql/）。
+    # ─────────────────────────────────────────────────────────────────────
   # Spring AI OpenAI 配置
   ai:
     openai:

@@ -71,6 +71,9 @@ governance:
   jwt:
     ttl-seconds: 7200      # admin 登录 JWT 有效期（默认 2h）
     jwks-url:              # 远程 JWKS 校验源（未配置时用内嵌签发，重启后旧 token 失效）
+  migration:               # DDL 版本化迁移（三期工单 0125）：仅 PostgreSQL 方言生效
+    enabled: true          # 启动时按序执行 db/changelog/postgresql/ 未应用脚本
+    baseline-version: 0001 # 存量 PG 库（核心表在而 schema_version 空）整体收编到该版本
 # 环境变量（admin 用户引导，仅首次建库生效）：
 #   GOVERNANCE_ADMIN_PASSWORD=<初始密码>
 # 建表：resources/sql/governance-schema.sql（幂等可重复执行）

@@ -670,12 +670,6 @@ public class LlmChatService {
         }
     }
 
-    /** 标签落库形（工单 0088）：principal 头来源 + 请求体 metadata.tags 已并入 */
-    private static String tagStorageOf(GovernancePrincipal principal) {
-        return principal == null ? null
-                : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
-    }
-
     /**
      * 记账标签（工单 0160）：principal 原有标签之上，命中 tag 路由补 "route:&lt;group&gt;"，
      * fallback 链降级补 "fallback"（工单 0155），供账本侧按标签统计路由/降级流量。

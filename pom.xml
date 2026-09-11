@@ -50,6 +50,12 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- springdoc-openapi 3.x（Boot 4 / Framework 7 适配线，D06） -->
+      <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>3.1.1</version>
+      </dependency>
       <!-- Retrofit2（网关协议映射 HTTP 客户端） -->
       <dependency>
         <groupId>com.squareup.retrofit2</groupId>

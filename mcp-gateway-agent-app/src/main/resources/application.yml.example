@@ -3,3 +3,20 @@ spring:
     name: ai-agent-scaffold-lite-app
   profiles:
     active: dev  # 可选: dev / test / prod
+
+# springdoc-openapi（D06）：文档端点与分组（分组定义见 application-dev.yml）
+# springdoc:
+#   api-docs:
+#     path: /v3/api-docs
+#   swagger-ui:
+#     path: /swagger-ui.html
+#   group-configs:
+#     - group: gateway
+#       display-name: MCP 协议网关（SSE）
+#       paths-to-match: /api-gateway/**
+#     - group: agent
+#       display-name: Agent 对话与编排
+#       paths-to-match: /api/v1/**
+#     - group: admin
+#       display-name: 运营配置后台
+#       paths-to-match: /admin/**

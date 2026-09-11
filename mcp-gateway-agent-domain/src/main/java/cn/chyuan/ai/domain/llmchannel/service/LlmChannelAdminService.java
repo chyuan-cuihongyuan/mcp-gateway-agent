@@ -159,6 +159,10 @@ public class LlmChannelAdminService {
         if (channel.getMaxBodyBytes() != null && channel.getMaxBodyBytes() <= 0) {
             throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "maxBodyBytes 须为正整数（空=不限）");
         }
+        // 上下文守卫（工单 0162）：上限空=不限，配置须为正整数
+        if (channel.getContextLimitTokens() != null && channel.getContextLimitTokens() <= 0) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "contextLimitTokens 须为正整数（空=不限）");
+        }
     }
 
     private void normalize(LlmChannelVO channel) {

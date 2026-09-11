@@ -153,6 +153,12 @@ public final class McpErrorCodes {
      */
     public static final int CHANNEL_CONCURRENCY_EXCEEDED = -32022;
 
+    /**
+     * 上下文超限 —— 估算 prompt+max_tokens 超出渠道 context 上限（工单 0162，HTTP 400 语义；
+     * 提前拒绝省下注定失败的调用费）
+     */
+    public static final int MODEL_CONTEXT_EXCEEDED = -32023;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

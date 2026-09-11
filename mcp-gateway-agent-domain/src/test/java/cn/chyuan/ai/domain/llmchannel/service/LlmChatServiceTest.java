@@ -878,4 +878,68 @@ public class LlmChatServiceTest {
         service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
         verify(concurrencyGuard, org.mockito.Mockito.times(1)).tryAcquire(any(LlmChannelVO.class));
     }
+
+    // ---- 模型上下文长度守卫（工单 0162） ----
+
+    @Test
+    @DisplayName("上下文守卫（0162）— 估算 prompt+max_tokens 超上限 -32023 提前拒绝，零上游调用")
+    public void testContextLimitRejectsEarly() {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        // 上限 10 token；prompt 中文 5 字 + max_tokens 10 → 15 > 10
+        LlmChannelVO limited = LlmChannelVO.builder()
+                .id(1L).name("limited").baseUrl("http://upstream-limited").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .contextLimitTokens(10)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(limited));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(),
+                        "{\"model\":\"m\",\"max_tokens\":10,\"messages\":[{\"role\":\"user\",\"content\":\"你好世界呀\"}]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.MODEL_CONTEXT_EXCEEDED), ex.getCode());
+        verifyNoInteractions(llmHttpPort);
+    }
+
+    @Test
+    @DisplayName("上下文守卫（0162）— 边界等于上限放行；未配置不限")
+    public void testContextLimitBoundaryAndUnconfigured() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"x\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+        // prompt 正文 "hi" = 1 词 + max_tokens 4 = 5，恰好等于上限
+        LlmChannelVO boundary = LlmChannelVO.builder()
+                .id(1L).name("limited").baseUrl("http://upstream-limited").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .contextLimitTokens(5)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(boundary));
+        String body = "{\"model\":\"m\",\"max_tokens\":4,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}";
+        String out = service.chatCompletion(principal(), body);
+        assertTrue(out.contains("\"id\":\"x\""), "等于上限放行");
+
+        // 未配置（null）= 不限
+        LlmChannelVO unlimited = LlmChannelVO.builder()
+                .id(1L).name("limited").baseUrl("http://upstream-limited").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(unlimited));
+        service.chatCompletion(principal(), body);
+        verify(llmHttpPort, times(2)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
 }

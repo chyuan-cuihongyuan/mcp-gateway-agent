@@ -55,6 +55,9 @@ ALTER TABLE mcp_llm_channel ADD COLUMN channel_group VARCHAR(64) NULL COMMENT '�
 -- ── 工单 0161：渠道并发上限 ──
 ALTER TABLE mcp_llm_channel ADD COLUMN max_concurrency INT NULL COMMENT '渠道并发上限（工单 0161；空/0=不限制，超限 -32022）';
 
+-- ── 工单 0162：模型上下文长度守卫 ──
+ALTER TABLE mcp_llm_channel ADD COLUMN context_limit_tokens INT NULL COMMENT '模型上下文上限 token（工单 0162；空/0=不限制，超限 -32023）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

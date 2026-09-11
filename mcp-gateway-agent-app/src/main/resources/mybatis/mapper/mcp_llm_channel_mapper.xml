@@ -16,6 +16,7 @@
         <result column="timeout_ms" property="timeoutMs"/>
         <result column="max_body_bytes" property="maxBodyBytes"/>
         <result column="max_concurrency" property="maxConcurrency"/>
+        <result column="context_limit_tokens" property="contextLimitTokens"/>
         <result column="num_retries" property="numRetries"/>
         <result column="retry_backoff_ms" property="retryBackoffMs"/>
         <result column="retry_on" property="retryOn"/>
@@ -33,12 +34,12 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_llm_channel (name, base_url, credential, models, model_mapping,
                                      weight, priority, channel_group, status, timeout_ms, max_body_bytes,
-                                     max_concurrency,
+                                     max_concurrency, context_limit_tokens,
                                      num_retries, retry_backoff_ms, retry_on, fallback_channel_id,
                                      balance_probe_url, balance_json_path)
         VALUES (#{name}, #{baseUrl}, #{credential}, #{models}, #{modelMapping},
                 #{weight}, #{priority}, #{channelGroup}, #{status}, #{timeoutMs}, #{maxBodyBytes},
-                #{maxConcurrency},
+                #{maxConcurrency}, #{contextLimitTokens},
                 #{numRetries}, #{retryBackoffMs}, #{retryOn}, #{fallbackChannelId},
                 #{balanceProbeUrl}, #{balanceJsonPath})
     </insert>
@@ -49,7 +50,7 @@
             model_mapping = #{modelMapping}, weight = #{weight}, priority = #{priority},
             channel_group = #{channelGroup},
             status = #{status}, timeout_ms = #{timeoutMs}, max_body_bytes = #{maxBodyBytes},
-            max_concurrency = #{maxConcurrency},
+            max_concurrency = #{maxConcurrency}, context_limit_tokens = #{contextLimitTokens},
             num_retries = #{numRetries}, retry_backoff_ms = #{retryBackoffMs}, retry_on = #{retryOn},
             fallback_channel_id = #{fallbackChannelId},
             balance_probe_url = #{balanceProbeUrl}, balance_json_path = #{balanceJsonPath},

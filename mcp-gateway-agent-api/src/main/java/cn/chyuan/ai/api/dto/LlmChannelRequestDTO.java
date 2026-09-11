@@ -49,6 +49,9 @@ public class LlmChannelRequestDTO implements Serializable {
     /** 渠道并发上限（工单 0161；空/0=不限制） */
     private Integer maxConcurrency;
 
+    /** 模型上下文上限 token（工单 0162；空/0=不限制） */
+    private Integer contextLimitTokens;
+
     /** 重试策略（工单 0105）：次数上限（≤3）/退避基值毫秒/retry_on（429,5xx,timeout） */
     private Integer numRetries;
     private Integer retryBackoffMs;

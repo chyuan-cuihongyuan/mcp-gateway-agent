@@ -48,6 +48,9 @@ public class LlmChannelResponseDTO implements Serializable {
     /** 渠道并发上限（工单 0161；空/0=不限制） */
     private Integer maxConcurrency;
 
+    /** 模型上下文上限 token（工单 0162；空/0=不限制） */
+    private Integer contextLimitTokens;
+
     private String testTime;
 
     private Long responseTimeMs;

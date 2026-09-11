@@ -196,6 +196,8 @@ public class LlmChatService {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, upstreamModel));
                 // 渠道请求体预算（工单 0156）：出站前置校验，超限 -32020 拒绝（治理类异常不转移）
                 assertChannelBodyBudget(channel, upstreamBody);
+                // 上下文守卫（工单 0162）：估算超限 -32023 提前拒绝，省下注定失败的调用费
+                assertContextLimit(channel, request);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 if (StringUtils.isNotBlank(channel.getCredential())) {
@@ -327,6 +329,8 @@ public class LlmChatService {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(fallback, model)));
                 // 渠道请求体预算（工单 0156）与主链同口径
                 assertChannelBodyBudget(fallback, upstreamBody);
+                // 上下文守卫（工单 0162）与主链同口径
+                assertContextLimit(fallback, request);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 if (StringUtils.isNotBlank(fallback.getCredential())) {
@@ -422,6 +426,8 @@ public class LlmChatService {
             }
             try {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(channel, model)));
+                // 上下文守卫（工单 0162）：首字节前提前拒绝
+                assertContextLimit(channel, request);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 headers.put("Accept", "text/event-stream");
@@ -774,6 +780,8 @@ public class LlmChatService {
                 String embeddingBody = rewriteModel(request, upstreamModel);
                 // 渠道请求体预算（工单 0156）与 chat 同口径
                 assertChannelBodyBudget(channel, embeddingBody);
+                // 上下文守卫（工单 0162）与 chat 同口径
+                assertContextLimit(channel, request);
                 long start = System.currentTimeMillis();
                 int status = llmHttpPort.postJson(channel.getBaseUrl() + "/embeddings",
                         headers, embeddingBody,
@@ -989,6 +997,51 @@ public class LlmChatService {
         }
         throw new AppException(McpErrorCodes.CHANNEL_BODY_TOO_LARGE,
                 "渠道 " + channel.getName() + " 请求体超限：" + bytes + " > " + maxBodyBytes + " 字节");
+    }
+
+    /**
+     * 上下文守卫（工单 0162）：估算 prompt+max_tokens 超渠道 context 上限 → -32023 提前拒绝
+     * （治理类异常不转移渠道）。未配置（空/<=0）=不限制；估算为粗估口径见 TokenEstimator。
+     */
+    private void assertContextLimit(LlmChannelVO channel, JSONObject request) {
+        Integer limit = channel.getContextLimitTokens();
+        if (limit == null || limit <= 0 || request == null) {
+            return;
+        }
+        long promptTokens = TokenEstimator.estimate(promptTextOf(request));
+        long maxTokens = Math.max(0, request.getLongValue("max_tokens"));
+        long estimated = promptTokens + maxTokens;
+        if (estimated <= limit) {
+            return;
+        }
+        throw new AppException(McpErrorCodes.MODEL_CONTEXT_EXCEEDED,
+                "上下文超限：估算 " + estimated + " token（prompt " + promptTokens + " + max_tokens "
+                        + maxTokens + "）> 渠道 " + channel.getName() + " 上限 " + limit);
+    }
+
+    /** prompt 文本收集（工单 0162）：chat messages 的 content 与 embeddings 的 input */
+    static String promptTextOf(JSONObject request) {
+        StringBuilder sb = new StringBuilder();
+        com.alibaba.fastjson.JSONArray messages = request.getJSONArray("messages");
+        if (messages != null) {
+            for (Object item : messages) {
+                if (item instanceof com.alibaba.fastjson.JSONObject msg) {
+                    Object content = msg.get("content");
+                    if (content != null) {
+                        sb.append(content).append((char) 10);
+                    }
+                }
+            }
+        }
+        Object input = request.get("input");
+        if (input instanceof String text) {
+            sb.append(text);
+        } else if (input instanceof com.alibaba.fastjson.JSONArray arr) {
+            for (Object o : arr) {
+                sb.append(o);
+            }
+        }
+        return sb.toString();
     }
 
     /** 重试指标（工单 0105）：gateway.llm.retry{channel,result}；registry 可缺省 */

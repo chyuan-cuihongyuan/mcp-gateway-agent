@@ -49,6 +49,9 @@ public class McpLlmChannelPO implements Serializable {
 
     /** 渠道并发上限（工单 0161；空/0=不限制） */
     private Integer maxConcurrency;
+
+    /** 模型上下文上限 token（工单 0162；空/0=不限制） */
+    private Integer contextLimitTokens;
     /** 重试次数上限（工单 0105；0/空=不重试，≤3） */
     private Integer numRetries;
     /** 重试退避基值毫秒（指数 base*2^n） */

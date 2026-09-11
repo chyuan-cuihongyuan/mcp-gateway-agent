@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS mcp_routing_rule (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'tag 路由规则（工单 0160）';
 ALTER TABLE mcp_llm_channel ADD COLUMN channel_group VARCHAR(64) NULL COMMENT '渠道组（工单 0160 tag 路由限定；空=默认组 default）';
 
+-- ── 工单 0161：渠道并发上限 ──
+ALTER TABLE mcp_llm_channel ADD COLUMN max_concurrency INT NULL COMMENT '渠道并发上限（工单 0161；空/0=不限制，超限 -32022）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

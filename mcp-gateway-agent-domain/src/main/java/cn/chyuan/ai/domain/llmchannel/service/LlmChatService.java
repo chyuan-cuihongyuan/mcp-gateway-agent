@@ -104,6 +104,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<ChannelHealthService> healthServiceProvider;
 
+    /** 渠道并发闸（工单 0161；切片测试上下文可缺省=不限） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<ChannelConcurrencyGuard> concurrencyGuardProvider;
+
     /** tag 路由规则仓储（工单 0160 调度限定；切片测试上下文可缺省=不路由） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository> routingRuleRepositoryProvider;
@@ -182,6 +186,11 @@ public class LlmChatService {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
             triedIds.add(channel.getId());
             lastTried = channel;
+            // 渠道并发闸（工单 0161）：排队超时 -32022 拒绝（治理类异常不转移）
+            if (!concurrencyAcquire(channel)) {
+                throw new AppException(McpErrorCodes.CHANNEL_CONCURRENCY_EXCEEDED,
+                        "渠道并发超限：" + channel.getName());
+            }
             try {
                 String upstreamModel = mapModel(channel, model);
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, upstreamModel));
@@ -268,6 +277,9 @@ public class LlmChatService {
                 lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
                 recordUsage(principal, model, channel.getName(), "FAIL", 0, null);
                 log.warn("LLM 渠道传输失败转移: channel={} reason={}", channel.getName(), e.getMessage());
+            } finally {
+                // 工单 0161：finally 保证释放（成功/失败/治理异常透传全路径）
+                concurrencyRelease(channel);
             }
         }
         // 渠道 fallback 链降级（工单 0155）：主候选重试耗尽后沿最后渠道的 fallback 链至多 2 跳；
@@ -306,6 +318,11 @@ public class LlmChatService {
                     || (fallback.getStatus() != null && fallback.getStatus() != LlmChannelVO.STATUS_ENABLED)) {
                 continue;
             }
+            // 渠道并发闸（工单 0161）：fallback 渠道同口径占位
+            if (!concurrencyAcquire(fallback)) {
+                throw new AppException(McpErrorCodes.CHANNEL_CONCURRENCY_EXCEEDED,
+                        "渠道并发超限：" + fallback.getName());
+            }
             try {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(fallback, model)));
                 // 渠道请求体预算（工单 0156）与主链同口径
@@ -339,6 +356,8 @@ public class LlmChatService {
             } catch (Exception e) {
                 recordUsage(principal, model, fallback.getName(), "FAIL", 0, null, true);
                 log.warn("LLM fallback 渠道传输失败: channel={} reason={}", fallback.getName(), e.getMessage());
+            } finally {
+                concurrencyRelease(fallback);
             }
         }
         return null;
@@ -396,6 +415,11 @@ public class LlmChatService {
         for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
             StreamForwarder forwarder = new StreamForwarder(onLine, this::responseGuardrailGate);
+            // 渠道并发闸（工单 0161）：排队超时 -32022 拒绝（首字节前）
+            if (!concurrencyAcquire(channel)) {
+                throw new AppException(McpErrorCodes.CHANNEL_CONCURRENCY_EXCEEDED,
+                        "渠道并发超限：" + channel.getName());
+            }
             try {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(channel, model)));
                 Map<String, String> headers = new HashMap<>();
@@ -434,6 +458,9 @@ public class LlmChatService {
                 }
                 lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
                 recordUsage(principal, model, channel.getName(), "FAIL", 0, null);
+            } finally {
+                // 工单 0161：finally 保证释放（首字节前；已出流断流路径同样释放）
+                concurrencyRelease(channel);
             }
         }
         throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,
@@ -613,6 +640,30 @@ public class LlmChatService {
         return cost;
     }
 
+    /** 渠道并发占位（工单 0161）：闸缺席=放行；超时返回 false（调用方 -32022 拒绝） */
+    private boolean concurrencyAcquire(LlmChannelVO channel) {
+        ChannelConcurrencyGuard guard =
+                concurrencyGuardProvider == null ? null : concurrencyGuardProvider.getIfAvailable();
+        if (guard == null) {
+            return true;
+        }
+        boolean acquired = guard.tryAcquire(channel);
+        if (!acquired) {
+            log.warn("LLM 渠道并发超限拒绝: channel={} queueMs={}", channel.getName(),
+                    guard != null ? "configured" : "n/a");
+        }
+        return acquired;
+    }
+
+    /** 渠道并发释放（与 acquire 配对；闸缺席幂等跳过） */
+    private void concurrencyRelease(LlmChannelVO channel) {
+        ChannelConcurrencyGuard guard =
+                concurrencyGuardProvider == null ? null : concurrencyGuardProvider.getIfAvailable();
+        if (guard != null) {
+            guard.release(channel);
+        }
+    }
+
     /** 标签落库形（工单 0088）：principal 头来源 + 请求体 metadata.tags 已并入 */
     private static String tagStorageOf(GovernancePrincipal principal) {
         return principal == null ? null
@@ -708,6 +759,11 @@ public class LlmChatService {
         String lastError = null;
         for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
+            // 渠道并发闸（工单 0161）：排队超时 -32022 拒绝
+            if (!concurrencyAcquire(channel)) {
+                throw new AppException(McpErrorCodes.CHANNEL_CONCURRENCY_EXCEEDED,
+                        "渠道并发超限：" + channel.getName());
+            }
             try {
                 String upstreamModel = mapModel(channel, model);
                 Map<String, String> headers = new HashMap<>();
@@ -738,6 +794,9 @@ public class LlmChatService {
             } catch (Exception e) {
                 lastError = "渠道 " + channel.getName() + " 传输失败: " + e.getMessage();
                 recordUsageTokens(principal, model, channel.getName(), "FAIL", 0, null, null);
+            } finally {
+                // 工单 0161：finally 保证释放
+                concurrencyRelease(channel);
             }
         }
         throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,

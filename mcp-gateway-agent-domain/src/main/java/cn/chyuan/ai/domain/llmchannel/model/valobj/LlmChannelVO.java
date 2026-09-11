@@ -61,6 +61,9 @@ public class LlmChannelVO {
 
     /** 渠道请求体预算字节（工单 0156；空=不限，出站前置校验超限 -32020 拒绝） */
     private Long maxBodyBytes;
+
+    /** 渠道并发上限（工单 0161；空/0=不限制，超限 -32022 拒绝） */
+    private Integer maxConcurrency;
     /** 重试次数上限（工单 0105；0/空=不重试，≤3） */
     private Integer numRetries;
     /** 重试退避基值毫秒（指数 base*2^n） */

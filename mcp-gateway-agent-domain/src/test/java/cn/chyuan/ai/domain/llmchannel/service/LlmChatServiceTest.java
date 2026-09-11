@@ -76,6 +76,13 @@ public class LlmChatServiceTest {
     @Mock
     private cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository routingRuleRepository;
 
+    /** 渠道并发闸（工单 0161；字段名与实现一致供 Mockito 按名注入） */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<ChannelConcurrencyGuard> concurrencyGuardProvider;
+
+    @Mock
+    private ChannelConcurrencyGuard concurrencyGuard;
+
     @InjectMocks
     private LlmChatService service;
 
@@ -805,5 +812,70 @@ public class LlmChatServiceTest {
                 () -> service.chatCompletion(tagged, "{\"model\":\"m\",\"messages\":[]}"));
         assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_NOT_FOUND), ex.getCode());
         verifyNoInteractions(llmHttpPort);
+    }
+
+    // ---- 渠道并发上限（工单 0161） ----
+
+    @Test
+    @DisplayName("并发上限（0161）— 排队超时 -32022 拒绝；成功/失败路径 finally 释放")
+    public void testChannelConcurrencyGuard() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(channelRepository.findEnabled()).thenReturn(List.of(
+                channel(1L, "primary", 0, "m", null)));
+        when(concurrencyGuardProvider.getIfAvailable()).thenReturn(concurrencyGuard);
+        when(concurrencyGuard.tryAcquire(any(LlmChannelVO.class))).thenReturn(false);
+
+        // 拒绝：-32022 且零上游调用（治理类异常不转移）
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.CHANNEL_CONCURRENCY_EXCEEDED), ex.getCode());
+        verifyNoInteractions(llmHttpPort);
+
+        // 允许：成功后 finally 释放
+        when(concurrencyGuard.tryAcquire(any(LlmChannelVO.class))).thenReturn(true);
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"c\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+        service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
+        verify(concurrencyGuard).release(any(LlmChannelVO.class));
+
+        // 允许：上游失败路径同样释放（finally 兜底）
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(500);
+        when(llmHttpPort.lastResponseBody()).thenReturn("err");
+        AppException allFail = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), allFail.getCode());
+        verify(concurrencyGuard, org.mockito.Mockito.times(2)).release(any(LlmChannelVO.class));
+    }
+
+    @Test
+    @DisplayName("并发上限（0161）— 未配置（闸缺席/渠道空限额）兼容放行")
+    public void testChannelConcurrencyUnconfiguredPassthrough() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(channelRepository.findEnabled()).thenReturn(List.of(
+                channel(1L, "primary", 0, "m", null)));
+        // 闸缺席（切片上下文）→ 放行
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"p\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+        assertDoesNotThrow(() -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+
+        // 闸在场但渠道未配置限额 → tryAcquire 恒真，不触信号量
+        when(concurrencyGuardProvider.getIfAvailable()).thenReturn(concurrencyGuard);
+        when(concurrencyGuard.tryAcquire(any(LlmChannelVO.class))).thenReturn(true);
+        service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
+        verify(concurrencyGuard, org.mockito.Mockito.times(1)).tryAcquire(any(LlmChannelVO.class));
     }
 }

@@ -147,6 +147,12 @@ public final class McpErrorCodes {
      */
     public static final int KEY_MODEL_NOT_ALLOWED = -32021;
 
+    /**
+     * 渠道并发超限 —— 渠道级 max_concurrency 排队超时（工单 0161，HTTP 429 语义；
+     * 与每密钥并发 -32016 语义区分：该码为渠道维度上游保护）
+     */
+    public static final int CHANNEL_CONCURRENCY_EXCEEDED = -32022;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

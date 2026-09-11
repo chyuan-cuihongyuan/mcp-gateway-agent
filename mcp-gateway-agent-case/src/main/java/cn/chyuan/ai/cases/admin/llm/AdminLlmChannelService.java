@@ -86,6 +86,18 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
         return System.currentTimeMillis() - start;
     }
 
+    @Override
+    public java.util.List<java.util.Map<String, Object>> healthReports() {
+        return channelHealthService.reports(degradeThreshold);
+    }
+
+    /** 调度降权阈值（工单 0159；0=关闭，与 LlmChatService 同键同默认） */
+    @org.springframework.beans.factory.annotation.Value("${governance.channel.health.degrade-threshold:0}")
+    private int degradeThreshold;
+
+    @Resource
+    private cn.chyuan.ai.domain.llmchannel.service.ChannelHealthService channelHealthService;
+
     private LlmChannelVO toVo(Long id, LlmChannelRequestDTO dto) {
         return LlmChannelVO.builder()
                 .id(id).name(dto.getName()).baseUrl(dto.getBaseUrl()).credential(dto.getCredential())

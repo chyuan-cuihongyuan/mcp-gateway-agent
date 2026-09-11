@@ -212,6 +212,22 @@
           AND created_at &gt;= #{since}
     </select>
 
+    <!-- 渠道近 N 次 LLM 调用统计（工单 0159 健康分：总数/失败数/平均延迟）。
+         双方言兼容：子查询排序取近 N 行 + CASE/AVG 均为两库公共子集（LIMIT 单参） -->
+    <select id="channelRecentStats" resultType="map">
+        SELECT COUNT(*)                       AS total,
+               COALESCE(SUM(CASE WHEN status = 'FAIL' THEN 1 ELSE 0 END), 0) AS failures,
+               AVG(duration_ms)               AS avgLatencyMs
+        FROM (
+            SELECT status, duration_ms
+            FROM mcp_usage_log
+            WHERE channel_id = #{channelId}
+              AND traffic_type = 'LLM'
+            ORDER BY id DESC
+            LIMIT #{recentN}
+        ) t
+    </select>
+
     <!-- 成本日趋势（工单 0089） -->
     <select id="costDaily" resultType="map">
         SELECT DATE(created_at) AS statDate,

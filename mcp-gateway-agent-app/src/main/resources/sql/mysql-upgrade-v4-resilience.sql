@@ -22,6 +22,20 @@ ALTER TABLE mcp_virtual_key ADD COLUMN allowed_models VARCHAR(1024) NULL COMMENT
 -- ── 工单 0158：滚动窗口配额 ──
 ALTER TABLE mcp_virtual_key ADD COLUMN budget_window_type VARCHAR(16) NULL COMMENT '预算窗口类型（工单 0158；DAY/WEEK/MONTH 滚动，NULL=旧固定窗口）';
 
+-- ── 工单 0159：渠道健康分快照（表 21，编号顺延 V0001 基线 20 表）──
+CREATE TABLE IF NOT EXISTS mcp_channel_health_snapshot (
+  id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+  channel_id     BIGINT        NOT NULL COMMENT 'mcp_llm_channel.id',
+  channel_name   VARCHAR(64)   NOT NULL COMMENT '渠道名（快照自描述）',
+  score          DOUBLE        NOT NULL COMMENT '综合健康分 0-100',
+  error_rate     DOUBLE        NULL COMMENT '错误率 0-1（近 N 次账本）',
+  probe_score    DOUBLE        NULL COMMENT '探测分 0-100（缺探测 NULL）',
+  avg_latency_ms BIGINT        NULL COMMENT '平均延迟毫秒',
+  sampled_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '采样时间',
+  UNIQUE KEY uk_channel_sampled (channel_id, sampled_at),
+  KEY idx_health_snapshot_sampled (sampled_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '渠道健康分快照（工单 0159，定时采样）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

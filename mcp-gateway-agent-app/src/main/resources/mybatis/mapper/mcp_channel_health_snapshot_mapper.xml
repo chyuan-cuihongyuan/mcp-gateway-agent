@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IChannelHealthSnapshotDao">
+
+    <resultMap id="SnapshotMap" type="cn.chyuan.ai.infrastructure.dao.po.McpChannelHealthSnapshotPO">
+        <id column="id" property="id"/>
+        <result column="channel_id" property="channelId"/>
+        <result column="channel_name" property="channelName"/>
+        <result column="score" property="score"/>
+        <result column="error_rate" property="errorRate"/>
+        <result column="probe_score" property="probeScore"/>
+        <result column="avg_latency_ms" property="avgLatencyMs"/>
+        <result column="sampled_at" property="sampledAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_channel_health_snapshot
+            (channel_id, channel_name, score, error_rate, probe_score, avg_latency_ms, sampled_at)
+        VALUES
+            (#{channelId}, #{channelName}, #{score}, #{errorRate}, #{probeScore}, #{avgLatencyMs}, #{sampledAt})
+    </insert>
+
+    <!-- 全渠道最近一次快照：按渠道取 sampled_at 最大行。
+         双方言兼容：MAX 聚合 + 自连接（两库公共子集；不用窗口函数/ON CONFLICT）。
+         关联键 (channel_id, sampled_at) 与 uk_channel_sampled 唯一键对齐，重复采样时取一行。 -->
+    <select id="queryLatestPerChannel" resultMap="SnapshotMap">
+        SELECT s.id, s.channel_id, s.channel_name, s.score, s.error_rate,
+               s.probe_score, s.avg_latency_ms, s.sampled_at
+        FROM mcp_channel_health_snapshot s
+        JOIN (
+            SELECT channel_id, MAX(sampled_at) AS max_sampled
+            FROM mcp_channel_health_snapshot
+            GROUP BY channel_id
+        ) m
+          ON s.channel_id = m.channel_id AND s.sampled_at = m.max_sampled
+        ORDER BY s.score ASC, s.channel_id
+    </select>
+
+    <delete id="deleteBefore">
+        DELETE FROM mcp_channel_health_snapshot WHERE sampled_at &lt; #{before}
+    </delete>
+
+</mapper>

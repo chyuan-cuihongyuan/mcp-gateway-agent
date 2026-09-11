@@ -45,6 +45,9 @@ public interface IUsageRepository {
     /** 窗口内调用次数（工单 0158 滚动窗口次数硬线派生；空窗口返回 0；含起点口径 created_at >= since） */
     long countSince(Long virtualKeyId, java.util.Date since);
 
+    /** 渠道近 N 次 LLM 调用统计（工单 0159 健康分；键 total/failures/avgLatencyMs；空渠道 total=0） */
+    java.util.Map<String, Object> channelRecentStats(String channelId, int recentN);
+
     /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
     java.util.List<java.util.Map<String, Object>> costDaily(String fromDate, String toDate);
 

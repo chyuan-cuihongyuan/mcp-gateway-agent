@@ -57,4 +57,10 @@ public class AdminLlmChannelController {
         long elapsed = adminLlmChannelService.testChannel(id);
         return Response.success(Map.of("elapsedMs", elapsed));
     }
+
+    /** 渠道健康分报表（工单 0159）：全渠道综合分/错误率/探测分/平均延迟/是否降权 */
+    @GetMapping("/health")
+    public Response<List<Map<String, Object>>> healthReports() {
+        return Response.success(adminLlmChannelService.healthReports());
+    }
 }

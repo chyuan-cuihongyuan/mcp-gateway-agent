@@ -111,6 +111,12 @@ public class UsageRepository implements IUsageRepository {
     }
 
     @Override
+    public java.util.Map<String, Object> channelRecentStats(String channelId, int recentN) {
+        Map<String, Object> stats = usageDao.channelRecentStats(channelId, recentN);
+        return stats == null ? new HashMap<>() : stats;
+    }
+
+    @Override
     public List<Map<String, Object>> costDaily(String fromDate, String toDate) {
         return usageDao.costDaily(fromDate, toDate);
     }

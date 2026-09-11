@@ -96,6 +96,14 @@ public class LlmChatService {
     /** 白名单拒绝事件类型（工单 0157，QUOTA 类，webhook 可订阅） */
     public static final String EVENT_KEY_MODEL_WHITELIST_DENIED = "KEY_MODEL_WHITELIST_DENIED";
 
+    /** 调度降权阈值百分比口径：健康分阈值（0=关闭降权，工单 0159） */
+    @org.springframework.beans.factory.annotation.Value("${governance.channel.health.degrade-threshold:0}")
+    private int healthDegradeThreshold;
+
+    /** 渠道健康分服务（工单 0159 调度降权；切片测试上下文可缺省=不降权） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<ChannelHealthService> healthServiceProvider;
+
     /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
@@ -1025,8 +1033,15 @@ public class LlmChatService {
 
     private List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> orderCandidates(
             List<LlmChannelVO> candidates) {
+        // 调度降权（工单 0159）：健康分低于阈值的渠道稳定排尾（阈值 0=关闭；服务缺席=关闭）
+        List<LlmChannelVO> effective = candidates;
+        ChannelHealthService healthService =
+                healthServiceProvider == null ? null : healthServiceProvider.getIfAvailable();
+        if (healthService != null && healthDegradeThreshold > 0) {
+            effective = healthService.demote(candidates, healthDegradeThreshold);
+        }
         List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> ordered = new ArrayList<>();
-        List<LlmChannelVO> remaining = new ArrayList<>(candidates);
+        List<LlmChannelVO> remaining = new ArrayList<>(effective);
         while (!remaining.isEmpty()) {
             var pick = channelScheduler.pick(remaining.stream()
                     .map(ch -> new cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate(

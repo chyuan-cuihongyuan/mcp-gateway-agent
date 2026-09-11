@@ -24,4 +24,7 @@ public interface IAdminLlmChannelService {
 
     /** 渠道连通性测试（base_url/models 探测），返回耗时毫秒；失败抛 AppException */
     long testChannel(Long id);
+
+    /** 渠道健康分报表（工单 0159：键 channelId/channelName/score/errorRate/probeScore/avgLatencyMs/demoted） */
+    java.util.List<java.util.Map<String, Object>> healthReports();
 }

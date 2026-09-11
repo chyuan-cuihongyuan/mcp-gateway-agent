@@ -42,6 +42,9 @@ public interface IUsageDao {
     /** 窗口内调用次数（工单 0158 滚动窗口次数硬线；含起点口径 created_at >= since） */
     Long countSince(@Param("virtualKeyId") Long virtualKeyId, @Param("since") java.util.Date since);
 
+    /** 渠道近 N 次 LLM 调用统计（工单 0159 健康分；键 total/failures/avgLatencyMs） */
+    Map<String, Object> channelRecentStats(@Param("channelId") String channelId, @Param("recentN") int recentN);
+
     /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
     List<Map<String, Object>> costDaily(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
 

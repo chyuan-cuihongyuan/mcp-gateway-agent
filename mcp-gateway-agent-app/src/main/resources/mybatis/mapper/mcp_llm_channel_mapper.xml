@@ -11,6 +11,7 @@
         <result column="model_mapping" property="modelMapping"/>
         <result column="weight" property="weight"/>
         <result column="priority" property="priority"/>
+        <result column="channel_group" property="channelGroup"/>
         <result column="status" property="status"/>
         <result column="timeout_ms" property="timeoutMs"/>
         <result column="max_body_bytes" property="maxBodyBytes"/>
@@ -30,11 +31,11 @@
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_llm_channel (name, base_url, credential, models, model_mapping,
-                                     weight, priority, status, timeout_ms, max_body_bytes,
+                                     weight, priority, channel_group, status, timeout_ms, max_body_bytes,
                                      num_retries, retry_backoff_ms, retry_on, fallback_channel_id,
                                      balance_probe_url, balance_json_path)
         VALUES (#{name}, #{baseUrl}, #{credential}, #{models}, #{modelMapping},
-                #{weight}, #{priority}, #{status}, #{timeoutMs}, #{maxBodyBytes},
+                #{weight}, #{priority}, #{channelGroup}, #{status}, #{timeoutMs}, #{maxBodyBytes},
                 #{numRetries}, #{retryBackoffMs}, #{retryOn}, #{fallbackChannelId},
                 #{balanceProbeUrl}, #{balanceJsonPath})
     </insert>
@@ -43,6 +44,7 @@
         UPDATE mcp_llm_channel
         SET base_url = #{baseUrl}, credential = #{credential}, models = #{models},
             model_mapping = #{modelMapping}, weight = #{weight}, priority = #{priority},
+            channel_group = #{channelGroup},
             status = #{status}, timeout_ms = #{timeoutMs}, max_body_bytes = #{maxBodyBytes},
             num_retries = #{numRetries}, retry_backoff_ms = #{retryBackoffMs}, retry_on = #{retryOn},
             fallback_channel_id = #{fallbackChannelId},

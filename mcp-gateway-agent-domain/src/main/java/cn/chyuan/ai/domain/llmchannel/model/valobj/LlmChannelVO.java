@@ -50,6 +50,9 @@ public class LlmChannelVO {
     /** 调度优先级（默认 0） */
     private Integer priority;
 
+    /** 渠道组（工单 0160 tag 路由限定；空=默认组 default） */
+    private String channelGroup;
+
     /** 0/1/2 三态 */
     private Integer status;
 

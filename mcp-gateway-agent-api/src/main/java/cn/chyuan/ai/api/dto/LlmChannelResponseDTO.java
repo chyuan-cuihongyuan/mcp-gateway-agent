@@ -35,6 +35,9 @@ public class LlmChannelResponseDTO implements Serializable {
 
     private Integer priority;
 
+    /** 渠道组（工单 0160 tag 路由限定；空=默认组 default） */
+    private String channelGroup;
+
     private Integer status;
 
     private Integer timeoutMs;

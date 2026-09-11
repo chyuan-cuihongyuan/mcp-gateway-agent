@@ -69,6 +69,13 @@ public class LlmChatServiceTest {
     @Mock
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> whitelistEventPublisher;
 
+    /** tag 路由规则（工单 0160） */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository> routingRuleRepositoryProvider;
+
+    @Mock
+    private cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository routingRuleRepository;
+
     @InjectMocks
     private LlmChatService service;
 
@@ -689,5 +696,114 @@ public class LlmChatServiceTest {
         service.chatCompletion(principal(), "{\"model\":\"gpt-4o\",\"messages\":[]}");
         verify(eventPublisher, never()).publish(anyString(), anyMap());
         verify(llmHttpPort, times(2)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
+
+    // ---- tag 路由规则（工单 0160） ----
+
+    @Test
+    @DisplayName("tag 路由（0160）— 命中规则调度限定组内渠道 + 账本补 route 标记")
+    public void testTagRoutingScopesScheduling() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        // vip 组命中组内渠道；default 组渠道被路由排除
+        LlmChannelVO vip = LlmChannelVO.builder()
+                .id(1L).name("vip").baseUrl("http://upstream-vip").credential("sk")
+                .models("m").weight(1).priority(0).channelGroup("vip")
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000).build();
+        LlmChannelVO common = LlmChannelVO.builder()
+                .id(2L).name("common").baseUrl("http://upstream-common").credential("sk")
+                .models("m").weight(1).priority(0).channelGroup(null)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000).build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(vip, common));
+        when(routingRuleRepositoryProvider.getIfAvailable()).thenReturn(routingRuleRepository);
+        when(routingRuleRepository.findActive()).thenReturn(java.util.List.of(
+                cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.builder()
+                        .id(9L).ruleName("vip-route").tagKey("team").tagValue("alpha")
+                        .channelGroupId("vip").priority(0)
+                        .status(cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.STATUS_ACTIVE)
+                        .build()));
+        // principal 带 "team=alpha" 标签（认证过滤器写入形态）
+        GovernancePrincipal tagged = GovernancePrincipal.builder()
+                .authType(GovernancePrincipal.AuthType.VIRTUAL_KEY)
+                .virtualKeyId(7L).apiKeyHash("hash").clientIp("1.2.3.4")
+                .tags(java.util.List.of("team=alpha")).build();
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"r\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+
+        String out = service.chatCompletion(tagged, "{\"model\":\"m\",\"messages\":[]}");
+        assertTrue(out.contains("\"id\":\"r\""));
+        // 仅 vip 组渠道出站，default 组被路由限定排除
+        verify(llmHttpPort, times(1)).postJson(eq("http://upstream-vip/chat/completions"),
+                anyMap(), anyString(), anyInt());
+        verify(llmHttpPort, never()).postJson(eq("http://upstream-common/chat/completions"),
+                anyMap(), anyString(), anyInt());
+        // 账本 tags 补 route 标记
+        verify(usageLedger, atLeastOnce()).record(argThat(rec -> rec != null
+                && rec.getTags() != null && rec.getTags().contains("route:vip")));
+    }
+
+    @Test
+    @DisplayName("tag 路由（0160）— 不命中全渠道兼容；命中但组内无渠道快速失败")
+    public void testTagRoutingMissAndEmptyGroup() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        LlmChannelVO common = LlmChannelVO.builder()
+                .id(1L).name("common").baseUrl("http://upstream-common").credential("sk")
+                .models("m").weight(1).priority(0).channelGroup(null)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000).build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(common));
+        when(routingRuleRepositoryProvider.getIfAvailable()).thenReturn(routingRuleRepository);
+        when(routingRuleRepository.findActive()).thenReturn(java.util.List.of(
+                cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.builder()
+                        .id(9L).ruleName("vip-route").tagKey("team").tagValue("alpha")
+                        .channelGroupId("vip").priority(0)
+                        .status(cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.STATUS_ACTIVE)
+                        .build()));
+
+        // 不命中（principal 无标签）→ 全渠道兼容（common 出站）
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"ok\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+        assertDoesNotThrow(() -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+        verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("tag 路由（0160）— 命中但组内无渠道：-32003 快速失败")
+    public void testTagRoutingEmptyGroupFails() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        LlmChannelVO common = LlmChannelVO.builder()
+                .id(1L).name("common").baseUrl("http://upstream-common").credential("sk")
+                .models("m").weight(1).priority(0).channelGroup(null)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000).build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(common));
+        when(routingRuleRepositoryProvider.getIfAvailable()).thenReturn(routingRuleRepository);
+        when(routingRuleRepository.findActive()).thenReturn(java.util.List.of(
+                cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.builder()
+                        .id(9L).ruleName("vip-route").tagKey("team").tagValue("alpha")
+                        .channelGroupId("vip").priority(0)
+                        .status(cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO.STATUS_ACTIVE)
+                        .build()));
+        GovernancePrincipal tagged = GovernancePrincipal.builder()
+                .authType(GovernancePrincipal.AuthType.VIRTUAL_KEY)
+                .virtualKeyId(7L).apiKeyHash("hash")
+                .tags(java.util.List.of("team=alpha")).build();
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(tagged, "{\"model\":\"m\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_NOT_FOUND), ex.getCode());
+        verifyNoInteractions(llmHttpPort);
     }
 }

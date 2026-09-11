@@ -104,6 +104,13 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<ChannelHealthService> healthServiceProvider;
 
+    /** tag 路由规则仓储（工单 0160 调度限定；切片测试上下文可缺省=不路由） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository> routingRuleRepositoryProvider;
+
+    /** 本次请求命中路由的渠道组（工单 0160 记账 route 标记；请求入口重置，读后由下次入口清理） */
+    private static final ThreadLocal<String> LAST_ROUTE_GROUP = new ThreadLocal<>();
+
     /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
@@ -158,7 +165,8 @@ public class LlmChatService {
             return cached;
         }
 
-        List<LlmChannelVO> candidates = candidatesFor(model);
+        LAST_ROUTE_GROUP.remove();
+        List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
         }
@@ -376,7 +384,8 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
-        List<LlmChannelVO> candidates = candidatesFor(model);
+        LAST_ROUTE_GROUP.remove();
+        List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
         }
@@ -552,7 +561,7 @@ public class LlmChatService {
                     .promptTokens(promptTokens)
                     .completionTokens(completionTokens)
                     .cost(costOf(principal, model, promptTokens, completionTokens))
-                    .tags(tagStorageOf(principal))
+                    .tags(usageTagsOf(principal, false))
                     .clientIp(principal == null ? null : principal.getClientIp())
                     .build());
         } catch (Exception e) {
@@ -608,6 +617,23 @@ public class LlmChatService {
     private static String tagStorageOf(GovernancePrincipal principal) {
         return principal == null ? null
                 : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
+    }
+
+    /**
+     * 记账标签（工单 0160）：principal 原有标签之上，命中 tag 路由补 "route:&lt;group&gt;"，
+     * fallback 链降级补 "fallback"（工单 0155），供账本侧按标签统计路由/降级流量。
+     */
+    private String usageTagsOf(GovernancePrincipal principal, boolean fallback) {
+        java.util.List<String> tags = principal == null || principal.getTags() == null
+                ? new java.util.ArrayList<>() : new java.util.ArrayList<>(principal.getTags());
+        String routeGroup = LAST_ROUTE_GROUP.get();
+        if (routeGroup != null && !routeGroup.isBlank()) {
+            tags.add("route:" + routeGroup);
+        }
+        if (fallback) {
+            tags.add("fallback");
+        }
+        return tags.isEmpty() ? null : cn.chyuan.ai.types.util.TagParser.toStorage(tags);
     }
 
     /**
@@ -672,7 +698,8 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
-        List<LlmChannelVO> candidates = candidatesFor(model);
+        LAST_ROUTE_GROUP.remove();
+        List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
         }
@@ -997,6 +1024,31 @@ public class LlmChatService {
                 .toList();
     }
 
+    /**
+     * 供给某模型的候选（带 tag 路由，工单 0160）：命中启用规则 → 调度限定到规则渠道组
+     * （不命中/无规则/无标签=全渠道兼容）；命中但组内无渠道 → 空候选快速失败。
+     * 命中即置 route 标记（记账 tags 补 route:&lt;group&gt;）。
+     */
+    List<LlmChannelVO> candidatesFor(GovernancePrincipal principal, String model) {
+        List<LlmChannelVO> candidates = candidatesFor(model);
+        cn.chyuan.ai.domain.llmchannel.adapter.repository.IRoutingRuleRepository repository =
+                routingRuleRepositoryProvider == null ? null : routingRuleRepositoryProvider.getIfAvailable();
+        if (principal == null || candidates.isEmpty() || repository == null) {
+            return candidates;
+        }
+        cn.chyuan.ai.domain.llmchannel.model.valobj.RoutingRuleVO route =
+                RoutingRuleEngine.match(repository.findActive(), principal.getTags());
+        if (route == null) {
+            return candidates;
+        }
+        LAST_ROUTE_GROUP.set(route.getChannelGroupId());
+        log.info("LLM tag 路由命中: rule={} group={} model={}",
+                route.getRuleName(), route.getChannelGroupId(), model);
+        return candidates.stream()
+                .filter(ch -> RoutingRuleEngine.groupOf(ch.getChannelGroup()).equals(route.getChannelGroupId()))
+                .toList();
+    }
+
     static boolean suppliesModel(LlmChannelVO channel, String model) {
         for (String m : channel.getModels().split(",")) {
             if (model.equals(m.trim())) {
@@ -1102,13 +1154,7 @@ public class LlmChatService {
                 // 响应非 JSON 或无 usage：不计量
             }
         }
-        String tags = tagStorageOf(principal);
-        if (fallback) {
-            java.util.List<String> base = principal == null || principal.getTags() == null
-                    ? new java.util.ArrayList<>() : new java.util.ArrayList<>(principal.getTags());
-            base.add("fallback");
-            tags = cn.chyuan.ai.types.util.TagParser.toStorage(base);
-        }
+        String tags = usageTagsOf(principal, fallback);
         try {
             usageLedger.record(UsageRecordVO.builder()
                     .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())

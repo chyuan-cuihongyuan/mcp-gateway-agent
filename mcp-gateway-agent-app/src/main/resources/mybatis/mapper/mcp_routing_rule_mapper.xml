@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IRoutingRuleDao">
+
+    <resultMap id="RuleMap" type="cn.chyuan.ai.infrastructure.dao.po.McpRoutingRulePO">
+        <id column="id" property="id"/>
+        <result column="rule_name" property="ruleName"/>
+        <result column="tag_key" property="tagKey"/>
+        <result column="tag_value" property="tagValue"/>
+        <result column="channel_group_id" property="channelGroupId"/>
+        <result column="priority" property="priority"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_routing_rule
+            (rule_name, tag_key, tag_value, channel_group_id, priority, status)
+        VALUES
+            (#{ruleName}, #{tagKey}, #{tagValue}, #{channelGroupId}, #{priority}, #{status})
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_routing_rule
+        SET tag_key = #{tagKey}, tag_value = #{tagValue}, channel_group_id = #{channelGroupId},
+            priority = #{priority}, status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_routing_rule WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultMap="RuleMap">
+        SELECT * FROM mcp_routing_rule WHERE id = #{id}
+    </select>
+
+    <select id="queryByName" resultMap="RuleMap">
+        SELECT * FROM mcp_routing_rule WHERE rule_name = #{ruleName}
+    </select>
+
+    <select id="queryAll" resultMap="RuleMap">
+        SELECT * FROM mcp_routing_rule ORDER BY priority DESC, id
+    </select>
+
+    <select id="queryActive" resultMap="RuleMap">
+        SELECT * FROM mcp_routing_rule WHERE status = 'ACTIVE' ORDER BY priority DESC, id
+    </select>
+
+</mapper>

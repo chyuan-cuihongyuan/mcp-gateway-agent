@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS mcp_channel_health_snapshot (
   KEY idx_health_snapshot_sampled (sampled_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '渠道健康分快照（工单 0159，定时采样）';
 
+-- ── 工单 0160：tag 路由规则（表 22，编号顺延）──
+CREATE TABLE IF NOT EXISTS mcp_routing_rule (
+  id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+  rule_name        VARCHAR(128) NOT NULL COMMENT '规则名（唯一）',
+  tag_key          VARCHAR(64)  NOT NULL COMMENT '标签键',
+  tag_value        VARCHAR(64)  NOT NULL COMMENT '标签值',
+  channel_group_id VARCHAR(64)  NOT NULL COMMENT '命中后调度的渠道组',
+  priority         INT          NOT NULL DEFAULT 0 COMMENT '优先级（大者优先）',
+  status           VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE / DISABLED',
+  create_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_routing_rule_name (rule_name),
+  KEY idx_routing_rule_tag (tag_key, tag_value)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = 'tag 路由规则（工单 0160）';
+ALTER TABLE mcp_llm_channel ADD COLUMN channel_group VARCHAR(64) NULL COMMENT '渠道组（工单 0160 tag 路由限定；空=默认组 default）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

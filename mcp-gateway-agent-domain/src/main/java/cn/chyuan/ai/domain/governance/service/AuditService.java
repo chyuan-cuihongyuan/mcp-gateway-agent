@@ -51,6 +51,17 @@ public class AuditService implements IAuditService {
     }
 
     @Override
+    public java.util.Map<String, Object> stats(int days) {
+        int d = Math.max(1, days);
+        String start = java.time.LocalDateTime.now().minusDays(d)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("days", d);
+        result.put("byType", repository.statType(start));
+        result.put("topOperators", repository.statActor(start));
+        return result;
+    }
+
     public long count(String resourceType, String resourceId, String type, String actor) {
         return repository.count(resourceType, resourceId, type, actor);
     }

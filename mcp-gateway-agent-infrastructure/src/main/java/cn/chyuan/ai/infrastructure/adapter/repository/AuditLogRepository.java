@@ -53,6 +53,15 @@ public class AuditLogRepository implements IAuditLogRepository {
     }
 
     @Override
+    public java.util.List<java.util.Map<String, Object>> statType(String startCreatedAt) {
+        return auditLogDao.statType(startCreatedAt);
+    }
+
+    @Override
+    public java.util.List<java.util.Map<String, Object>> statActor(String startCreatedAt) {
+        return auditLogDao.statActor(startCreatedAt);
+    }
+
     public long count(String resourceType, String resourceId, String type, String actor) {
         McpAuditLogPO query = new McpAuditLogPO();
         query.setResourceType(resourceType);

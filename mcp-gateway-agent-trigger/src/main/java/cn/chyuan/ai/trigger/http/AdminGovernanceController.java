@@ -33,6 +33,9 @@ import java.util.List;
 public class AdminGovernanceController {
 
     @Resource
+    private cn.chyuan.ai.domain.governance.service.IAuditService auditService;
+
+    @Resource
     private IAdminGovernanceService adminGovernanceService;
 
     /** 登录：签发 JWT（免认证路径） */
@@ -133,6 +136,13 @@ public class AdminGovernanceController {
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return adminGovernanceService.pageAuditLogs(resourceType, resourceId, type, actor, page, size);
+    }
+
+    /** 审计统计（工单 0186 Z3）：分型分布 + 操作者 TopN */
+    @org.springframework.web.bind.annotation.GetMapping("/audit/stats")
+    public Response<java.util.Map<String, Object>> auditStats(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "7") int days) {
+        return Response.success(auditService.stats(days));
     }
 
     /** 审计导出（工单 0112）：format=csv|json，时间/分型/操作者筛选 */

@@ -399,7 +399,11 @@ class StreamableHttpProtocolTest {
                 }
 
                 @Override
-                public long count(String resourceType, String resourceId, String type, String actor) {
+                public java.util.Map<String, Object> stats(int days) {
+            return java.util.Map.of();
+        }
+
+        public long count(String resourceType, String resourceId, String type, String actor) {
                     return 0;
                 }
             };

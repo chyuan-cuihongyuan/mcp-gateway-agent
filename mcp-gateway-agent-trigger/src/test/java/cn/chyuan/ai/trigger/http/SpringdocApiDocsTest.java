@@ -40,6 +40,11 @@ class SpringdocApiDocsTest {
         IAdminGovernanceService adminGovernanceService() {
             return Mockito.mock(IAdminGovernanceService.class);
         }
+
+        @Bean
+        cn.chyuan.ai.domain.governance.service.IAuditService auditService() {
+            return Mockito.mock(cn.chyuan.ai.domain.governance.service.IAuditService.class);
+        }
     }
 
     @Autowired

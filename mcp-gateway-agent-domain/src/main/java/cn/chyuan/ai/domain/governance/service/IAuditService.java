@@ -23,4 +23,7 @@ public interface IAuditService {
             String resourceType, String resourceId, String type, String actor, int page, int size);
 
     long count(String resourceType, String resourceId, String type, String actor);
+
+    /** 审计统计（工单 0186 Z3）：byType 分型计数 + topOperators 操作者 TopN（近 days 天） */
+    java.util.Map<String, Object> stats(int days);
 }

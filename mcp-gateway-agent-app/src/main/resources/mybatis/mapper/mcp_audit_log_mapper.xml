@@ -58,4 +58,15 @@
         </where>
     </select>
 
+    <!-- 分型/操作者统计（工单 0186 Z3）：双方言通用 GROUP BY -->
+    <select id="statType" resultType="java.util.LinkedHashMap">
+        SELECT type AS value, COUNT(*) AS count FROM mcp_audit_log
+        WHERE created_at &gt;= #{start} GROUP BY type ORDER BY count DESC
+    </select>
+
+    <select id="statActor" resultType="java.util.LinkedHashMap">
+        SELECT actor AS value, COUNT(*) AS count FROM mcp_audit_log
+        WHERE created_at &gt;= #{start} GROUP BY actor ORDER BY count DESC LIMIT 10
+    </select>
+
 </mapper>

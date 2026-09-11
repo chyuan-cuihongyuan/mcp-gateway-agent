@@ -45,10 +45,15 @@ public class OpenAiCompatController {
         this.budgetService = budgetServiceProvider.getIfAvailable();
     }
 
-    /** 成本响应头（工单 0086）：读取线程暂存值并清理；金额软线告警头（工单 0087）；缓存命中头（工单 0097） */
+    /** 成本响应头（工单 0086）：读取线程暂存值并清理；金额软线告警头（工单 0087）；缓存命中头（工单 0097）；fallback 降级头（工单 0155） */
     private void writeCostHeader(HttpServletResponse response) {
         if (llmChatService.consumeLastCacheHit()) {
             response.setHeader("X-Gateway-Cache", "HIT");
+        }
+        // fallback 降级标注（工单 0155）：值为实际承接请求的降级渠道名
+        String fallbackChannel = llmChatService.consumeLastFallbackChannel();
+        if (fallbackChannel != null) {
+            response.setHeader("X-Gateway-Fallback", fallbackChannel);
         }
         boolean costWarning = llmChatService.consumeLastCostWarning();
         if (!costHeaderEnabled) {

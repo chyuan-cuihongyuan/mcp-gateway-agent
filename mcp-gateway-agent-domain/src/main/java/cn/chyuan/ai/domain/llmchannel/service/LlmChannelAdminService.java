@@ -42,6 +42,7 @@ public class LlmChannelAdminService {
 
     public LlmChannelVO create(LlmChannelVO channel) {
         validate(channel, true);
+        assertFallbackAcyclic(channel.getId(), channel.getFallbackChannelId());
         normalize(channel);
         Long id = repository.insert(channel);
         channel.setId(id);
@@ -59,6 +60,7 @@ public class LlmChannelAdminService {
             channel.setCredential(existing.getCredential());
         }
         validate(channel, false);
+        assertFallbackAcyclic(id, channel.getFallbackChannelId());
         normalize(channel);
         repository.update(channel);
         audit("UPDATE_LLM_CHANNEL", channel.getName(), channel);
@@ -178,6 +180,33 @@ public class LlmChannelAdminService {
         return channel;
     }
 
+    /**
+     * fallback 防环校验（工单 0155，A→B→A 拒绝保存）：目标渠道须存在；
+     * 以全量渠道既有 fallback 边为底图、按新边覆盖 self 后走 FallbackChainPolicy 纯函数判定。
+     */
+    private void assertFallbackAcyclic(Long selfId, Long fallbackChannelId) {
+        if (fallbackChannelId == null) {
+            return;
+        }
+        if (repository.findById(fallbackChannelId) == null) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                    "fallback 渠道不存在: " + fallbackChannelId);
+        }
+        java.util.Map<Long, Long> edges = new java.util.HashMap<>();
+        for (LlmChannelVO ch : repository.findAll()) {
+            if (ch.getFallbackChannelId() != null) {
+                edges.put(ch.getId(), ch.getFallbackChannelId());
+            }
+        }
+        if (selfId != null) {
+            edges.put(selfId, fallbackChannelId);
+        }
+        if (selfId != null && FallbackChainPolicy.createsCycle(edges, selfId, fallbackChannelId)) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(),
+                    "fallback 链形成环（self→" + fallbackChannelId + "），拒绝保存");
+        }
+    }
+
     private void audit(String action, String resourceId, LlmChannelVO channel) {
         auditService.record(AuditCommandEntity.builder()
                 .actor("admin").action(action).resourceType("LLM_CHANNEL").resourceId(resourceId)
@@ -197,6 +226,7 @@ public class LlmChannelAdminService {
         copy.setWeight(channel.getWeight());
         copy.setPriority(channel.getPriority());
         copy.setStatus(channel.getStatus());
+        copy.setFallbackChannelId(channel.getFallbackChannelId());
         return copy;
     }
 }

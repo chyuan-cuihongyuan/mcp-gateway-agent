@@ -93,7 +93,7 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
                 .weight(dto.getWeight()).priority(dto.getPriority())
                 .status(dto.getStatus()).timeoutMs(dto.getTimeoutMs())
                 .numRetries(dto.getNumRetries()).retryBackoffMs(dto.getRetryBackoffMs())
-                .retryOn(dto.getRetryOn())
+                .retryOn(dto.getRetryOn()).fallbackChannelId(dto.getFallbackChannelId())
                 .balanceProbeUrl(dto.getBalanceProbeUrl()).balanceJsonPath(dto.getBalanceJsonPath())
                 .balance(dto.getBalance())
                 .build();
@@ -107,7 +107,7 @@ public class AdminLlmChannelService implements IAdminLlmChannelService {
                 .weight(vo.getWeight()).priority(vo.getPriority()).status(vo.getStatus())
                 .timeoutMs(vo.getTimeoutMs()).testTime(format(vo.getTestTime()))
                 .numRetries(vo.getNumRetries()).retryBackoffMs(vo.getRetryBackoffMs())
-                .retryOn(vo.getRetryOn())
+                .retryOn(vo.getRetryOn()).fallbackChannelId(vo.getFallbackChannelId())
                 .balanceProbeUrl(vo.getBalanceProbeUrl()).balanceJsonPath(vo.getBalanceJsonPath())
                 .balance(vo.getBalance()).balanceTime(format(vo.getBalanceTime()))
                 .responseTimeMs(vo.getResponseTimeMs())

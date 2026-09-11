@@ -47,6 +47,9 @@ public class McpLlmChannelPO implements Serializable {
     /** 重试错误类型（逗号分隔 429/5xx/timeout；空=不重试） */
     private String retryOn;
 
+    /** fallback 渠道 id（工单 0155；空=无降级） */
+    private Long fallbackChannelId;
+
     /** 余额探测（工单 0108）：查询 URL + JSON 路径（可空=不探测） */
     private String balanceProbeUrl;
     private String balanceJsonPath;

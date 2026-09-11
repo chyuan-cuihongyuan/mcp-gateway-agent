@@ -80,6 +80,7 @@ public class LlmChannelRepository implements ILlmChannelRepository {
                 .numRetries(vo.getNumRetries())
                 .retryBackoffMs(vo.getRetryBackoffMs())
                 .retryOn(vo.getRetryOn())
+                .fallbackChannelId(vo.getFallbackChannelId())
                 .balanceProbeUrl(vo.getBalanceProbeUrl()).balanceJsonPath(vo.getBalanceJsonPath())
                 .balance(vo.getBalance()).balanceTime(vo.getBalanceTime())
                 .build();
@@ -96,6 +97,7 @@ public class LlmChannelRepository implements ILlmChannelRepository {
                 .weight(po.getWeight()).priority(po.getPriority()).status(po.getStatus())
                 .timeoutMs(po.getTimeoutMs()).testTime(po.getTestTime())
                 .numRetries(po.getNumRetries()).retryBackoffMs(po.getRetryBackoffMs()).retryOn(po.getRetryOn())
+                .fallbackChannelId(po.getFallbackChannelId())
                 .balanceProbeUrl(po.getBalanceProbeUrl()).balanceJsonPath(po.getBalanceJsonPath())
                 .balance(po.getBalance()).balanceTime(po.getBalanceTime())
                 .responseTimeMs(po.getResponseTimeMs())

@@ -16,6 +16,7 @@
         <result column="num_retries" property="numRetries"/>
         <result column="retry_backoff_ms" property="retryBackoffMs"/>
         <result column="retry_on" property="retryOn"/>
+        <result column="fallback_channel_id" property="fallbackChannelId"/>
         <result column="balance_probe_url" property="balanceProbeUrl"/>
         <result column="balance_json_path" property="balanceJsonPath"/>
         <result column="balance" property="balance"/>
@@ -29,11 +30,11 @@
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO mcp_llm_channel (name, base_url, credential, models, model_mapping,
                                      weight, priority, status, timeout_ms,
-                                     num_retries, retry_backoff_ms, retry_on,
+                                     num_retries, retry_backoff_ms, retry_on, fallback_channel_id,
                                      balance_probe_url, balance_json_path)
         VALUES (#{name}, #{baseUrl}, #{credential}, #{models}, #{modelMapping},
                 #{weight}, #{priority}, #{status}, #{timeoutMs},
-                #{numRetries}, #{retryBackoffMs}, #{retryOn},
+                #{numRetries}, #{retryBackoffMs}, #{retryOn}, #{fallbackChannelId},
                 #{balanceProbeUrl}, #{balanceJsonPath})
     </insert>
 
@@ -43,6 +44,7 @@
             model_mapping = #{modelMapping}, weight = #{weight}, priority = #{priority},
             status = #{status}, timeout_ms = #{timeoutMs},
             num_retries = #{numRetries}, retry_backoff_ms = #{retryBackoffMs}, retry_on = #{retryOn},
+            fallback_channel_id = #{fallbackChannelId},
             balance_probe_url = #{balanceProbeUrl}, balance_json_path = #{balanceJsonPath},
             update_time = NOW()
         WHERE id = #{id}

@@ -62,6 +62,9 @@ public class LlmChannelVO {
     /** 重试错误类型（逗号分隔 429/5xx/timeout；空=不重试） */
     private String retryOn;
 
+    /** fallback 渠道 id（工单 0155：本渠道重试耗尽后沿链降级；空=无降级，保存时防环校验） */
+    private Long fallbackChannelId;
+
     /** 余额探测（工单 0108） */
     private String balanceProbeUrl;
     private String balanceJsonPath;

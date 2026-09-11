@@ -79,6 +79,9 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IBudgetService> budgetServiceProvider;
 
+    /** 本次请求是否走了 fallback 链降级（工单 0155 响应头 X-Gateway-Fallback 消费；值为降级渠道名，读后即清） */
+    private static final ThreadLocal<String> LAST_FALLBACK = new ThreadLocal<>();
+
     /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
@@ -141,8 +144,12 @@ public class LlmChatService {
         List<cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate> ordered =
                 orderCandidates(candidates);
         String lastError = null;
+        LlmChannelVO lastTried = null;
+        java.util.Set<Long> triedIds = new java.util.HashSet<>();
         for (cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate pick : ordered) {
             LlmChannelVO channel = byId(candidates, Long.parseLong(pick.id()));
+            triedIds.add(channel.getId());
+            lastTried = channel;
             try {
                 String upstreamModel = mapModel(channel, model);
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, upstreamModel));
@@ -227,8 +234,76 @@ public class LlmChatService {
                 log.warn("LLM 渠道传输失败转移: channel={} reason={}", channel.getName(), e.getMessage());
             }
         }
+        // 渠道 fallback 链降级（工单 0155）：主候选重试耗尽后沿最后渠道的 fallback 链至多 2 跳；
+        // 链上渠道不重复尝试，降级成功照常计费/落账（带 fallback 标记）并置响应头标记
+        String fallbackResponse = tryFallbackChain(principal, model, request, lastTried, triedIds);
+        if (fallbackResponse != null) {
+            return fallbackResponse;
+        }
         throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,
                 "全部渠道失败，最后错误：" + StringUtils.defaultString(lastError));
+    }
+
+    /**
+     * fallback 链降级（工单 0155）：沿 fallback_channel_id 单向链至多 {@link FallbackChainPolicy#MAX_HOPS}
+     * 跳，逐渠道单次尝试（渠道内重试已在主候选阶段耗尽）；防环/去重由 FallbackChainPolicy 纯函数保证，
+     * 禁用/缺失渠道跳过。降级成功：账本照常（tags 补 fallback 标记）+ 置 X-Gateway-Fallback 标记。
+     */
+    private String tryFallbackChain(GovernancePrincipal principal, String model, JSONObject request,
+            LlmChannelVO lastTried, java.util.Set<Long> triedIds) {
+        if (lastTried == null) {
+            return null;
+        }
+        java.util.Map<Long, Long> edges = new java.util.HashMap<>();
+        for (LlmChannelVO ch : channelRepository.findAll()) {
+            if (ch.getFallbackChannelId() != null) {
+                edges.put(ch.getId(), ch.getFallbackChannelId());
+            }
+        }
+        for (Long fallbackId : FallbackChainPolicy.resolveChain(edges, lastTried.getId(), FallbackChainPolicy.MAX_HOPS)) {
+            if (triedIds.contains(fallbackId)) {
+                continue;
+            }
+            triedIds.add(fallbackId);
+            LlmChannelVO fallback = channelRepository.findById(fallbackId);
+            if (fallback == null
+                    || (fallback.getStatus() != null && fallback.getStatus() != LlmChannelVO.STATUS_ENABLED)) {
+                continue;
+            }
+            try {
+                String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(fallback, model)));
+                Map<String, String> headers = new HashMap<>();
+                headers.put("Content-Type", "application/json");
+                if (StringUtils.isNotBlank(fallback.getCredential())) {
+                    headers.put("Authorization", "Bearer " + fallback.getCredential());
+                }
+                long start = System.currentTimeMillis();
+                int status = llmHttpPort.postJson(fallback.getBaseUrl() + "/chat/completions",
+                        headers, upstreamBody, fallback.getTimeoutMs() == null ? 60_000 : fallback.getTimeoutMs());
+                String response = llmHttpPort.lastResponseBody();
+                int cost = (int) (System.currentTimeMillis() - start);
+                if (status >= 200 && status < 300 && response != null) {
+                    // 响应侧护栏（工单 0094）与主链同口径；命中阻断按治理异常透传
+                    response = applyResponseGuardrails(response);
+                    LAST_FALLBACK.set(fallback.getName());
+                    recordUsage(principal, model, fallback.getName(), "SUCCESS", cost, response, true);
+                    consumeTpmQuietly(principal, response);
+                    countCacheMiss(model);
+                    log.warn("LLM fallback 链降级成功: fallback={} model={} hops<= {}",
+                            fallback.getName(), model, FallbackChainPolicy.MAX_HOPS);
+                    return response;
+                }
+                recordUsage(principal, model, fallback.getName(), "FAIL", cost, null, true);
+                log.warn("LLM fallback 渠道失败: channel={} status={}", fallback.getName(), status);
+            } catch (cn.chyuan.ai.types.exception.AppException e) {
+                // 治理类异常（响应护栏 -32018 等）透传，不继续沿链
+                throw e;
+            } catch (Exception e) {
+                recordUsage(principal, model, fallback.getName(), "FAIL", 0, null, true);
+                log.warn("LLM fallback 渠道传输失败: channel={} reason={}", fallback.getName(), e.getMessage());
+            }
+        }
+        return null;
     }
 
     /** /v1/models：聚合启用渠道供给的客户端可见模型名 */
@@ -710,6 +785,13 @@ public class LlmChatService {
         return hit;
     }
 
+    /** 取出并清除本次请求的 fallback 降级渠道名（工单 0155 响应头 X-Gateway-Fallback 消费；无则 null） */
+    public String consumeLastFallbackChannel() {
+        String channel = LAST_FALLBACK.get();
+        LAST_FALLBACK.remove();
+        return channel;
+    }
+
     /** retry_on 配置解析（逗号分隔；空=不重试） */
     private static java.util.List<String> retryOnOf(String retryOn) {
         if (retryOn == null || retryOn.isBlank()) {
@@ -887,6 +969,15 @@ public class LlmChatService {
     /** 用量落账（非流式：usage 从响应体解析；流式由 0064 补） */
     private void recordUsage(GovernancePrincipal principal, String model, String channel,
             String status, int costMs, String responseBody) {
+        recordUsage(principal, model, channel, status, costMs, responseBody, false);
+    }
+
+    /**
+     * 用量落账（带 fallback 标记，工单 0155）：降级链上的成败记录 tags 追加 "fallback"，
+     * 供账本侧按标签统计降级流量；计费口径与主链一致。
+     */
+    private void recordUsage(GovernancePrincipal principal, String model, String channel,
+            String status, int costMs, String responseBody, boolean fallback) {
         Long promptTokens = null;
         Long completionTokens = null;
         if (responseBody != null) {
@@ -900,6 +991,13 @@ public class LlmChatService {
                 // 响应非 JSON 或无 usage：不计量
             }
         }
+        String tags = tagStorageOf(principal);
+        if (fallback) {
+            java.util.List<String> base = principal == null || principal.getTags() == null
+                    ? new java.util.ArrayList<>() : new java.util.ArrayList<>(principal.getTags());
+            base.add("fallback");
+            tags = cn.chyuan.ai.types.util.TagParser.toStorage(base);
+        }
         try {
             usageLedger.record(UsageRecordVO.builder()
                     .virtualKeyId(principal == null ? null : principal.getVirtualKeyId())
@@ -912,6 +1010,7 @@ public class LlmChatService {
                     .durationMs(costMs)
                     .promptTokens(promptTokens)
                     .completionTokens(completionTokens)
+                    .tags(tags)
                     .clientIp(principal == null ? null : principal.getClientIp())
                     .build());
         } catch (Exception e) {

@@ -393,4 +393,119 @@ public class LlmChatServiceTest {
                 () -> service.chatCompletion(principal(), "{\"model\":\"deepseek-chat\",\"messages\":[]}"));
         verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
     }
+
+    // ---- fallback 链（工单 0155） ----
+
+    private static LlmChannelVO channelWithFallback(long id, String name, int priority, Long fallbackId) {
+        return LlmChannelVO.builder()
+                .id(id).name(name).baseUrl("http://upstream-" + name).credential("sk-" + name)
+                .models("m").weight(1).priority(priority)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .fallbackChannelId(fallbackId)
+                .build();
+    }
+
+    @Test
+    @DisplayName("fallback 链（0155）— 主渠道重试耗尽后沿链降级成功：响应头标记 + 账本 fallback 标记")
+    public void testFallbackChainSuccess() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        LlmChannelVO primary = channelWithFallback(1L, "primary", 0, 2L);
+        LlmChannelVO backup = channelWithFallback(2L, "backup", 0, null);
+        when(channelRepository.findEnabled()).thenReturn(List.of(primary));
+        when(channelRepository.findAll()).thenReturn(List.of(primary, backup));
+        when(channelRepository.findById(2L)).thenReturn(backup);
+        when(llmHttpPort.postJson(eq("http://upstream-primary/chat/completions"), anyMap(), anyString(), anyInt()))
+                .thenReturn(500);
+        when(llmHttpPort.postJson(eq("http://upstream-backup/chat/completions"), anyMap(), anyString(), anyInt()))
+                .thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"fb\",\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1}}");
+
+        String response = service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
+        assertTrue(response.contains("\"id\":\"fb\""), "降级渠道响应透传");
+        // 主渠道与 fallback 渠道各调用一次；fallback 渠道带其自身凭证
+        verify(llmHttpPort, times(1)).postJson(eq("http://upstream-primary/chat/completions"),
+                argThat(h -> "Bearer sk-primary".equals(h.get("Authorization"))), anyString(), anyInt());
+        verify(llmHttpPort, times(1)).postJson(eq("http://upstream-backup/chat/completions"),
+                argThat(h -> "Bearer sk-backup".equals(h.get("Authorization"))), anyString(), anyInt());
+        // 响应头标记（控制器消费源）：降级渠道名读后即清
+        assertEquals("backup", service.consumeLastFallbackChannel());
+        assertNull(service.consumeLastFallbackChannel(), "ThreadLocal 读后即清");
+        // 账本标记：SUCCESS 记在降级渠道名下，tags 含 fallback
+        verify(usageLedger, atLeastOnce()).record(argThat(rec -> rec != null
+                && "SUCCESS".equals(rec.getStatus())
+                && "backup".equals(rec.getChannelId())
+                && rec.getTags() != null && rec.getTags().contains("fallback")));
+    }
+
+    @Test
+    @DisplayName("fallback 链（0155）— 主渠道与 fallback 皆败：-32004 且两渠道各记一次 FAIL")
+    public void testFallbackChainBothFail() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        LlmChannelVO primary = channelWithFallback(1L, "primary", 0, 2L);
+        LlmChannelVO backup = channelWithFallback(2L, "backup", 0, null);
+        when(channelRepository.findEnabled()).thenReturn(List.of(primary));
+        when(channelRepository.findAll()).thenReturn(List.of(primary, backup));
+        when(channelRepository.findById(2L)).thenReturn(backup);
+        when(llmHttpPort.postJson(eq("http://upstream-primary/chat/completions"), anyMap(), anyString(), anyInt()))
+                .thenReturn(500);
+        when(llmHttpPort.postJson(eq("http://upstream-backup/chat/completions"), anyMap(), anyString(), anyInt()))
+                .thenReturn(503);
+        when(llmHttpPort.lastResponseBody()).thenReturn("err");
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), ex.getCode());
+        assertNull(service.consumeLastFallbackChannel(), "全败无降级标记");
+        verify(llmHttpPort, times(1)).postJson(eq("http://upstream-primary/chat/completions"),
+                anyMap(), anyString(), anyInt());
+        verify(llmHttpPort, times(1)).postJson(eq("http://upstream-backup/chat/completions"),
+                anyMap(), anyString(), anyInt());
+        verify(usageLedger, atLeastOnce()).record(argThat(rec -> rec != null
+                && "FAIL".equals(rec.getStatus()) && "backup".equals(rec.getChannelId())));
+    }
+
+    @Test
+    @DisplayName("fallback 链（0155）— fallback 渠道禁用/缺失跳过：不调用其上游直接 -32004")
+    public void testFallbackChainSkipsUnavailable() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        // 链：primary(1) → backup(2, 自动禁用态) → ghost(3, 库中缺失)
+        LlmChannelVO primary = channelWithFallback(1L, "primary", 0, 2L);
+        LlmChannelVO disabledBackup = LlmChannelVO.builder()
+                .id(2L).name("backup").baseUrl("http://upstream-backup").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_AUTO_DISABLED).timeoutMs(5000)
+                .fallbackChannelId(3L)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(primary));
+        when(channelRepository.findAll()).thenReturn(List.of(primary, disabledBackup));
+        when(channelRepository.findById(2L)).thenReturn(disabledBackup);
+        when(channelRepository.findById(3L)).thenReturn(null);
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(500);
+        when(llmHttpPort.lastResponseBody()).thenReturn("err");
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), ex.getCode());
+        // 仅主渠道被调用一次，禁用/缺失的 fallback 渠道不出站
+        verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
 }

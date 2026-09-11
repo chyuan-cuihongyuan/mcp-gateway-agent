@@ -48,6 +48,9 @@ public class LlmChannelResponseDTO implements Serializable {
     private Integer retryBackoffMs;
     private String retryOn;
 
+    /** fallback 渠道 id（工单 0155：空=无降级） */
+    private Long fallbackChannelId;
+
     /** 余额探测（工单 0108） */
     private String balanceProbeUrl;
     private String balanceJsonPath;

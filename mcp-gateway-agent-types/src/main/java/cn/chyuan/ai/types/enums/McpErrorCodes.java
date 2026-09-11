@@ -135,6 +135,12 @@ public final class McpErrorCodes {
      */
     public static final int GROUP_CAPACITY_EXHAUSTED = -32019;
 
+    /**
+     * 渠道请求大小超限 —— 渠道级 max_body_bytes 请求体预算（工单 0156，HTTP 413 语义；
+     * 与全局 -32015 语义区分：该码为渠道维度出站预算，全局码为网关入站上限）
+     */
+    public static final int CHANNEL_BODY_TOO_LARGE = -32020;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

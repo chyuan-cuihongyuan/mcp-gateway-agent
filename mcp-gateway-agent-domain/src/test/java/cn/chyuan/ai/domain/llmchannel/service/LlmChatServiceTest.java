@@ -51,6 +51,13 @@ public class LlmChatServiceTest {
     @Mock
     private cn.chyuan.ai.domain.llmchannel.adapter.port.ILlmResponseCachePort responseCache;
 
+    /** 治理事件（工单 0156 渠道请求体超限事件） */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> groupEventPublisher;
+
+    @Mock
+    private cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher eventPublisher;
+
     @InjectMocks
     private LlmChatService service;
 
@@ -507,5 +514,110 @@ public class LlmChatServiceTest {
         assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.TOOL_EXECUTION_FAILED), ex.getCode());
         // 仅主渠道被调用一次，禁用/缺失的 fallback 渠道不出站
         verify(llmHttpPort, times(1)).postJson(anyString(), anyMap(), anyString(), anyInt());
+    }
+
+    // ---- 渠道超时与请求大小预算（工单 0156） ----
+
+    @Test
+    @DisplayName("请求体预算（0156）— 渠道 max_body_bytes 超限 -32020 拒绝 + 事件；零上游调用不转移")
+    public void testChannelBodyBudgetRejects() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(groupEventPublisher.getIfAvailable()).thenReturn(eventPublisher);
+        LlmChannelVO budgeted = LlmChannelVO.builder()
+                .id(1L).name("budgeted").baseUrl("http://upstream-budgeted").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .maxBodyBytes(16L)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(budgeted));
+
+        // 出站体（模型改写后）远超 16 字节
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(),
+                        "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"hello world\"}]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.CHANNEL_BODY_TOO_LARGE), ex.getCode());
+        verifyNoInteractions(llmHttpPort);
+        // 超限事件已发布（渠道名 + 上限 + 实际值）
+        verify(eventPublisher).publish(eq("CHANNEL_BODY_TOO_LARGE"), argThat(payload ->
+                "budgeted".equals(payload.get("channel"))
+                        && Long.valueOf(16L).equals(payload.get("maxBodyBytes"))));
+    }
+
+    @Test
+    @DisplayName("请求体预算（0156）— 边界值：等于上限放行；未配置（null）不限")
+    public void testChannelBodyBudgetBoundary() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"ok\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+
+        // 边界：出站体 `{"model":"m","messages":[]}` 恰 27 字节，上限 27 → 等于放行
+        LlmChannelVO boundary = LlmChannelVO.builder()
+                .id(1L).name("boundary").baseUrl("http://upstream-boundary").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .maxBodyBytes(27L)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(boundary));
+        String body = "{\"model\":\"m\",\"messages\":[]}";
+        String out = service.chatCompletion(principal(), body);
+        assertTrue(out.contains("\"id\":\"ok\""), "等于上限放行");
+
+        // 未配置（null）= 不限，同样放行且无事件
+        LlmChannelVO unlimited = LlmChannelVO.builder()
+                .id(1L).name("boundary").baseUrl("http://upstream-boundary").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(5000)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(unlimited));
+        service.chatCompletion(principal(), body);
+        verify(eventPublisher, never()).publish(anyString(), anyMap());
+    }
+
+    @Test
+    @DisplayName("超时预算传递（0156）— 渠道 timeout_ms 即 per-request 超时；不配置=60000 全局默认")
+    public void testTimeoutBudgetPassthrough() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"t\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+
+        // 配置 timeout_ms=1234 → 逐请求透传 1234
+        LlmChannelVO configured = LlmChannelVO.builder()
+                .id(1L).name("t1").baseUrl("http://upstream-t1").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED).timeoutMs(1234)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(configured));
+        service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
+        verify(llmHttpPort).postJson(anyString(), anyMap(), anyString(), eq(1234));
+
+        // 未配置 → 全局默认 60000
+        LlmChannelVO unconfigured = LlmChannelVO.builder()
+                .id(1L).name("t1").baseUrl("http://upstream-t1").credential("sk")
+                .models("m").weight(1).priority(0)
+                .status(LlmChannelVO.STATUS_ENABLED)
+                .build();
+        when(channelRepository.findEnabled()).thenReturn(List.of(unconfigured));
+        service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
+        verify(llmHttpPort).postJson(anyString(), anyMap(), anyString(), eq(60_000));
     }
 }

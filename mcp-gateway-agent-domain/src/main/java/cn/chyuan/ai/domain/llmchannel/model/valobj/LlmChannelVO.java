@@ -55,6 +55,9 @@ public class LlmChannelVO {
 
     /** 上游请求超时毫秒（默认 60000） */
     private Integer timeoutMs;
+
+    /** 渠道请求体预算字节（工单 0156；空=不限，出站前置校验超限 -32020 拒绝） */
+    private Long maxBodyBytes;
     /** 重试次数上限（工单 0105；0/空=不重试，≤3） */
     private Integer numRetries;
     /** 重试退避基值毫秒（指数 base*2^n） */

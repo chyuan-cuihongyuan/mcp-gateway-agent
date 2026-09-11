@@ -11,6 +11,11 @@
 -- ── 工单 0155：渠道 fallback 链 ──
 ALTER TABLE mcp_llm_channel ADD COLUMN fallback_channel_id BIGINT NULL COMMENT 'fallback 渠道 id（工单 0155；空=无降级，保存时防环校验）';
 
+-- ── 工单 0156：渠道超时与请求大小预算 ──
+ALTER TABLE mcp_llm_channel ADD COLUMN max_body_bytes BIGINT NULL COMMENT '渠道请求体预算字节（工单 0156；空=不限，超限 -32020）';
+-- timeout_ms 列既有种子已含（DEFAULT 60000，渠道不配置=沿用该全局默认）；存量库如缺失可执行：
+-- ALTER TABLE mcp_llm_channel ADD COLUMN timeout_ms INT NOT NULL DEFAULT 60000;
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

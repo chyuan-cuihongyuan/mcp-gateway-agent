@@ -155,6 +155,10 @@ public class LlmChannelAdminService {
                 && (channel.getTimeoutMs() < 1000 || channel.getTimeoutMs() > 300000)) {
             throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "timeoutMs 须在 1000-300000 毫秒");
         }
+        // 渠道预算（工单 0156）：请求体上限空=不限（沿用全局默认），配置须为正整数
+        if (channel.getMaxBodyBytes() != null && channel.getMaxBodyBytes() <= 0) {
+            throw new AppException(ResponseCode.ILLEGAL_PARAMETER.getCode(), "maxBodyBytes 须为正整数（空=不限）");
+        }
     }
 
     private void normalize(LlmChannelVO channel) {
@@ -227,6 +231,7 @@ public class LlmChannelAdminService {
         copy.setPriority(channel.getPriority());
         copy.setStatus(channel.getStatus());
         copy.setFallbackChannelId(channel.getFallbackChannelId());
+        copy.setMaxBodyBytes(channel.getMaxBodyBytes());
         return copy;
     }
 }

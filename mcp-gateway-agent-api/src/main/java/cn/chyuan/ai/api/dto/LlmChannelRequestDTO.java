@@ -40,6 +40,9 @@ public class LlmChannelRequestDTO implements Serializable {
 
     private Integer timeoutMs;
 
+    /** 渠道请求体预算字节（工单 0156；空=不限） */
+    private Long maxBodyBytes;
+
     /** 重试策略（工单 0105）：次数上限（≤3）/退避基值毫秒/retry_on（429,5xx,timeout） */
     private Integer numRetries;
     private Integer retryBackoffMs;

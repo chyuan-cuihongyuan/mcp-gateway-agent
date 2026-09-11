@@ -44,6 +44,9 @@ public class LlmChatService {
     /** 用量/配额的流量面标签 */
     public static final String TRAFFIC_LLM_GATEWAY = "__llm__";
 
+    /** 渠道请求体超限事件（工单 0156，webhook 可订阅） */
+    public static final String EVENT_CHANNEL_BODY_TOO_LARGE = "CHANNEL_BODY_TOO_LARGE";
+
     @Resource
     private ILlmChannelRepository channelRepository;
 
@@ -153,13 +156,17 @@ public class LlmChatService {
             try {
                 String upstreamModel = mapModel(channel, model);
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, upstreamModel));
+                // 渠道请求体预算（工单 0156）：出站前置校验，超限 -32020 拒绝（治理类异常不转移）
+                assertChannelBodyBudget(channel, upstreamBody);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 if (StringUtils.isNotBlank(channel.getCredential())) {
                     headers.put("Authorization", "Bearer " + channel.getCredential());
                 }
                 // 同渠道重试（工单 0105）：retry_on 分类（429/5xx/timeout）+ 指数退避 base*2^n；
-                // 流式已出首字节不重试（0064 口径在流式路径天然保证）；账本终态只记一次
+                // 流式已出首字节不重试（0064 口径在流式路径天然保证）；账本终态只记一次。
+                // 超时预算（工单 0156）：渠道 timeout_ms 即 per-request 超时；
+                // 不配置=沿用全局默认 60000ms（与 0063 建库默认一致，见 DDL timeout_ms DEFAULT 60000）
                 int maxRetries = channel.getNumRetries() == null ? 0 : Math.min(3, channel.getNumRetries());
                 long backoffBase = channel.getRetryBackoffMs() == null ? 200 : channel.getRetryBackoffMs();
                 java.util.List<String> retryOn = retryOnOf(channel.getRetryOn());
@@ -173,7 +180,7 @@ public class LlmChatService {
                     transportError = null;
                     try {
                         status = llmHttpPort.postJson(channel.getBaseUrl() + "/chat/completions",
-                                headers, upstreamBody, channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs());
+                                headers, upstreamBody, timeoutBudgetOf(channel));
                         response = llmHttpPort.lastResponseBody();
                     } catch (Exception te) {
                         status = 0;
@@ -272,6 +279,8 @@ public class LlmChatService {
             }
             try {
                 String upstreamBody = applyGuardrails(principal, rewriteModel(request, mapModel(fallback, model)));
+                // 渠道请求体预算（工单 0156）与主链同口径
+                assertChannelBodyBudget(fallback, upstreamBody);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Content-Type", "application/json");
                 if (StringUtils.isNotBlank(fallback.getCredential())) {
@@ -279,7 +288,7 @@ public class LlmChatService {
                 }
                 long start = System.currentTimeMillis();
                 int status = llmHttpPort.postJson(fallback.getBaseUrl() + "/chat/completions",
-                        headers, upstreamBody, fallback.getTimeoutMs() == null ? 60_000 : fallback.getTimeoutMs());
+                        headers, upstreamBody, timeoutBudgetOf(fallback));
                 String response = llmHttpPort.lastResponseBody();
                 int cost = (int) (System.currentTimeMillis() - start);
                 if (status >= 200 && status < 300 && response != null) {
@@ -365,7 +374,7 @@ public class LlmChatService {
                 }
                 long start = System.currentTimeMillis();
                 int status = llmHttpPort.postJsonStreaming(channel.getBaseUrl() + "/chat/completions",
-                        headers, upstreamBody, channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs(),
+                        headers, upstreamBody, timeoutBudgetOf(channel),
                         forwarder);
                 int cost = (int) (System.currentTimeMillis() - start);
                 if (status >= 200 && status < 300) {
@@ -624,10 +633,13 @@ public class LlmChatService {
                 if (StringUtils.isNotBlank(channel.getCredential())) {
                     headers.put("Authorization", "Bearer " + channel.getCredential());
                 }
+                String embeddingBody = rewriteModel(request, upstreamModel);
+                // 渠道请求体预算（工单 0156）与 chat 同口径
+                assertChannelBodyBudget(channel, embeddingBody);
                 long start = System.currentTimeMillis();
                 int status = llmHttpPort.postJson(channel.getBaseUrl() + "/embeddings",
-                        headers, rewriteModel(request, upstreamModel),
-                        channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs());
+                        headers, embeddingBody,
+                        timeoutBudgetOf(channel));
                 String response = llmHttpPort.lastResponseBody();
                 int cost = (int) (System.currentTimeMillis() - start);
                 if (status >= 200 && status < 300 && response != null) {
@@ -799,6 +811,43 @@ public class LlmChatService {
         }
         return java.util.Arrays.stream(retryOn.split(","))
                 .map(String::trim).filter(x -> !x.isEmpty()).toList();
+    }
+
+    /**
+     * 渠道超时预算（工单 0156）：渠道 timeout_ms 即 HTTP 客户端 per-request 超时；
+     * 不配置=null=沿用全局默认 60000ms（口径与建库 DEFAULT 一致）。
+     */
+    static int timeoutBudgetOf(LlmChannelVO channel) {
+        return channel.getTimeoutMs() == null ? 60_000 : channel.getTimeoutMs();
+    }
+
+    /**
+     * 渠道请求体预算（工单 0156）：出站前置校验，超限 -32020 提前拒绝（不产生上游调用费）。
+     * 不配置（null/<=0）=不限；边界口径：等于上限放行，严格大于才拒绝。
+     */
+    private void assertChannelBodyBudget(LlmChannelVO channel, String upstreamBody) {
+        Long maxBodyBytes = channel.getMaxBodyBytes();
+        if (maxBodyBytes == null || maxBodyBytes <= 0 || upstreamBody == null) {
+            return;
+        }
+        int bytes = upstreamBody.length();
+        if (bytes <= maxBodyBytes) {
+            return;
+        }
+        try {
+            cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher publisher =
+                    groupEventPublisher == null ? null : groupEventPublisher.getIfAvailable();
+            if (publisher != null) {
+                publisher.publish(EVENT_CHANNEL_BODY_TOO_LARGE, java.util.Map.of(
+                        "channel", channel.getName(),
+                        "maxBodyBytes", maxBodyBytes,
+                        "actualBytes", bytes));
+            }
+        } catch (Exception ignored) {
+            // 事件尽力而为，不阻断拒绝主链
+        }
+        throw new AppException(McpErrorCodes.CHANNEL_BODY_TOO_LARGE,
+                "渠道 " + channel.getName() + " 请求体超限：" + bytes + " > " + maxBodyBytes + " 字节");
     }
 
     /** 重试指标（工单 0105）：gateway.llm.retry{channel,result}；registry 可缺省 */

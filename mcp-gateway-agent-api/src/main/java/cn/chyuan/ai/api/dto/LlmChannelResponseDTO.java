@@ -39,6 +39,9 @@ public class LlmChannelResponseDTO implements Serializable {
 
     private Integer timeoutMs;
 
+    /** 渠道请求体预算字节（工单 0156；空=不限） */
+    private Long maxBodyBytes;
+
     private String testTime;
 
     private Long responseTimeMs;

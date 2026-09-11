@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class SessionManagementServiceTest {
@@ -56,6 +57,18 @@ class SessionManagementServiceTest {
 
         service.removeSession(session.getSessionId());
         verify(metaRepository).delete(session.getSessionId());
+    }
+
+    @Test
+    void shutdownClosesLocalSinksButPreservesRedisMetadataUntilTtl() {
+        SessionConfigVO session = service.createSession("gateway_001", "secret-key");
+
+        service.shutdown();
+
+        // 本地 sink 已关闭：停机后原会话不再被服务
+        assertThat(service.getSession(session.getSessionId())).isNull();
+        // 优雅停机不删除 Redis 元数据（重启不丢，TTL 自然过期）；显式 removeSession 才删除
+        verify(metaRepository, never()).delete(any(String.class));
     }
 
     private String sha256(String value) throws Exception {

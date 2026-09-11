@@ -146,9 +146,17 @@ public class SessionManagementService implements ISessionManagementService {
     public void shutdown() {
         log.info("关闭会话管理服务...");
 
-        for (String sessionId : activeSessions.keySet()) {
-            removeSession(sessionId);
+        // 优雅停机只关闭本进程内的 SSE sink 与本地索引；Redis 元数据不删除，交由 TTL 自然过期
+        // —— 保证「重启不丢」：重启/滚动发布后近期会话元数据仍可查（审计、多实例可见）
+        for (SessionConfigVO sessionConfigVO : activeSessions.values()) {
+            sessionConfigVO.markInactive();
+            try {
+                sessionConfigVO.getSink().tryEmitComplete();
+            } catch (Exception e) {
+                log.warn("关闭会话Sink时出错:{}", e.getMessage());
+            }
         }
+        activeSessions.clear();
 
         // 关闭清理调度器
         cleanupScheduler.shutdown();

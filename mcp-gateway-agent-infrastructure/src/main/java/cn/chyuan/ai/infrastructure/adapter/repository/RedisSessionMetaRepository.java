@@ -43,6 +43,9 @@ public class RedisSessionMetaRepository implements ISessionMetaRepository {
 
     @Override
     public void touch(String sessionId, Duration ttl) {
+        // E11 已知竞态（多实例并发读改写，丢失一次时间戳更新，低危）：
+        // 原子化方案（Lua 单脚本）被 Write 门禁跨文件告警阻断（登记册 §8.5），
+        // 维持读改写两跳语义，待门禁恢复后重做。
         try {
             SessionMetaVO meta = find(sessionId);
             if (meta == null) {

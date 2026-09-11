@@ -1,5 +1,7 @@
 # MCP Gateway Agent
 
+[![build](https://github.com/chyuan-cuihongyuan/mcp-gateway-agent/actions/workflows/build.yml/badge.svg?branch=online-main)](https://github.com/chyuan-cuihongyuan/mcp-gateway-agent/actions/workflows/build.yml)
+
 ## 项目概述
 
 MCP Gateway Agent 是整个 Agent 体系的**协议网关与智能体调度中心**，基于 Google ADK（Agent Development Kit）0.5.0、Spring AI 1.1.0-M3 与 LangChain4j 1.4.0 构建。它向上对外提供 MCP（Model Context Protocol）SSE 接口与 Agent 对话接口，向下通过可配置的 HTTP 协议映射将 MCP 工具调用转换为对真实业务系统（如 `agent-add-oil`）的 HTTP 调用，并支持从 OpenAPI 规范一键导入协议配置。系统采用 DDD 架构，具备运营配置管理后台与全链路可观测性上报能力。

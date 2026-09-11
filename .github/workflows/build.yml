@@ -1,0 +1,52 @@
+name: build
+
+# SELFLOOP D02：mcp-gateway 后端 CI。
+# 依赖主仓 platform-bom（本地模块未发布），先 checkout 主仓 online-main 安装 BOM 再跑测试
+# （借鉴 spring-projects 多仓依赖的工作流处理方式）。
+on:
+  push:
+    branches: [online-main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout 主仓（platform-bom 所在）
+        uses: actions/checkout@v4
+        with:
+          repository: chyuan-cuihongyuan/ai-agent-platform
+          ref: online-main
+          path: platform-repo
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 安装 platform-bom
+        run: mvn -B -ntp -f platform-repo/platform-bom/pom.xml install -DskipTests
+
+      - name: 构建 + 单元测试
+        run: mvn -B -ntp test
+
+      - name: 上传测试报告（失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/**'
+          retention-days: 7

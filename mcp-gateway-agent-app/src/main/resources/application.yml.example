@@ -3,6 +3,23 @@ spring:
     name: ai-agent-scaffold-lite-app
   profiles:
     active: dev  # 可选: dev / test / prod
+  # 优雅停机（D07）：等待在途 SSE/HTTP 在途请求完成再关闭
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  shutdown: graceful
+
+# 存活/就绪探针（D07）：/actuator/health/liveness 与 /readiness；仅暴露健康端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 # springdoc-openapi（D06）：文档端点与分组（分组定义见 application-dev.yml）
 # springdoc:

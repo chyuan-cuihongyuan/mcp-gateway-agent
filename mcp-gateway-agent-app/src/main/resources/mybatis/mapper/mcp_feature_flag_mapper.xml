@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 特性开关表 mapper（工单 0178 Y2）：upsert 同 id 按 databaseId 成对分叉（MySQL ON DUPLICATE KEY / PG ON CONFLICT） -->
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IFeatureFlagDao">
+
+    <insert id="upsert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpFeatureFlagPO" databaseId="mysql">
+        INSERT INTO mcp_feature_flag (flag_key, enabled, note, operator, update_time)
+        VALUES (#{flagKey}, #{enabled}, #{note}, #{operator}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            enabled = VALUES(enabled),
+            note = VALUES(note),
+            operator = VALUES(operator),
+            update_time = VALUES(update_time)
+    </insert>
+
+    <insert id="upsert" parameterType="cn.chyuan.ai.infrastructure.dao.po.McpFeatureFlagPO" databaseId="postgresql">
+        INSERT INTO mcp_feature_flag (flag_key, enabled, note, operator, update_time)
+        VALUES (#{flagKey}, #{enabled}, #{note}, #{operator}, #{updateTime})
+        ON CONFLICT (flag_key) DO UPDATE
+        SET enabled = EXCLUDED.enabled,
+            note = EXCLUDED.note,
+            operator = EXCLUDED.operator,
+            update_time = EXCLUDED.update_time
+    </insert>
+
+    <sql id="allColumns">
+        id, flag_key, enabled, note, operator, update_time
+    </sql>
+
+    <select id="queryByKey" resultType="cn.chyuan.ai.infrastructure.dao.po.McpFeatureFlagPO">
+        SELECT <include refid="allColumns"/> FROM mcp_feature_flag WHERE flag_key = #{flagKey}
+    </select>
+
+    <select id="queryAll" resultType="cn.chyuan.ai.infrastructure.dao.po.McpFeatureFlagPO">
+        SELECT <include refid="allColumns"/> FROM mcp_feature_flag ORDER BY flag_key ASC
+    </select>
+
+</mapper>

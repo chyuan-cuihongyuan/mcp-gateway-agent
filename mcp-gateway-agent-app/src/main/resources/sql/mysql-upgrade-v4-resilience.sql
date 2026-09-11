@@ -66,3 +66,20 @@ ALTER TABLE mcp_llm_channel ADD COLUMN balance_probe_url VARCHAR(512) NULL COMME
 ALTER TABLE mcp_llm_channel ADD COLUMN balance_json_path VARCHAR(256) NULL COMMENT '余额 JSON 路径';
 ALTER TABLE mcp_llm_channel ADD COLUMN balance VARCHAR(128) NULL COMMENT '最近一次余额';
 ALTER TABLE mcp_llm_channel ADD COLUMN balance_time DATETIME NULL COMMENT '最近一次余额时间';
+
+-- ============ V0010（工单 0178 Y2）：feature_flag 特性开关表 ============
+CREATE TABLE IF NOT EXISTS mcp_feature_flag (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    flag_key    VARCHAR(128) NOT NULL COMMENT '开关键（唯一）',
+    enabled     TINYINT      NOT NULL DEFAULT 0 COMMENT '0-关，1-开（未注册开关评估=默认关）',
+    note        VARCHAR(256) COMMENT '说明',
+    operator    VARCHAR(64)  NOT NULL DEFAULT 'unknown' COMMENT '操作者（留痕）',
+    update_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间（应用层维护）',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_flag_key (flag_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='特性开关表';
+
+-- 幂等种子（示例）
+INSERT INTO mcp_feature_flag (flag_key, enabled, note, operator)
+VALUES ('demo.flag', 0, '示例开关（默认关）', 'seed')
+ON DUPLICATE KEY UPDATE note = VALUES(note);

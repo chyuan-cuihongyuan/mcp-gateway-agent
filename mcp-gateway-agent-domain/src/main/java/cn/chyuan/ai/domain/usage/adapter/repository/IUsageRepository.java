@@ -36,8 +36,14 @@ public interface IUsageRepository {
     /** 按标签日聚合（工单 0088：键 statDate/callCount/failCount/costSum） */
     java.util.List<java.util.Map<String, Object>> tagDaily(String tag, String fromDate, String toDate);
 
-    /** 窗口内成本合计（工单 0087 金额预算派生；空窗口返回 0） */
+    /** 窗口内成本合计（工单 0087 金额预算派生；空窗口返回 0；含起点口径 created_at >= since） */
     java.math.BigDecimal sumCostSince(Long virtualKeyId, java.util.Date since);
+
+    /** 窗口内 token 合计（工单 0158 滚动窗口；prompt+completion 求和，空窗口返回 0；含起点口径） */
+    long sumTokensSince(Long virtualKeyId, java.util.Date since);
+
+    /** 窗口内调用次数（工单 0158 滚动窗口次数硬线派生；空窗口返回 0；含起点口径 created_at >= since） */
+    long countSince(Long virtualKeyId, java.util.Date since);
 
     /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
     java.util.List<java.util.Map<String, Object>> costDaily(String fromDate, String toDate);

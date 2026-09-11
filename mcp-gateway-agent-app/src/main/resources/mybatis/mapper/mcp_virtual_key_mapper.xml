@@ -23,6 +23,7 @@
         <result column="budget_hard" property="budgetHard"/>
         <result column="budget_duration_hours" property="budgetDurationHours"/>
         <result column="budget_reset_at" property="budgetResetAt"/>
+        <result column="budget_window_type" property="budgetWindowType"/>
         <result column="budget_used" property="budgetUsed"/>
         <result column="cost_soft_limit" property="costSoftLimit"/>
         <result column="cost_hard_limit" property="costHardLimit"/>
@@ -38,7 +39,7 @@
         id, api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
         rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
         last_active_at, ip_allow_list, rotation_count, last_rotation_at,
-        budget_soft, budget_hard, budget_duration_hours, budget_reset_at, budget_used,
+        budget_soft, budget_hard, budget_duration_hours, budget_reset_at, budget_used, budget_window_type,
         cost_soft_limit, cost_hard_limit, skip_guardrail_allowed, allowed_models,
         temp_budget_hard, temp_budget_expires,
         created_at, updated_at
@@ -49,11 +50,11 @@
         INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
                                      rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
                                      ip_allow_list, budget_soft, budget_hard, budget_duration_hours,
-                                     allowed_models, budget_reset_at)
+                                     allowed_models, budget_window_type, budget_reset_at)
         VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
                 #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit},
                 #{ipAllowList}, #{budgetSoft}, #{budgetHard}, #{budgetDurationHours},
-                #{allowedModels},
+                #{allowedModels}, #{budgetWindowType},
                 <if test="budgetHard != null and budgetDurationHours != null">
                     DATE_ADD(NOW(), INTERVAL #{budgetDurationHours} HOUR)
                 </if>
@@ -66,11 +67,11 @@
         INSERT INTO mcp_virtual_key (api_key_hash, key_name, owner_user_id, tenant_id, status, expires_at,
                                      rpm_limit, daily_request_limit, daily_tool_call_limit, tpm_limit, daily_cost_limit,
                                      ip_allow_list, budget_soft, budget_hard, budget_duration_hours,
-                                     allowed_models, budget_reset_at)
+                                     allowed_models, budget_window_type, budget_reset_at)
         VALUES (#{apiKeyHash}, #{keyName}, #{ownerUserId}, #{tenantId}, #{status}, #{expiresAt},
                 #{rpmLimit}, #{dailyRequestLimit}, #{dailyToolCallLimit}, #{tpmLimit}, #{dailyCostLimit},
                 #{ipAllowList}, #{budgetSoft}, #{budgetHard}, #{budgetDurationHours},
-                #{allowedModels},
+                #{allowedModels}, #{budgetWindowType},
                 <if test="budgetHard != null and budgetDurationHours != null">
                     NOW() + make_interval(hours =&gt; #{budgetDurationHours}::int)
                 </if>
@@ -111,6 +112,7 @@
             budget_soft = #{budgetSoft},
             budget_hard = #{budgetHard},
             budget_duration_hours = #{budgetDurationHours},
+            budget_window_type = #{budgetWindowType},
             budget_reset_at = CASE
                 WHEN #{budgetHard} IS NULL OR #{budgetDurationHours} IS NULL THEN NULL
                 WHEN #{budgetResetAt} IS NULL THEN DATE_ADD(NOW(), INTERVAL #{budgetDurationHours} HOUR)
@@ -140,6 +142,7 @@
             budget_soft = #{budgetSoft},
             budget_hard = #{budgetHard},
             budget_duration_hours = #{budgetDurationHours},
+            budget_window_type = #{budgetWindowType},
             budget_reset_at = CASE
                 WHEN #{budgetHard} IS NULL OR #{budgetDurationHours} IS NULL THEN NULL
                 WHEN #{budgetResetAt} IS NULL THEN NOW() + make_interval(hours =&gt; #{budgetDurationHours}::int)

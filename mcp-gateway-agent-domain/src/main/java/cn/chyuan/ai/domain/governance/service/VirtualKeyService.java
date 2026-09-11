@@ -62,6 +62,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .budgetSoft(command.getBudgetSoft())
                 .budgetHard(command.getBudgetHard())
                 .budgetDurationHours(command.getBudgetDurationHours())
+                .budgetWindowType(normalizeWindowType(command.getBudgetWindowType()))
                 .costSoftLimit(command.getCostSoftLimit())
                 .costHardLimit(command.getCostHardLimit())
                 .skipGuardrailAllowed(command.getSkipGuardrailAllowed())
@@ -103,6 +104,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .budgetSoft(command.getBudgetSoft())
                 .budgetHard(command.getBudgetHard())
                 .budgetDurationHours(command.getBudgetDurationHours())
+                .budgetWindowType(normalizeWindowType(command.getBudgetWindowType()))
                 .costSoftLimit(command.getCostSoftLimit())
                 .costHardLimit(command.getCostHardLimit())
                 .skipGuardrailAllowed(command.getSkipGuardrailAllowed())
@@ -388,6 +390,21 @@ public class VirtualKeyService implements IVirtualKeyService {
         map.put("dailyRequestLimit", vo.getDailyRequestLimit());
         map.put("dailyToolCallLimit", vo.getDailyToolCallLimit());
         return JSON.toJSONString(map);
+    }
+
+    /**
+     * 预算窗口类型校验（工单 0158）：仅允许 DAY/WEEK/MONTH（大小写归一）或空（旧固定窗口兼容）。
+     */
+    private static String normalizeWindowType(String windowType) {
+        if (windowType == null || windowType.isBlank()) {
+            return null;
+        }
+        String normalized = windowType.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!QuotaWindows.isSliding(normalized)) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS,
+                    "budgetWindowType 仅允许 DAY/WEEK/MONTH（空=旧固定窗口）: " + windowType);
+        }
+        return normalized;
     }
 
     /**

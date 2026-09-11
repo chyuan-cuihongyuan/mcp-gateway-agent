@@ -195,6 +195,23 @@
           AND created_at &gt;= #{since}
     </select>
 
+    <!-- 窗口内 token 合计（工单 0158 滚动窗口；prompt+completion 求和，空行为 0；
+         双方言兼容：COALESCE/COUNT/SUM 均为两库公共子集；含起点口径 created_at >= since -->
+    <select id="sumTokensSince" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0)
+        FROM mcp_usage_log
+        WHERE virtual_key_id = #{virtualKeyId}
+          AND created_at &gt;= #{since}
+    </select>
+
+    <!-- 窗口内调用次数（工单 0158 滚动窗口次数硬线；含起点口径 created_at >= since -->
+    <select id="countSince" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mcp_usage_log
+        WHERE virtual_key_id = #{virtualKeyId}
+          AND created_at &gt;= #{since}
+    </select>
+
     <!-- 成本日趋势（工单 0089） -->
     <select id="costDaily" resultType="map">
         SELECT DATE(created_at) AS statDate,

@@ -99,6 +99,18 @@ public class UsageRepository implements IUsageRepository {
     }
 
     @Override
+    public long sumTokensSince(Long virtualKeyId, java.util.Date since) {
+        Long sum = usageDao.sumTokensSince(virtualKeyId, since);
+        return sum == null ? 0L : sum;
+    }
+
+    @Override
+    public long countSince(Long virtualKeyId, java.util.Date since) {
+        Long count = usageDao.countSince(virtualKeyId, since);
+        return count == null ? 0L : count;
+    }
+
+    @Override
     public List<Map<String, Object>> costDaily(String fromDate, String toDate) {
         return usageDao.costDaily(fromDate, toDate);
     }

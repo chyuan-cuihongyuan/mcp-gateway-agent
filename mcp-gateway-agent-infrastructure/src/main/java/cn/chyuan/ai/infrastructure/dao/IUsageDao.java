@@ -36,6 +36,12 @@ public interface IUsageDao {
     java.math.BigDecimal sumCostSince(@Param("virtualKeyId") Long virtualKeyId,
             @Param("since") java.util.Date since);
 
+    /** 窗口内 token 合计（工单 0158 滚动窗口；prompt+completion 求和；含起点口径 created_at >= since） */
+    Long sumTokensSince(@Param("virtualKeyId") Long virtualKeyId, @Param("since") java.util.Date since);
+
+    /** 窗口内调用次数（工单 0158 滚动窗口次数硬线；含起点口径 created_at >= since） */
+    Long countSince(@Param("virtualKeyId") Long virtualKeyId, @Param("since") java.util.Date since);
+
     /** 成本日趋势（工单 0089：键 statDate/callCount/costSum） */
     List<Map<String, Object>> costDaily(@Param("fromDate") String fromDate, @Param("toDate") String toDate);
 

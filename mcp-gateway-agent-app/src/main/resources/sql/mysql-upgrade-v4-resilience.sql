@@ -19,6 +19,9 @@ ALTER TABLE mcp_llm_channel ADD COLUMN max_body_bytes BIGINT NULL COMMENT '渠�
 -- ── 工单 0157：API Key 模型白名单 ──
 ALTER TABLE mcp_virtual_key ADD COLUMN allowed_models VARCHAR(1024) NULL COMMENT '模型白名单 JSON 数组（工单 0157；NULL=不限制）';
 
+-- ── 工单 0158：滚动窗口配额 ──
+ALTER TABLE mcp_virtual_key ADD COLUMN budget_window_type VARCHAR(16) NULL COMMENT '预算窗口类型（工单 0158；DAY/WEEK/MONTH 滚动，NULL=旧固定窗口）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

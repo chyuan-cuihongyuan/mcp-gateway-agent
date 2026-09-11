@@ -52,6 +52,12 @@ public class BudgetService implements IBudgetService {
             return BudgetVerdict.passthrough();
         }
 
+        // 滚动窗口（工单 0158）：窗口类型已配置 → 按时间戳回溯的滑动窗口派生已用次数，
+        // 硬线拒绝（-32014 段）与软线事件口径不变；无固定窗口惰性重置，额度不可被重置套利。
+        if (QuotaWindows.isSliding(key.getBudgetWindowType())) {
+            return slidingAdmit(key);
+        }
+
         long used = key.getBudgetUsed() == null ? 0 : key.getBudgetUsed();
         // 生效硬线 = max(原硬线, 未过期临时提额)（工单 0052 惰性回落）
         long hard = effectiveHard(key);
@@ -90,6 +96,50 @@ public class BudgetService implements IBudgetService {
                 eventPublisher.publish(EVENT_BUDGET_SOFT_CROSSED, payload);
             } catch (Exception e) {
                 log.warn("预算软线事件发布失败 keyId={}：{}", key.getId(), e.getMessage());
+            }
+        }
+        return new BudgetVerdict(true, softWarning, next, hard);
+    }
+
+    /**
+     * 滚动窗口准入（工单 0158）：已用次数 = 账本 countSince（窗口起点含边界 created_at >= since），
+     * 不落 budget_used 列、不做惰性重置；窗口内 token 合计随软线事件上报（sumTokensSince）。
+     */
+    private BudgetVerdict slidingAdmit(VirtualKeyVO key) {
+        cn.chyuan.ai.domain.usage.adapter.repository.IUsageRepository usageRepository =
+                usageRepositoryProvider == null ? null : usageRepositoryProvider.getIfAvailable();
+        if (usageRepository == null) {
+            // 账本缺席（切片上下文）：退化为旧行为口径，不阻断
+            log.debug("滚动窗口账本缺席，退化为固定窗口计数 keyId={}", key.getId());
+        }
+        Date now = new Date();
+        Date windowStart = QuotaWindows.startOf(now, key.getBudgetWindowType());
+        long used = 0;
+        long windowTokens = 0;
+        if (usageRepository != null) {
+            used = usageRepository.countSince(key.getId(), windowStart);
+            windowTokens = usageRepository.sumTokensSince(key.getId(), windowStart);
+        }
+        long hard = effectiveHard(key);
+        long next = used + 1;
+        if (next > hard) {
+            return new BudgetVerdict(false, false, used, hard);
+        }
+        boolean softWarning = key.getBudgetSoft() != null && key.getBudgetSoft() > 0 && next >= key.getBudgetSoft();
+        if (softWarning) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("virtualKeyId", key.getId());
+            payload.put("keyName", key.getKeyName());
+            payload.put("used", next);
+            payload.put("soft", key.getBudgetSoft());
+            payload.put("hard", key.getBudgetHard());
+            payload.put("window", key.getBudgetWindowType());
+            payload.put("windowStart", windowStart == null ? null : windowStart.getTime());
+            payload.put("windowTokens", windowTokens);
+            try {
+                eventPublisher.publish(EVENT_BUDGET_SOFT_CROSSED, payload);
+            } catch (Exception e) {
+                log.warn("滚动窗口软线事件发布失败 keyId={}：{}", key.getId(), e.getMessage());
             }
         }
         return new BudgetVerdict(true, softWarning, next, hard);
@@ -151,9 +201,12 @@ public class BudgetService implements IBudgetService {
     }
 
     /**
-     * 窗口内已用金额（账本派生）：窗口起点 = reset_at - duration；reset 过期时先惰性重置
+     * 窗口内已用金额（账本派生）：滚动窗口类型（工单 0158）→ 起点 = QuotaWindows.startOf(now, 窗口类型)
+     * 回溯（DAY=now-24h/WEEK=now-7d/MONTH=自然月回溯，月长不一自动处理）；
+     * 未配置窗口类型 → 旧固定窗口口径：窗口起点 = reset_at - duration；reset 过期时先惰性重置
      * （与次数预算共用窗口列——共振语义），起点即当前时刻；未配次数预算（reset_at 为 null）
      * 时按 duration 滚动窗口（默认 30 天——月度成本口径）。
+     * 含边界口径：sumCostSince 用 created_at >= 起点（起点记录计入窗口）。
      */
     private java.math.BigDecimal usedCostOf(VirtualKeyVO key) {
         cn.chyuan.ai.domain.usage.adapter.repository.IUsageRepository usageRepository =
@@ -162,6 +215,9 @@ public class BudgetService implements IBudgetService {
             return java.math.BigDecimal.ZERO;
         }
         Date now = new Date();
+        if (QuotaWindows.isSliding(key.getBudgetWindowType())) {
+            return usageRepository.sumCostSince(key.getId(), QuotaWindows.startOf(now, key.getBudgetWindowType()));
+        }
         long durationMs = (key.getBudgetDurationHours() == null ? 720 : key.getBudgetDurationHours()) * 3600_000L;
         Date windowStart;
         if (key.getBudgetResetAt() != null && now.before(key.getBudgetResetAt())) {

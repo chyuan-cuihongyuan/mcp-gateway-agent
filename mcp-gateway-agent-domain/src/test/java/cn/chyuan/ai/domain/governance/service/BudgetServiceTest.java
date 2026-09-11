@@ -123,6 +123,91 @@ public class BudgetServiceTest {
         verifyNoInteractions(repository);
     }
 
+    // ---- 滚动窗口配额（工单 0158） ----
+
+    @Test
+    @DisplayName("滚动窗口 — 硬线拒绝（-32014 口径），账本派生计数、零惰性重置零计数列写入")
+    public void testSlidingWindowHardLine() {
+        stubUsageRepository();
+        VirtualKeyVO sliding = VirtualKeyVO.builder().id(42L).keyName("k")
+                .budgetHard(5L).budgetWindowType("DAY").build();
+        when(repository.findById(42L)).thenReturn(sliding);
+        when(usageRepository.countSince(eq(42L), any(Date.class))).thenReturn(5L);
+        when(usageRepository.sumTokensSince(eq(42L), any(Date.class))).thenReturn(1234L);
+
+        IBudgetService.BudgetVerdict verdict = service.admit(principalWithBudget(null, 5L));
+
+        assertFalse(verdict.allowed(), "已用 5 + 本次 1 > 硬线 5 → 拒绝（-32014 口径）");
+        // 滑动窗口不触碰固定窗口计数列
+        verify(repository, never()).resetBudgetWindow(anyLong());
+        verify(repository, never()).incrementBudgetUsed(anyLong());
+        // 窗口起点 = now-24h（回溯口径，ArgumentCaptor 校验边界）
+        org.mockito.ArgumentCaptor<Date> sinceCaptor = org.mockito.ArgumentCaptor.forClass(Date.class);
+        verify(usageRepository).countSince(eq(42L), sinceCaptor.capture());
+        long expectedStart = System.currentTimeMillis() - 24 * 3600_000L;
+        assertTrue(Math.abs(sinceCaptor.getValue().getTime() - expectedStart) < 60_000,
+                "日窗起点应为 now-24h（跨窗口边界回溯）");
+    }
+
+    @Test
+    @DisplayName("滚动窗口 — 软线事件（含 window/windowTokens），放行且不写计数列")
+    public void testSlidingWindowSoftLine() {
+        stubUsageRepository();
+        VirtualKeyVO sliding = VirtualKeyVO.builder().id(42L).keyName("k")
+                .budgetSoft(4L).budgetHard(10L).budgetWindowType("WEEK").build();
+        when(repository.findById(42L)).thenReturn(sliding);
+        when(usageRepository.countSince(eq(42L), any(Date.class))).thenReturn(3L);
+        when(usageRepository.sumTokensSince(eq(42L), any(Date.class))).thenReturn(88L);
+
+        IBudgetService.BudgetVerdict verdict = service.admit(principalWithBudget(4L, 10L));
+
+        assertTrue(verdict.allowed());
+        assertTrue(verdict.softWarning(), "3+1 >= 软线 4 → 告警");
+        verify(repository, never()).incrementBudgetUsed(anyLong());
+        verify(eventPublisher).publish(eq(BudgetService.EVENT_BUDGET_SOFT_CROSSED), argThat(payload ->
+                Long.valueOf(4L).equals(payload.get("used"))
+                        && "WEEK".equals(payload.get("window"))
+                        && Long.valueOf(88L).equals(payload.get("windowTokens"))));
+    }
+
+    @Test
+    @DisplayName("存量固定窗口兼容 — 未配置窗口类型走旧行为（惰性重置+计数列），不触账本 countSince")
+    public void testLegacyFixedWindowUnchanged() {
+        // 不接账本（usageRepositoryProvider 缺席也不影响旧路径）
+        when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder()
+                .id(42L).keyName("k").budgetHard(10L).budgetUsed(1L)
+                .budgetResetAt(new Date(System.currentTimeMillis() + 3600_000)).build());
+
+        IBudgetService.BudgetVerdict verdict = service.admit(principalWithBudget(null, 10L));
+
+        assertTrue(verdict.allowed());
+        verify(repository).incrementBudgetUsed(42L);
+        verify(usageRepository, never()).countSince(anyLong(), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("滚动窗口 — 金额口径 admitCost 按 DAY/WEEK/MONTH 回溯取 sumCostSince")
+    public void testSlidingCostWindow() {
+        stubUsageRepository();
+        VirtualKeyVO sliding = VirtualKeyVO.builder().id(42L).keyName("k")
+                .costSoftLimit(new java.math.BigDecimal("10"))
+                .costHardLimit(new java.math.BigDecimal("100"))
+                .budgetWindowType("MONTH").build();
+        when(repository.findById(42L)).thenReturn(sliding);
+        when(usageRepository.sumCostSince(eq(42L), any(Date.class)))
+                .thenReturn(new java.math.BigDecimal("99.5"));
+
+        assertTrue(service.admitCost(principalWithBudget(null, null)).allowed(), "99.5 < 100 放行");
+        when(usageRepository.sumCostSince(eq(42L), any(Date.class)))
+                .thenReturn(new java.math.BigDecimal("100"));
+        assertFalse(service.admitCost(principalWithBudget(null, null)).allowed(), "已用 ≥ 100 拒绝");
+        // 月窗起点 = 自然月回溯（约 30 天内，含月长不一）
+        org.mockito.ArgumentCaptor<Date> sinceCaptor = org.mockito.ArgumentCaptor.forClass(Date.class);
+        verify(usageRepository, org.mockito.Mockito.times(2)).sumCostSince(eq(42L), sinceCaptor.capture());
+        long expectedStart = System.currentTimeMillis() - 32L * 24 * 3600_000L;
+        assertTrue(sinceCaptor.getAllValues().get(0).getTime() > expectedStart, "月窗起点应晚于 now-32d（自然月回溯）");
+    }
+
     @Test
     @DisplayName("硬线 — used+1 超过硬线拒绝且不计数")
     public void testHardLineDeny() {

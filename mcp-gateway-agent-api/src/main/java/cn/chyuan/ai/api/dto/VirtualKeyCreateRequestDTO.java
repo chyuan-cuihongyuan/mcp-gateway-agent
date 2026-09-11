@@ -45,6 +45,9 @@ public class VirtualKeyCreateRequestDTO implements Serializable {
     private Long budgetHard;
     private Integer budgetDurationHours;
 
+    /** 预算窗口类型（工单 0158：DAY/WEEK/MONTH 滚动窗口；空=旧固定窗口） */
+    private String budgetWindowType;
+
     /** 金额预算软/硬线（工单 0087） */
     private java.math.BigDecimal costSoftLimit;
     private java.math.BigDecimal costHardLimit;

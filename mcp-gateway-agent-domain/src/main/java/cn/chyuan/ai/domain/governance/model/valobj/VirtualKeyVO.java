@@ -64,6 +64,9 @@ public class VirtualKeyVO {
     /** 预算窗口时长（小时，工单 0050） */
     private Integer budgetDurationHours;
 
+    /** 预算窗口类型（工单 0158：DAY/WEEK/MONTH 滚动窗口；空=旧固定窗口惰性重置，兼容存量） */
+    private String budgetWindowType;
+
     /** 预算窗口重置时间（工单 0050，惰性重置） */
     private Date budgetResetAt;
 

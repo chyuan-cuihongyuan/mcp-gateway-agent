@@ -826,11 +826,55 @@ public class LlmChatService {
     @org.springframework.beans.factory.annotation.Value("${governance.upstream.capacity-threshold-percent:0}")
     private int capacityThresholdPercent;
 
-    /** 组容量守卫（工单 0106）：可用 weight 占比 < 阈值 → -32019 整组快速失败 + 事件 + 指标 */
+    /** 组熔断器（工单 0177 Y1）：模型组 → 三态半开熔断器；试探单发，冷却后放行探测 */
+    private final java.util.concurrent.ConcurrentHashMap<String,
+            cn.chyuan.ai.domain.governance.service.HalfOpenBreaker> groupBreakers =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    @org.springframework.beans.factory.annotation.Value("${governance.upstream.breaker.failure-threshold:3}")
+    private int breakerFailureThreshold;
+
+    @org.springframework.beans.factory.annotation.Value("${governance.upstream.breaker.cooldown-ms:30000}")
+    private long breakerCooldownMs;
+
+    /** 组容量守卫（工单 0106 + 0177 半开升级）：可用 weight 占比 < 阈值 → -32019 整组快速失败 + 事件 + 指标；
+     *  熔断 OPEN 冷却期满进入 HALF_OPEN 试探单发，试探成功×2 回 CLOSED，失败回 OPEN 重新计时 */
     private void assertGroupCapacity(String model, List<LlmChannelVO> candidates) {
         if (capacityThresholdPercent <= 0 || candidates.isEmpty()) {
             return;
         }
+        cn.chyuan.ai.domain.governance.service.HalfOpenBreaker breaker = groupBreakers.computeIfAbsent(model,
+                k -> new cn.chyuan.ai.domain.governance.service.HalfOpenBreaker(
+                        Math.max(breakerFailureThreshold, 1), 2, Math.max(breakerCooldownMs, 0L)));
+        if (!breaker.tryAcquire()) {
+            // OPEN 冷却未满或 HALF_OPEN 试探位被占：快速失败（口径与 -32019 一致）
+            throw new AppException(McpErrorCodes.GROUP_CAPACITY_EXHAUSTED,
+                    "渠道组熔断开启（冷却未满或半开试探中）：" + model);
+        }
+        boolean halfOpenTrial = breaker.state() == cn.chyuan.ai.domain.governance.service.HalfOpenBreaker.State.HALF_OPEN;
+        if (halfOpenTrial) {
+            try {
+                cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher publisher =
+                        groupEventPublisher == null ? null : groupEventPublisher.getIfAvailable();
+                if (publisher != null) {
+                    publisher.publish("BREAKER_HALF_OPEN", java.util.Map.of("group", model));
+                }
+            } catch (Exception ignored) {
+                // 事件尽力而为
+            }
+        }
+        try {
+            doAssertGroupCapacity(model, candidates, breaker);
+            breaker.onSuccess();
+        } catch (AppException e) {
+            breaker.onFailure();
+            throw e;
+        }
+    }
+
+    /** 原组容量百分比检查（0177 抽取：失败/成功回灌由上层熔断器承载） */
+    private void doAssertGroupCapacity(String model, List<LlmChannelVO> candidates,
+            cn.chyuan.ai.domain.governance.service.HalfOpenBreaker breaker) {
         int totalWeight = candidates.stream()
                 .mapToInt(ch -> ch.getWeight() == null || ch.getWeight() <= 0 ? 1 : ch.getWeight())
                 .sum();

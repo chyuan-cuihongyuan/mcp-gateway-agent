@@ -85,10 +85,10 @@ public class OpenAiCompatController {
             try {
                 handleStreaming(principal, body, response);
             } catch (AppException e) {
-                // 出首字节前的治理拒绝（护栏/配额/预算）：以 OpenAI error 结构落 HTTP 状态
+                // 出首字节前的治理拒绝（护栏/配额/预算/白名单）：以 OpenAI error 结构落 HTTP 状态
                 int httpStatus = switch (e.getCode()) {
                     case "-32008" -> 401;
-                    case "-32006" -> 403;
+                    case "-32006", "-32021" -> 403;
                     case "-32009", "-32014", "-32017" -> 429;
                     default -> 400;
                 };
@@ -109,7 +109,7 @@ public class OpenAiCompatController {
         } catch (AppException e) {
             int httpStatus = switch (e.getCode()) {
                 case "-32008" -> 401;
-                case "-32006" -> 403;
+                case "-32006", "-32021" -> 403;
                 case "-32009", "-32014", "-32017" -> 429;
                 case "-32003", "-32004" -> 404;
                 default -> 400;

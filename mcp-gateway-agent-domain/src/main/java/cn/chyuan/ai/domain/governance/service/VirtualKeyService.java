@@ -65,6 +65,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .costSoftLimit(command.getCostSoftLimit())
                 .costHardLimit(command.getCostHardLimit())
                 .skipGuardrailAllowed(command.getSkipGuardrailAllowed())
+                .allowedModels(normalizeAllowedModels(command.getAllowedModels()))
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -105,6 +106,7 @@ public class VirtualKeyService implements IVirtualKeyService {
                 .costSoftLimit(command.getCostSoftLimit())
                 .costHardLimit(command.getCostHardLimit())
                 .skipGuardrailAllowed(command.getSkipGuardrailAllowed())
+                .allowedModels(normalizeAllowedModels(command.getAllowedModels()))
                 .rpmLimit(command.getRpmLimit())
                 .dailyRequestLimit(command.getDailyRequestLimit())
                 .dailyToolCallLimit(command.getDailyToolCallLimit())
@@ -381,10 +383,33 @@ public class VirtualKeyService implements IVirtualKeyService {
         map.put("status", vo.getStatus());
         map.put("expiresAt", vo.getExpiresAt() == null ? null : vo.getExpiresAt().getTime());
         map.put("ipAllowList", vo.getIpAllowList());
+        map.put("allowedModels", vo.getAllowedModels());
         map.put("rpmLimit", vo.getRpmLimit());
         map.put("dailyRequestLimit", vo.getDailyRequestLimit());
         map.put("dailyToolCallLimit", vo.getDailyToolCallLimit());
         return JSON.toJSONString(map);
+    }
+
+    /**
+     * 模型白名单归一与结构校验（工单 0157）：条目 trim、空条目拒绝、上限 64 条防误配；
+     * 空清单（null/全空）= 不限制（兼容存量），归一为 null。
+     */
+    private static java.util.List<String> normalizeAllowedModels(java.util.List<String> allowedModels) {
+        if (allowedModels == null || allowedModels.isEmpty()) {
+            return null;
+        }
+        java.util.List<String> normalized = new java.util.ArrayList<>();
+        for (String entry : allowedModels) {
+            String trimmed = entry == null ? "" : entry.trim();
+            if (trimmed.isEmpty()) {
+                throw new AppException(McpErrorCodes.INVALID_PARAMS, "allowedModels 含空白条目（空=不限制，请传 null/空数组）");
+            }
+            normalized.add(trimmed);
+        }
+        if (normalized.size() > 64) {
+            throw new AppException(McpErrorCodes.INVALID_PARAMS, "allowedModels 条目数超上限（64）");
+        }
+        return normalized;
     }
 
     /** 跨实例广播密钥变更（协调服务未装配时仅本地失效） */

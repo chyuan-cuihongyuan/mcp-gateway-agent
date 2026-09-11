@@ -53,4 +53,7 @@ public class VirtualKeyCommandEntity {
 
     /** 允许跳过内容护栏（工单 0095） */
     private Boolean skipGuardrailAllowed;
+
+    /** 模型白名单（工单 0157：空=不限制；条目 trim 非空校验） */
+    private java.util.List<String> allowedModels;
 }

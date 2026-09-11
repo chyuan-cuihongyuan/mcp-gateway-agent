@@ -52,6 +52,9 @@ public class VirtualKeyCreateRequestDTO implements Serializable {
     /** 允许跳过内容护栏（工单 0095；admin 设置） */
     private Boolean skipGuardrailAllowed;
 
+    /** 模型白名单（工单 0157：空=不限制兼容存量） */
+    private java.util.List<String> allowedModels;
+
     /** 创建时一并授权的网关 ID 列表 */
     private java.util.List<String> grantGatewayIds;
 }

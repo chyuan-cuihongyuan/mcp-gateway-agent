@@ -58,6 +58,17 @@ public class LlmChatServiceTest {
     @Mock
     private cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher eventPublisher;
 
+    /** vk 模型白名单（工单 0157） */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.repository.IVirtualKeyRepository> virtualKeyRepositoryProvider;
+
+    @Mock
+    private cn.chyuan.ai.domain.governance.adapter.repository.IVirtualKeyRepository virtualKeyRepository;
+
+    /** 白名单拒绝事件发布器（工单 0157；字段名与实现一致供 Mockito 按名注入） */
+    @Mock
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> whitelistEventPublisher;
+
     @InjectMocks
     private LlmChatService service;
 
@@ -619,5 +630,64 @@ public class LlmChatServiceTest {
         when(channelRepository.findEnabled()).thenReturn(List.of(unconfigured));
         service.chatCompletion(principal(), "{\"model\":\"m\",\"messages\":[]}");
         verify(llmHttpPort).postJson(anyString(), anyMap(), anyString(), eq(60_000));
+    }
+
+    // ---- API Key 模型白名单（工单 0157） ----
+
+    private void stubWhitelist(java.util.List<String> models) {
+        when(virtualKeyRepositoryProvider.getIfAvailable()).thenReturn(virtualKeyRepository);
+        when(virtualKeyRepository.findById(7L)).thenReturn(
+                cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO.builder()
+                        .id(7L).keyName("wl").allowedModels(models).build());
+    }
+
+    @Test
+    @DisplayName("白名单（0157）— 未命中 -32021 拒绝 + QUOTA 类事件；护栏后调度前（不触达渠道查询）")
+    public void testWhitelistDenyBeforeScheduling() {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(virtualKeyRepositoryProvider.getIfAvailable()).thenReturn(virtualKeyRepository);
+        when(virtualKeyRepository.findById(7L)).thenReturn(
+                cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO.builder()
+                        .id(7L).keyName("wl").allowedModels(List.of("gpt-4o")).build());
+        when(whitelistEventPublisher.getIfAvailable()).thenReturn(eventPublisher);
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.chatCompletion(principal(), "{\"model\":\"claude-x\",\"messages\":[]}"));
+        assertEquals(String.valueOf(cn.chyuan.ai.types.enums.McpErrorCodes.KEY_MODEL_NOT_ALLOWED), ex.getCode());
+        // 拦截位置：白名单在调度之前 —— 渠道查询与上游调用均未发生
+        verify(channelRepository, never()).findEnabled();
+        verifyNoInteractions(llmHttpPort);
+        // QUOTA 类事件（KEY_MODEL_WHITELIST_DENIED）
+        verify(eventPublisher).publish(eq("KEY_MODEL_WHITELIST_DENIED"), argThat(payload ->
+                "claude-x".equals(payload.get("model"))));
+    }
+
+    @Test
+    @DisplayName("白名单（0157）— 命中与未配置均放行，进入调度")
+    public void testWhitelistAllowAndUnconfigured() throws Exception {
+        when(celEvaluationService.isToolAllowed(any(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(channelScheduler.pick(anyList())).thenAnswer(inv -> {
+            java.util.List<?> candidates = inv.getArgument(0);
+            return java.util.Optional.of((cn.chyuan.ai.domain.governance.service.ChannelScheduler.Candidate)
+                    candidates.get(0));
+        });
+        when(llmHttpPort.postJson(anyString(), anyMap(), anyString(), anyInt())).thenReturn(200);
+        when(llmHttpPort.lastResponseBody())
+                .thenReturn("{\"id\":\"w\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1}}");
+        when(channelRepository.findEnabled()).thenReturn(
+                List.of(channel(1L, "primary", 0, "gpt-4o", null)));
+
+        // 命中白名单 → 放行
+        stubWhitelist(List.of("GPT-4O"));
+        String out = service.chatCompletion(principal(), "{\"model\":\"gpt-4o\",\"messages\":[]}");
+        assertTrue(out.contains("\"id\":\"w\""));
+
+        // 未配置白名单（null）→ 兼容放行
+        stubWhitelist(null);
+        service.chatCompletion(principal(), "{\"model\":\"gpt-4o\",\"messages\":[]}");
+        verify(eventPublisher, never()).publish(anyString(), anyMap());
+        verify(llmHttpPort, times(2)).postJson(anyString(), anyMap(), anyString(), anyInt());
     }
 }

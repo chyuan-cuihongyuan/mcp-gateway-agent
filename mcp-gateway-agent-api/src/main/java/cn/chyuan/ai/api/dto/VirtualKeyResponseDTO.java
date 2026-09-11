@@ -57,6 +57,9 @@ public class VirtualKeyResponseDTO implements Serializable {
 
     /** 允许跳过内容护栏（工单 0095；admin 设置） */
     private Boolean skipGuardrailAllowed;
+
+    /** 模型白名单（工单 0157：空=不限制） */
+    private java.util.List<String> allowedModels;
     private String budgetResetAt;
     private Long budgetUsed;
 

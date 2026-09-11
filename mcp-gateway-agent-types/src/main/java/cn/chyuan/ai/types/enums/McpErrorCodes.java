@@ -141,6 +141,12 @@ public final class McpErrorCodes {
      */
     public static final int CHANNEL_BODY_TOO_LARGE = -32020;
 
+    /**
+     * 模型不在密钥白名单 —— vk 级 allowed_models 授权细化（工单 0157，HTTP 403 语义；
+     * 与 CEL 治理 -32006 语义区分：该码为密钥静态授权，CEL 为规则动态治理）
+     */
+    public static final int KEY_MODEL_NOT_ALLOWED = -32021;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

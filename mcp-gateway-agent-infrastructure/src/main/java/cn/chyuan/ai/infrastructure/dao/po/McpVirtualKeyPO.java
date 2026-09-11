@@ -86,6 +86,9 @@ public class McpVirtualKeyPO extends BasePagePO {
     /** 允许跳过内容护栏（工单 0095） */
     private Boolean skipGuardrailAllowed;
 
+    /** 模型白名单 JSON 数组原文（工单 0157；NULL=不限制兼容存量） */
+    private String allowedModels;
+
     /** 临时提额硬线/到期时间（工单 0052；过期惰性回落） */
     private Long tempBudgetHard;
     private Date tempBudgetExpires;

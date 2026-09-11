@@ -16,6 +16,9 @@ ALTER TABLE mcp_llm_channel ADD COLUMN max_body_bytes BIGINT NULL COMMENT '渠�
 -- timeout_ms 列既有种子已含（DEFAULT 60000，渠道不配置=沿用该全局默认）；存量库如缺失可执行：
 -- ALTER TABLE mcp_llm_channel ADD COLUMN timeout_ms INT NOT NULL DEFAULT 60000;
 
+-- ── 工单 0157：API Key 模型白名单 ──
+ALTER TABLE mcp_virtual_key ADD COLUMN allowed_models VARCHAR(1024) NULL COMMENT '模型白名单 JSON 数组（工单 0157；NULL=不限制）';
+
 -- ── 补账列（工单 0105 重试 / 0108 余额探测：mapper 已引用但 MySQL 种子脚本缺失，随本票补齐）──
 ALTER TABLE mcp_llm_channel ADD COLUMN num_retries INT NULL COMMENT '重试次数上限（0/空=不重试，≤3）';
 ALTER TABLE mcp_llm_channel ADD COLUMN retry_backoff_ms INT NULL COMMENT '重试退避基值毫秒';

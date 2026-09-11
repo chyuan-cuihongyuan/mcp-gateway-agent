@@ -108,6 +108,33 @@ public class VirtualKeyServiceTest {
     }
 
     @Test
+    @DisplayName("模型白名单（0157）— 创建透传并归一（trim）；空白条目拒绝")
+    public void testAllowedModelsValidationAndCarried() {
+        when(repository.insert(anyString(), any(VirtualKeyVO.class))).thenAnswer(inv -> {
+            VirtualKeyVO vo = inv.getArgument(1);
+            vo.setId(7L);
+            return vo;
+        });
+
+        // 合法：trim 归一后透传
+        VirtualKeyVO ok = service.create(VirtualKeyCommandEntity.builder()
+                .keyName("with-models")
+                .allowedModels(java.util.List.of(" GPT-4O ", "deepseek-v4-pro"))
+                .build());
+        assertEquals(java.util.List.of("GPT-4O", "deepseek-v4-pro"), ok.getAllowedModels());
+
+        // 非法：空白条目拒绝
+        assertThrows(cn.chyuan.ai.types.exception.AppException.class,
+                () -> service.create(VirtualKeyCommandEntity.builder()
+                        .keyName("bad").allowedModels(java.util.List.of("gpt-4o", "  ")).build()));
+
+        // 空清单 = 不限制（归一为 null，兼容存量）
+        VirtualKeyVO unlimited = service.create(VirtualKeyCommandEntity.builder()
+                .keyName("no-models").allowedModels(java.util.List.of()).build());
+        assertNull(unlimited.getAllowedModels());
+    }
+
+    @Test
     @DisplayName("吊销 — 状态置 REVOKED 并失效认证缓存")
     public void testRevoke_InvalidatesCache() {
         when(repository.findById(42L)).thenReturn(VirtualKeyVO.builder().id(42L).keyName("k").status("ACTIVE").build());

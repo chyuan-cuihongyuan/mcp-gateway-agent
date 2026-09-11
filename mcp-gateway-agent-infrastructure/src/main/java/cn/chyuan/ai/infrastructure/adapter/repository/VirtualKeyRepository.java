@@ -197,6 +197,7 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .costSoftLimit(po.getCostSoftLimit())
                 .costHardLimit(po.getCostHardLimit())
                 .skipGuardrailAllowed(po.getSkipGuardrailAllowed())
+                .allowedModels(parseAllowedModels(po.getAllowedModels()))
                 .tempBudgetHard(po.getTempBudgetHard())
                 .tempBudgetExpires(po.getTempBudgetExpires())
                 .rpmLimit(po.getRpmLimit())
@@ -225,6 +226,7 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
                 .costSoftLimit(vo.getCostSoftLimit())
                 .costHardLimit(vo.getCostHardLimit())
                 .skipGuardrailAllowed(vo.getSkipGuardrailAllowed())
+                .allowedModels(writeAllowedModels(vo.getAllowedModels()))
                 .rpmLimit(vo.getRpmLimit())
                 .dailyRequestLimit(vo.getDailyRequestLimit())
                 .dailyToolCallLimit(vo.getDailyToolCallLimit())
@@ -248,6 +250,27 @@ public class VirtualKeyRepository implements IVirtualKeyRepository {
     }
 
     private static String writeIpList(List<String> list) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        return com.alibaba.fastjson.JSON.toJSONString(list);
+    }
+
+    /** allowed_models JSON 数组 ↔ List（工单 0157；空/非法落库 NULL，语义=不限制兼容存量） */
+    private static List<String> parseAllowedModels(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            List<String> parsed = com.alibaba.fastjson.JSON.parseArray(json, String.class);
+            return parsed == null || parsed.isEmpty() ? null : parsed;
+        } catch (Exception e) {
+            log.warn("allowed_models 解析失败（按不限制处理）：{}", json);
+            return null;
+        }
+    }
+
+    private static String writeAllowedModels(List<String> list) {
         if (list == null || list.isEmpty()) {
             return null;
         }

@@ -74,6 +74,9 @@ public class VirtualKeyVO {
     /** 允许跳过内容护栏（工单 0095：admin 设置；带头才生效并审计 GUARDRAIL_SKIP） */
     private Boolean skipGuardrailAllowed;
 
+    /** 模型白名单（工单 0157：空=不限制兼容存量；大小写归一精确匹配） */
+    private java.util.List<String> allowedModels;
+
     /** 预算窗口内已用次数（工单 0050） */
     private Long budgetUsed;
 

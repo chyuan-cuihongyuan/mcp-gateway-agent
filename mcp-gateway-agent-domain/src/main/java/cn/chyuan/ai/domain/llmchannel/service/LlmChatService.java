@@ -85,6 +85,17 @@ public class LlmChatService {
     /** 本次请求是否走了 fallback 链降级（工单 0155 响应头 X-Gateway-Fallback 消费；值为降级渠道名，读后即清） */
     private static final ThreadLocal<String> LAST_FALLBACK = new ThreadLocal<>();
 
+    /** vk 模型白名单仓储（工单 0157 调度前校验；切片测试上下文可缺省=不校验） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.repository.IVirtualKeyRepository> virtualKeyRepositoryProvider;
+
+    /** 治理事件（工单 0157 白名单拒绝 QUOTA 类事件；切片测试上下文可缺省） */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher> whitelistEventPublisher;
+
+    /** 白名单拒绝事件类型（工单 0157，QUOTA 类，webhook 可订阅） */
+    public static final String EVENT_KEY_MODEL_WHITELIST_DENIED = "KEY_MODEL_WHITELIST_DENIED";
+
     /** 内容护栏链（工单 0091；切片测试上下文可缺省） */
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.GuardrailChain> guardrailChainProvider;
@@ -125,6 +136,8 @@ public class LlmChatService {
                 "chat/completions", model, SOURCE_LLM)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
         }
+        // vk 模型白名单（工单 0157）：护栏后、调度前
+        assertModelAllowed(principal, model);
 
         // 精确缓存（工单 0097/0098）：请求体 cache.no-cache 跳过读（仍写）；命中即原样返回
         boolean noCache = request.getJSONObject("cache") != null
@@ -353,6 +366,8 @@ public class LlmChatService {
                 "chat/completions", model, SOURCE_LLM)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
         }
+        // vk 模型白名单（工单 0157）：护栏后、调度前
+        assertModelAllowed(principal, model);
         List<LlmChannelVO> candidates = candidatesFor(model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
@@ -587,6 +602,36 @@ public class LlmChatService {
                 : cn.chyuan.ai.types.util.TagParser.toStorage(principal.getTags());
     }
 
+    /**
+     * vk 模型白名单校验（工单 0157）：治理护栏（CEL）之后、渠道调度之前。
+     * 白名单空=不限制（兼容存量）；未命中 -32021 拒绝并发布 QUOTA 类事件。
+     */
+    private void assertModelAllowed(GovernancePrincipal principal, String model) {
+        cn.chyuan.ai.domain.governance.adapter.repository.IVirtualKeyRepository repository =
+                virtualKeyRepositoryProvider == null ? null : virtualKeyRepositoryProvider.getIfAvailable();
+        if (repository == null || principal == null || principal.getVirtualKeyId() == null) {
+            return;
+        }
+        cn.chyuan.ai.domain.governance.model.valobj.VirtualKeyVO key = repository.findById(principal.getVirtualKeyId());
+        if (key == null || ModelWhitelist.allowed(model, key.getAllowedModels())) {
+            return;
+        }
+        try {
+            cn.chyuan.ai.domain.governance.adapter.IGovernanceEventPublisher publisher =
+                    whitelistEventPublisher == null ? null : whitelistEventPublisher.getIfAvailable();
+            if (publisher != null) {
+                publisher.publish(EVENT_KEY_MODEL_WHITELIST_DENIED, java.util.Map.of(
+                        "virtualKeyId", principal.getVirtualKeyId(),
+                        "model", model,
+                        "whitelistSize", key.getAllowedModels().size()));
+            }
+        } catch (Exception ignored) {
+            // 事件尽力而为，不阻断拒绝主链
+        }
+        throw new AppException(McpErrorCodes.KEY_MODEL_NOT_ALLOWED,
+                "模型不在密钥白名单: " + model);
+    }
+
     /** 跳过审计（工单 0095：SECURITY 型，尽力而为） */
     private void auditGuardrailSkipQuietly(GovernancePrincipal principal) {
         try {
@@ -617,6 +662,8 @@ public class LlmChatService {
                 "embeddings", model, SOURCE_LLM)) {
             throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "无权使用该模型: " + model);
         }
+        // vk 模型白名单（工单 0157）：护栏后、调度前
+        assertModelAllowed(principal, model);
         List<LlmChannelVO> candidates = candidatesFor(model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);

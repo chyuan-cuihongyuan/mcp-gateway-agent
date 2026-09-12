@@ -32,6 +32,12 @@ public class ToolCallAuditLogger {
      */
     public void audit(String gatewayId, String toolName, Object arguments,
                       boolean ok, long durationMs, String errCode) {
+        audit(gatewayId, toolName, arguments, ok, durationMs, errCode, false);
+    }
+
+    /** 带 consent 标记的重载（SELFLOOP2 loop-233：高危工具审计可见化） */
+    public void audit(String gatewayId, String toolName, Object arguments,
+                      boolean ok, long durationMs, String errCode, boolean consentRequired) {
         String line = "event=tool_call"
                 + " gatewayId=" + nz(gatewayId)
                 + " toolName=" + nz(toolName)
@@ -39,6 +45,7 @@ public class ToolCallAuditLogger {
                 + " ok=" + ok
                 + " durationMs=" + durationMs
                 + " errCode=" + (errCode == null ? "-" : errCode)
+                + (consentRequired ? " consent=required" : "")
                 + " traceId=" + nz(MDC.get("traceId"));
         auditLog.info(line);
     }

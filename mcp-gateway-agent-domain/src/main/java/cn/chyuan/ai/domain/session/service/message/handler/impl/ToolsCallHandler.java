@@ -34,6 +34,9 @@ public class ToolsCallHandler implements IRequestHandler {
     @Resource
     private ToolCallAuditLogger auditLogger;
 
+    @Resource
+    private ConsentPolicy consentPolicy;
+
     @Override
     public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
         long startMs = System.currentTimeMillis();
@@ -79,7 +82,8 @@ public class ToolsCallHandler implements IRequestHandler {
             Object result = port.toolCall(mcpToolProtocolConfigVO.getHttpConfig(), argumentsObj);
 
             auditLogger.audit(gatewayId, toolName, argumentsObj, true,
-                    System.currentTimeMillis() - startMs, null);
+                    System.currentTimeMillis() - startMs, null,
+                    consentPolicy.requiresConsent(toolName));
 
             // 返回成功响应 - isError 使用布尔值 false
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION, message.id(), Map.of(

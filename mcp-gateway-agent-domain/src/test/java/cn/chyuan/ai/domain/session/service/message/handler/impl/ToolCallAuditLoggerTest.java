@@ -100,4 +100,14 @@ class ToolCallAuditLoggerTest {
         assertEquals("a,b", ToolCallAuditLogger.argKeys(Map.of("b", 1, "a", 2)));
         assertEquals("type:Integer", ToolCallAuditLogger.argKeys(42));
     }
+
+    @Test
+    @DisplayName("consent 标记（loop-233）：required 时追加字段，默认不追加")
+    void consentField() {
+        auditLogger.audit("gw-1", "delete_all", null, true, 10, null, true);
+        assertTrue(lastLine().contains("consent=required"));
+
+        auditLogger.audit("gw-1", "query_list", null, true, 10, null, false);
+        assertFalse(lastLine().contains("consent="));
+    }
 }

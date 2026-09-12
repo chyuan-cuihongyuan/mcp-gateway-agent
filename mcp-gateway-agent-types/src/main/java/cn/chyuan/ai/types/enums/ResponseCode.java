@@ -15,6 +15,9 @@ public enum ResponseCode {
     E0001("E0001", "智能体ID不存在"),
     E0002("E0002", "智能体MCP配置不在可加载范围"),
     RESPONSE_ERROR("0006", "响应错误"),
+    // SELFLOOP2 loop-219：HTTP 语义错误码（405/415 精确映射，审计路线 1）
+    METHOD_NOT_SUPPORTED("0007", "HTTP 方法不支持"),
+    MEDIA_TYPE_NOT_SUPPORTED("0008", "媒体类型不支持"),
 
     ;
 

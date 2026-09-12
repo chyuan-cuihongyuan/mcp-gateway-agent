@@ -1,5 +1,5 @@
 -- =============================================================================
--- mysql-upgrade-v5-generation-governance.sql —— 五期生成治理（0196-0203）MySQL 增量 DDL
+-- mysql-upgrade-v5-generation-governance.sql —— 五期（AA 0196-0203 + AD 0224-0227）MySQL 增量 DDL
 -- 说明：
 --   * PG 侧增量走 db/changelog/postgresql/V*.sql（MigrationRunner 自动执行一次）；
 --     MySQL 侧沿用 legacy 幂等种子 + 既有库手工 ALTER（本文件）。
@@ -42,3 +42,9 @@ CREATE TABLE IF NOT EXISTS mcp_annotation_qa (
   UNIQUE KEY uk_annotation_qkey (question_key),
   KEY idx_annotation_enabled (enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='标注回复表（工单 0202；命中免模型调用）';
+
+-- ── 工单 0224 AD5：特性开关目标定向 ──
+-- 执行前判存：SHOW COLUMNS FROM mcp_feature_flag LIKE 'tenant_whitelist';
+ALTER TABLE mcp_feature_flag ADD COLUMN tenant_whitelist VARCHAR(512) NULL COMMENT '租户白名单 CSV（命中即开）';
+ALTER TABLE mcp_feature_flag ADD COLUMN user_whitelist VARCHAR(512) NULL COMMENT '用户白名单 CSV（命中即开）';
+ALTER TABLE mcp_feature_flag ADD COLUMN percentage INT NOT NULL DEFAULT 0 COMMENT '灰度百分比 0-100（稳定哈希 stickiness）';

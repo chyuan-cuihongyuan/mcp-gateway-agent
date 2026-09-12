@@ -34,10 +34,16 @@ public class FeatureFlagController {
     }
 
     @GetMapping("/{key}")
-    public Response<Map<String, Object>> evaluate(@PathVariable String key) {
+    public Response<Map<String, Object>> evaluate(@PathVariable String key,
+            @RequestParam(required = false) String tenantId,
+            @RequestParam(required = false) String userId) {
+        // 目标定向（工单 0224 AD5）：带 tenantId/userId 时走定向评估，否则纯开关语义
+        boolean enabled = (tenantId == null && userId == null)
+                ? featureFlagService.isEnabled(key)
+                : featureFlagService.isEnabledFor(key, tenantId, userId);
         return Response.success(Map.of(
                 "key", key,
-                "enabled", featureFlagService.isEnabled(key)));
+                "enabled", enabled));
     }
 
     @GetMapping
@@ -49,11 +55,21 @@ public class FeatureFlagController {
     public Response<Map<String, Object>> upsert(@RequestParam String flagKey,
                                                 @RequestParam boolean enabled,
                                                 @RequestParam(required = false) String note,
-                                                @RequestParam(required = false) String operator) {
+                                                @RequestParam(required = false) String operator,
+                                                @RequestParam(required = false) String tenantWhitelist,
+                                                @RequestParam(required = false) String userWhitelist,
+                                                @RequestParam(defaultValue = "0") int percentage) {
         if (flagKey == null || flagKey.isBlank()) {
             return Response.fail("0002", "flagKey 不能为空");
         }
-        featureFlagService.upsert(flagKey.trim(), enabled, note, operator);
+        // 定向规则（工单 0224 AD5）：任一定向参数出现即带规则注册
+        if (tenantWhitelist != null || userWhitelist != null || percentage != 0) {
+            featureFlagService.upsertWithTargeting(flagKey.trim(), enabled, note, operator,
+                    new cn.chyuan.ai.domain.governance.service.FlagTargetingEvaluator.Targeting(
+                            tenantWhitelist, userWhitelist, percentage));
+        } else {
+            featureFlagService.upsert(flagKey.trim(), enabled, note, operator);
+        }
         try {
             eventPublisher.publish("FLAG_CHANGE", Map.of(
                     "flagKey", flagKey.trim(), "enabled", String.valueOf(enabled),

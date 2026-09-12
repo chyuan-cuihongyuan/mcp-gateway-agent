@@ -23,6 +23,17 @@ public class FeatureFlagService {
         void upsert(String flagKey, boolean enabled, String note, String operator);
 
         Map<String, Boolean> loadAll();
+
+        /** 定向规则（工单 0224 AD5；未注册/无定向返回 null） */
+        default FlagTargetingEvaluator.Targeting targetingOf(String flagKey) {
+            return null;
+        }
+
+        /** 带定向规则的注册/更新（工单 0224 AD5；默认实现忽略定向规则） */
+        default void upsertWithTargeting(String flagKey, boolean enabled, String note,
+                String operator, FlagTargetingEvaluator.Targeting targeting) {
+            upsert(flagKey, enabled, note, operator);
+        }
     }
 
     private static class CacheEntry {
@@ -89,5 +100,47 @@ public class FeatureFlagService {
     /** 全量开关（key→enabled） */
     public Map<String, Boolean> listAll() {
         return flagStore.loadAll();
+    }
+
+    /**
+     * 目标定向评估（工单 0224 AD5）：基础开关为开的前提下应用定向规则——
+     * 租户/用户白名单命中或百分比稳定哈希命中 → true；无定向规则 → 退回基础开关值。
+     */
+    public boolean isEnabledFor(String flagKey, String tenantId, String userId) {
+        if (!isEnabled(flagKey)) {
+            return false;
+        }
+        FlagTargetingEvaluator.Targeting targeting;
+        try {
+            targeting = flagStore.targetingOf(flagKey);
+        } catch (Exception e) {
+            log.warn("开关定向规则读取失败（退回基础开关）: key={}", flagKey, e);
+            return true;
+        }
+        if (targeting == null || targeting.isEmpty()) {
+            return true;
+        }
+        return FlagTargetingEvaluator.evaluate(targeting, flagKey, tenantId, userId);
+    }
+
+    /** 带定向规则的注册/更新（清缓存即时生效；变更由触发方 FLAG_CHANGE 事件留痕） */
+    public void upsertWithTargeting(String flagKey, boolean enabled, String note, String operator,
+            FlagTargetingEvaluator.Targeting targeting) {
+        if (flagKey == null || flagKey.isBlank()) {
+            throw new IllegalArgumentException("flagKey 不能为空");
+        }
+        flagStore.upsertWithTargeting(flagKey.trim(), enabled, note,
+                operator == null || operator.isBlank() ? "unknown" : operator.trim(), targeting);
+        cache.remove(flagKey.trim());
+    }
+
+    /** 查询定向规则（未注册返回 null） */
+    public FlagTargetingEvaluator.Targeting targetingOf(String flagKey) {
+        try {
+            return flagStore.targetingOf(flagKey);
+        } catch (Exception e) {
+            log.warn("开关定向规则读取失败: key={}", flagKey, e);
+            return null;
+        }
     }
 }

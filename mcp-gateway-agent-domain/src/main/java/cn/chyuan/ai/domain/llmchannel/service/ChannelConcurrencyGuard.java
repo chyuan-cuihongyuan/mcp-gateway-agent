@@ -89,6 +89,20 @@ public class ChannelConcurrencyGuard {
         return counter == null ? 0 : (int) Math.max(0, counter.get());
     }
 
+    /** 全网关在途总量（工单 0227 AD8 水位数据面） */
+    public int totalInFlight() {
+        return active.values().stream().mapToInt(c -> (int) Math.max(0, c.get())).sum();
+    }
+
+    /** 全网关并发容量（各渠道 max_concurrency 之和，0=无渠道数据） */
+    public int totalCapacity(java.util.Collection<LlmChannelVO> channels) {
+        if (channels == null) {
+            return 0;
+        }
+        return channels.stream().filter(ChannelConcurrencyGuard::limited)
+                .mapToInt(LlmChannelVO::getMaxConcurrency).sum();
+    }
+
     private Semaphore semaphoreOf(LlmChannelVO channel) {
         return semaphores.computeIfAbsent(channel.getId(),
                 id -> new Semaphore(Math.max(1, channel.getMaxConcurrency()), true));

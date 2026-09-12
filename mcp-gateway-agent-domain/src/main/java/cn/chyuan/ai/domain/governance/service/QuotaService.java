@@ -29,6 +29,9 @@ public class QuotaService implements IQuotaService {
     @Resource
     private IQuotaBucketBackend quotaBucketBackend;
 
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<TokenBucketRegistry> tokenBucketRegistryProvider;
+
     @Autowired(required = false)
     private MeterRegistry meterRegistry;
 
@@ -54,6 +57,19 @@ public class QuotaService implements IQuotaService {
             return QuotaVerdict.notLimited();
         }
 
+        // 令牌桶算法（工单 0225 AD6）：quota.algorithm=token_bucket 时前置接入
+        // （进程内桶，容量=min(rpm, capacity-scale)；多实例部署每实例独立，语义见 TokenBucketRegistry）
+        TokenBucketRegistry tokenBuckets = tokenBucketRegistryProvider == null ? null
+                : tokenBucketRegistryProvider.getIfAvailable();
+        if (tokenBuckets != null && tokenBuckets.enabled()) {
+            long remaining = tokenBuckets.tryAcquireRequest(
+                    String.valueOf(principal.getVirtualKeyId()), rpmLimit);
+            if (remaining >= 0) {
+                return QuotaVerdict.allowed(remaining);
+            }
+            countDenial(gatewayId, principal.getVirtualKeyId());
+            return QuotaVerdict.denied(0, 1);
+        }
         ConsumptionProbe probe;
         try {
             IQuotaBucketBackend.QuotaBucket bucket = quotaBucketBackend.getBucket(

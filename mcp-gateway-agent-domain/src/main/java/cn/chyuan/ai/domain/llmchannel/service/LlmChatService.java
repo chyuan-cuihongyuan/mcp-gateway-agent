@@ -139,6 +139,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.generation.service.GenerationGuardPipeline> generationGuardProvider;
 
+    /** 准入守卫（五期 AD 簇 0226/0227）：热点参数限流 + 水位自适应，全部默认关 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.service.AdmissionGuardService> admissionGuardProvider;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -190,6 +194,16 @@ public class LlmChatService {
         List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {
             throw new AppException(McpErrorCodes.TOOL_NOT_FOUND, "无可用渠道供给模型: " + model);
+        }
+        // 准入守卫（五期 AD 簇，默认关=零行为变化）：热点参数限流 + 水位自适应拒压
+        cn.chyuan.ai.domain.llmchannel.service.AdmissionGuardService admissionGuard =
+                admissionGuardProvider == null ? null : admissionGuardProvider.getIfAvailable();
+        if (admissionGuard != null) {
+            ChannelConcurrencyGuard concurrencyGuard =
+                    concurrencyGuardProvider == null ? null : concurrencyGuardProvider.getIfAvailable();
+            admissionGuard.assertAdmission(model, String.valueOf(principal.getVirtualKeyId()),
+                    concurrencyGuard == null ? 0 : concurrencyGuard.totalInFlight(),
+                    concurrencyGuard == null ? 0 : concurrencyGuard.totalCapacity(candidates));
         }
         assertGroupCapacity(model, candidates);
 

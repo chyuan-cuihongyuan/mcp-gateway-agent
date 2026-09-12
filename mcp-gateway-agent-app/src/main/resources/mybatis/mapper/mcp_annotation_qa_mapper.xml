@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IAnnotationQaDao">
+
+    <resultMap id="QaMap" type="cn.chyuan.ai.infrastructure.dao.po.McpAnnotationQaPO">
+        <id column="id" property="id"/>
+        <result column="question_key" property="questionKey"/>
+        <result column="question" property="question"/>
+        <result column="answer" property="answer"/>
+        <result column="hit_count" property="hitCount"/>
+        <result column="enabled" property="enabled"/>
+        <result column="operator" property="operator"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, question_key, question, answer, hit_count, enabled, operator, create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_annotation_qa
+            (question_key, question, answer, hit_count, enabled, operator, update_time)
+        VALUES
+            (#{questionKey}, #{question}, #{answer}, #{hitCount}, #{enabled}, #{operator}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="update">
+        UPDATE mcp_annotation_qa
+        SET question_key = #{questionKey}, question = #{question}, answer = #{answer},
+            enabled = #{enabled}, operator = #{operator}, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM mcp_annotation_qa WHERE id = #{id}
+    </delete>
+
+    <!-- 命中计数自增（双方言公共子集，不用原子方言函数） -->
+    <update id="incrementHit">
+        UPDATE mcp_annotation_qa
+        SET hit_count = hit_count + 1, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <select id="query" resultMap="QaMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_annotation_qa
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryByKey" resultMap="QaMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_annotation_qa
+        WHERE question_key = #{questionKey}
+    </select>
+
+    <select id="queryEnabled" resultMap="QaMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_annotation_qa
+        WHERE enabled = 1
+        ORDER BY hit_count DESC
+    </select>
+</mapper>

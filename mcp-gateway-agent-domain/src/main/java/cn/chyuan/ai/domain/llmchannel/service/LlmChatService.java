@@ -135,6 +135,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.governance.service.IAuditService> auditServiceProvider;
 
+    /** 生成侧治理管线（五期 AA 簇 0198-0203）：标注回复/注入检测/内容护栏/结构化输出，全部默认关 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.generation.service.GenerationGuardPipeline> generationGuardProvider;
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -157,6 +161,19 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
+
+        // 生成侧治理（五期 AA 簇，全部默认关=零行为变化）：标注回复短路 → 注入检测 → 进站脱敏
+        cn.chyuan.ai.domain.generation.service.GenerationGuardPipeline generationGuard =
+                generationGuardProvider == null ? null : generationGuardProvider.getIfAvailable();
+        if (generationGuard != null) {
+            String directReply = generationGuard.annotationReplyOrNull(request);
+            if (directReply != null) {
+                LAST_CACHE_HIT.remove();
+                return directReply;
+            }
+            generationGuard.assertNoInjection(request);
+            generationGuard.maskInbound(request);
+        }
 
         // 精确缓存（工单 0097/0098）：请求体 cache.no-cache 跳过读（仍写）；命中即原样返回
         boolean noCache = request.getJSONObject("cache") != null
@@ -232,6 +249,10 @@ public class LlmChatService {
                     if (success) {
                         // 响应侧护栏 POST_CALL（工单 0094）：阻断丢弃响应；脱敏改写后返回调用方
                         response = applyResponseGuardrails(response);
+                        // 出站治理（五期 AA 簇 0198-0203）：出站脱敏 + 结构化输出守护（默认关）
+                        if (generationGuard != null) {
+                            response = generationGuard.outbound(request, response);
+                        }
                         recordUsage(principal, model, channel.getName(), "SUCCESS", cost, response);
                         consumeTpmQuietly(principal, response);
                         countCacheMiss(model);
@@ -288,6 +309,10 @@ public class LlmChatService {
         // 链上渠道不重复尝试，降级成功照常计费/落账（带 fallback 标记）并置响应头标记
         String fallbackResponse = tryFallbackChain(principal, model, request, lastTried, triedIds);
         if (fallbackResponse != null) {
+            // 降级响应同样过出站治理（默认关）
+            if (generationGuard != null) {
+                fallbackResponse = generationGuard.outbound(request, fallbackResponse);
+            }
             return fallbackResponse;
         }
         throw new AppException(McpErrorCodes.TOOL_EXECUTION_FAILED,

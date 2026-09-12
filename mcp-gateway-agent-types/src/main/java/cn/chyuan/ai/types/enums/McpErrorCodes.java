@@ -159,6 +159,16 @@ public final class McpErrorCodes {
      */
     public static final int MODEL_CONTEXT_EXCEEDED = -32023;
 
+    /**
+     * 提示注入拦截 —— 进站内容注入评分超阈（工单 0201 AA6，HTTP 400）
+     */
+    public static final int PROMPT_INJECTION_BLOCKED = -32024;
+
+    /**
+     * 结构化输出非法 —— response_format 声明 JSON 但校验与兜底修复均失败（工单 0199 AA4，HTTP 400）
+     */
+    public static final int STRUCTURED_OUTPUT_INVALID = -32025;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

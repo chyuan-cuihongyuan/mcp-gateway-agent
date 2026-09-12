@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IPromptVersionDao">
+
+    <resultMap id="VersionMap" type="cn.chyuan.ai.infrastructure.dao.po.McpPromptVersionPO">
+        <id column="id" property="id"/>
+        <result column="prompt_name" property="promptName"/>
+        <result column="version" property="version"/>
+        <result column="template" property="template"/>
+        <result column="status" property="status"/>
+        <result column="note" property="note"/>
+        <result column="operator" property="operator"/>
+        <result column="label" property="label"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, prompt_name, version, template, status, note, operator, label, create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_prompt_version
+            (prompt_name, version, template, status, note, operator, label, update_time)
+        VALUES
+            (#{promptName}, #{version}, #{template}, #{status}, #{note}, #{operator}, #{label}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 应用层维护 update_time（双方言公共子集，不用 COALESCE 方言差异） -->
+    <update id="update">
+        UPDATE mcp_prompt_version
+        SET template = #{template}, status = #{status}, note = #{note},
+            operator = #{operator}, label = #{label}, update_time = CURRENT_TIMESTAMP
+        WHERE prompt_name = #{promptName} AND version = #{version}
+    </update>
+
+    <select id="query" resultMap="VersionMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_prompt_version
+        WHERE prompt_name = #{promptName} AND version = #{version}
+    </select>
+
+    <select id="queryMaxVersion" resultType="java.lang.Integer">
+        SELECT MAX(version) FROM mcp_prompt_version WHERE prompt_name = #{promptName}
+    </select>
+
+    <select id="queryByName" resultMap="VersionMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_prompt_version
+        WHERE prompt_name = #{promptName}
+        ORDER BY version ASC
+    </select>
+
+    <select id="queryAll" resultMap="VersionMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_prompt_version
+        ORDER BY prompt_name ASC, version ASC
+    </select>
+
+    <select id="queryByLabel" resultMap="VersionMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_prompt_version
+        WHERE prompt_name = #{promptName} AND label = #{label}
+    </select>
+
+    <update id="clearLabels">
+        UPDATE mcp_prompt_version SET label = NULL, update_time = CURRENT_TIMESTAMP
+        WHERE prompt_name = #{promptName} AND label IS NOT NULL
+    </update>
+</mapper>

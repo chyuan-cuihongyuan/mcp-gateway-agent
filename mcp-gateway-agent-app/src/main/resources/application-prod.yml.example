@@ -1,0 +1,48 @@
+# mcp-gateway-agent 生产配置模板（SELFLOOP2 loop-224）
+# 关键原则：生产关键配置一律空回落 + 启动期 RequiredConfigurationValidator 阻断（fail-fast），
+# 严禁弱默认值。使用：复制为 application-prod.yml 并经环境变量注入真实值。
+server:
+  port: 8091
+  servlet:
+    context-path: /
+  shutdown: graceful
+
+spring:
+  config:
+    import:
+      - classpath:agent/only-one-agent.yml
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    username: ${MYSQL_USERNAME:root}
+    # 生产无回落：漏配 MYSQL_PASSWORD 时启动阻断（禁止 123456 之类弱值进 prod）
+    password: ${MYSQL_PASSWORD:}
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/mcp_gateway_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  ai:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      # 生产无回落：漏配 OPENAI_API_KEY 时启动阻断
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+
+observability:
+  enabled: true
+  http:
+    url: ${OBSERVABILITY_HTTP_URL:http://127.0.0.1:8092}
+    # 生产无回落：漏配 OBSERVABILITY_AUTH_KEY 时启动阻断（禁止公开弱钥）
+    auth-key: ${OBSERVABILITY_AUTH_KEY:}
+    enabled: true
+    timeout-ms: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -46,6 +46,19 @@ class RequiredConfigurationValidatorTest {
     }
 
     @Test
+    @DisplayName("prod + 空串值（弱默认已移除的空回落）→ 阻断且消息含键名（loop-224）")
+    void prodWithBlankValues_blocks() {
+        MockEnvironment env = prod()
+                .withProperty("spring.datasource.password", "")
+                .withProperty("spring.ai.openai.api-key", "")
+                .withProperty("observability.http.auth-key", "");
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> validator(env).afterPropertiesSet());
+        assertTrue(ex.getMessage().contains("spring.datasource.password"));
+        assertTrue(ex.getMessage().contains("未配置"));
+    }
+
+    @Test
     @DisplayName("prod + 真实配置 → 放行")
     void prodWithRealValues_passes() {
         MockEnvironment env = prod()

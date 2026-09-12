@@ -56,6 +56,18 @@
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>3.1.1</version>
       </dependency>
+      <!-- 依赖收敛 pin（SELFLOOP2 loop-228，enforcer requireUpperBoundDeps 发现）：取传递链上界，
+           消除 ADK 1.7 链与 guava/checker-qual 的多版本共存 -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.5.0-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>3.49.0</version>
+      </dependency>
       <!-- Retrofit2（网关协议映射 HTTP 客户端） -->
       <dependency>
         <groupId>com.squareup.retrofit2</groupId>
@@ -109,6 +121,48 @@
   </dependencyManagement>
   <build>
     <plugins>
+      <!-- 依赖与构建环境门禁（SELFLOOP2 loop-228，试点成功后推广其他仓） -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>enforce-convergence</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                </requireJavaVersion>
+                <requireUpperBoundDeps>
+                  <!-- ADK/arrow 链跨大版本共存（okhttp 4↔5 等），需专项对齐批次处理，
+                       试点期白名单（loop-228 记录，工单 0255/0256 Resolution 留档） -->
+                  <excludes>
+                    <exclude>com.squareup.okhttp3:okhttp</exclude>
+                    <exclude>org.jetbrains:annotations</exclude>
+                    <exclude>com.google.flatbuffers:flatbuffers-java</exclude>
+                    <exclude>org.codehaus.mojo:animal-sniffer-annotations</exclude>
+                    <exclude>org.apache.arrow:arrow-format</exclude>
+                    <exclude>com.squareup.okio:okio-jvm</exclude>
+                    <!-- Jackson2/swagger 链（app 模块，springdoc 2.2.38 vs Boot 管理 2.21）：
+                         loop-219 测试类路径 NoSuchFieldError 的根源，专项对齐批次处理 -->
+                    <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                    <exclude>com.fasterxml.jackson.dataformat:jackson-dataformat-yaml</exclude>
+                    <exclude>com.fasterxml.jackson.datatype:jackson-datatype-jsr310</exclude>
+                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                    <exclude>io.swagger.core.v3:swagger-annotations-jakarta</exclude>
+                  </excludes>
+                </requireUpperBoundDeps>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <!-- maven 脚手架 -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

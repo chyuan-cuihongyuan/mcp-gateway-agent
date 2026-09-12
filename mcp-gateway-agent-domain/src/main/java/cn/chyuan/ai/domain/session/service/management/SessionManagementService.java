@@ -57,6 +57,14 @@ public class SessionManagementService implements ISessionManagementService {
     @Autowired(required = false)
     private ISessionMetaRepository sessionMetaRepository;
 
+    /** 会话生命周期指标（SELFLOOP2 loop-215）；缺席时 no-op */
+    @Autowired(required = false)
+    private SessionMetrics sessionMetrics;
+
+    private SessionMetrics metrics() {
+        return sessionMetrics != null ? sessionMetrics : SessionMetrics.noOp();
+    }
+
     public SessionManagementService() {
         cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
         log.info("会话管理服务已启动");
@@ -77,6 +85,8 @@ public class SessionManagementService implements ISessionManagementService {
 
         activeSessions.put(sessionId, sessionConfigVO);
         saveSessionMeta(sessionId, gatewayId, apiKey);
+        metrics().bindActiveMap(activeSessions);
+        metrics().recordCreated();
 
         log.info("创建会话 gatewayId:{} sessionId:{},当前活跃会话数:{}", gatewayId, sessionId, activeSessions.size());
 
@@ -100,6 +110,7 @@ public class SessionManagementService implements ISessionManagementService {
         if (sessionMetaRepository != null) {
             sessionMetaRepository.delete(sessionId);
         }
+        metrics().recordClosed();
 
         log.info("移除会话:{},剩余活跃会话数:{}", sessionId, activeSessions.size());
     }
@@ -139,6 +150,7 @@ public class SessionManagementService implements ISessionManagementService {
         if (cleanedCount > 0) {
             log.info("清理了 {} 个过期会话，剩余活跃会话数: {}", cleanedCount, activeSessions.size());
         }
+        metrics().recordExpired(cleanedCount);
     }
 
     @Override

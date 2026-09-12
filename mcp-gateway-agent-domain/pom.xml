@@ -10,6 +10,11 @@
     <artifactId>mcp-gateway-agent-domain</artifactId>
 
     <dependencies>
+        <!-- 会话生命周期指标（SELFLOOP2 loop-215） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
         <dependency>
             <groupId>cn.bugstack.wrench</groupId>
             <artifactId>xfg-wrench-starter-design-framework</artifactId>

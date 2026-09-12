@@ -31,18 +31,22 @@ public class ToolsCallHandler implements IRequestHandler {
     @Resource
     private ISessionPort port;
 
+    @Resource
+    private ToolCallAuditLogger auditLogger;
+
     @Override
     public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
+        long startMs = System.currentTimeMillis();
+        String toolName = null;
+        Object argumentsObj = null;
         try {
             // 1. 转换参数
             McpSchemaVO.CallToolRequest callToolRequest = McpSchemaVO.unmarshalFrom(message.params(),
                     new TypeReference<>() {
                     });
 
-            Object argumentsObj = callToolRequest.arguments();
-            String toolName = callToolRequest.name();
-
-            log.info("工具调用请求: gatewayId={}, toolName={}, arguments={}", gatewayId, toolName, argumentsObj);
+            argumentsObj = callToolRequest.arguments();
+            toolName = callToolRequest.name();
 
             // 参数校验
             if (argumentsObj == null) {
@@ -74,6 +78,9 @@ public class ToolsCallHandler implements IRequestHandler {
             // 3. 调用接口
             Object result = port.toolCall(mcpToolProtocolConfigVO.getHttpConfig(), argumentsObj);
 
+            auditLogger.audit(gatewayId, toolName, argumentsObj, true,
+                    System.currentTimeMillis() - startMs, null);
+
             // 返回成功响应 - isError 使用布尔值 false
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION, message.id(), Map.of(
                     "content", new Object[] {
@@ -85,12 +92,16 @@ public class ToolsCallHandler implements IRequestHandler {
 
         } catch (AppException e) {
             // 业务异常返回标准 MCP 错误
+            auditLogger.audit(gatewayId, toolName, argumentsObj, false,
+                    System.currentTimeMillis() - startMs, String.valueOf(e.getCode()));
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,
                     new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INVALID_PARAMS, e.getMessage(), null));
         } catch (Exception e) {
             log.error("工具调用异常: gatewayId={}", gatewayId, e);
+            auditLogger.audit(gatewayId, toolName, argumentsObj, false,
+                    System.currentTimeMillis() - startMs, "INTERNAL");
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,

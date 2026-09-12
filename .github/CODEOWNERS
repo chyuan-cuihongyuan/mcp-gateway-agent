@@ -1,0 +1,5 @@
+# AUTOLOOP al-02 / 工单 1002：CODEOWNERS 评审路由（借鉴 kubernetes 高星惯例）
+# 默认：所有路径路由到仓库所有者；CI 门禁区显式单列。
+* @chyuan-cuihongyuan
+
+/.github/ @chyuan-cuihongyuan

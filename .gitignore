@@ -62,3 +62,6 @@ application-test.yml
 
 # AUTOLOOP al-09：PR 模板入库
 !.github/PULL_REQUEST_TEMPLATE.md
+
+# AUTOLOOP al-13：变更日志入库
+!CHANGELOG.md

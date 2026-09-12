@@ -88,6 +88,12 @@
             <artifactId>logback-classic</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- AUTOLOOP al-08 / 工单 1008：工具调用瞬态重试（借鉴 resilience4j/resilience4j） -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>2.2.0</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -9,17 +9,22 @@ import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.core.IntervalFunction;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import retrofit2.Call;
 import retrofit2.Response;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,6 +47,13 @@ public class SessionPort implements ISessionPort {
 
     @Resource
     private GenericHttpGateway gateway;
+
+    /** AUTOLOOP al-08 / 工单 1008：瞬态重试参数（借鉴 resilience4j），≤1 时走快路径零行为差异 */
+    @Value("${mcp.tool-call.retry.max-attempts:2}")
+    private int retryMaxAttempts;
+
+    @Value("${mcp.tool-call.retry.wait-ms:200}")
+    private long retryWaitMs;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -115,8 +127,7 @@ public class SessionPort implements ISessionPort {
                 MediaType.parse("application/json"));
         String url = httpConfig.getHttpUrl();
         Call<ResponseBody> call = gateway.post(url, headers, requestBody);
-        applyCallTimeout(call, httpConfig.getTimeout());
-        return handleResponse(call.execute(), url);
+        return executeWithRetry(call, url, httpConfig.getTimeout());
     }
 
     private Object executeGet(McpToolProtocolConfigVO.HTTPConfig httpConfig, Map<String, Object> headers, Map<String, Object> arguments) throws IOException {
@@ -135,8 +146,67 @@ public class SessionPort implements ISessionPort {
 
         log.info("HTTP GET 工具调用: url={}, queryCount={}", url, queryParams.size());
         Call<ResponseBody> call = gateway.get(url, headers, queryParams);
-        applyCallTimeout(call, httpConfig.getTimeout());
-        return handleResponse(call.execute(), url);
+        return executeWithRetry(call, url, httpConfig.getTimeout());
+    }
+
+    /**
+     * AUTOLOOP al-08 / 工单 1008：瞬态失败重试（借鉴 resilience4j/resilience4j）。
+     * 仅 IOException 与 HTTP 429/5xx 重试；OkHttp Call 单次使用，每次尝试 clone 重建。
+     * 耗尽后 TransientHttpException 转 AppException（语义对齐 handleResponse），
+     * 其余 IOException 沿原语义上抛由 toolCall 统一收敛。
+     */
+    private Object executeWithRetry(Call<ResponseBody> call, String url, Integer timeoutMs) throws IOException {
+        if (retryMaxAttempts <= 1) {
+            applyCallTimeout(call, timeoutMs);
+            return settle(call.execute(), url);
+        }
+        Retry retry = Retry.of("mcp-tool-call", RetryConfig.custom()
+                .maxAttempts(retryMaxAttempts)
+                .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(Duration.ofMillis(retryWaitMs), 2.0))
+                .retryExceptions(IOException.class)
+                .build());
+        try {
+            return retry.executeCheckedSupplier(() -> {
+                Call<ResponseBody> attempt = call.clone();
+                applyCallTimeout(attempt, timeoutMs);
+                return settle(attempt.execute(), url);
+            });
+        } catch (TransientHttpException e) {
+            log.warn("瞬态失败重试耗尽: url={}, code={}, attempts={}", url, e.getHttpCode(), retryMaxAttempts);
+            throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(),
+                    "HTTP " + e.getHttpCode() + ": " + e.getMessage());
+        } catch (IOException e) {
+            throw e;
+        } catch (Throwable t) {
+            // executeCheckedSupplier 声明 Throwable；本 supplier 只抛 IOException，此分支仅形式收口
+            throw new AppException(ResponseCode.RESPONSE_ERROR.getCode(), "重试执行异常: " + t.getMessage());
+        }
+    }
+
+    /** 瞬态状态码（429/5xx）抛可重试异常，其余语义与 handleResponse 一致 */
+    private Object settle(Response<ResponseBody> response, String url) throws IOException {
+        if (!response.isSuccessful() && isTransientStatus(response.code())) {
+            throw new TransientHttpException(response.code());
+        }
+        return handleResponse(response, url);
+    }
+
+    private static boolean isTransientStatus(int code) {
+        return code == 429 || code >= 500;
+    }
+
+    /** 下游瞬态失败的标记异常（可重试）；耗尽后由 executeWithRetry 收口为 AppException */
+    private static final class TransientHttpException extends IOException {
+        private final int httpCode;
+
+        TransientHttpException(int httpCode) {
+            super("下游瞬态失败");
+            this.httpCode = httpCode;
+        }
+
+        int getHttpCode() {
+            return httpCode;
+        }
     }
 
     private void applyCallTimeout(Call<ResponseBody> call, Integer timeoutMs) {

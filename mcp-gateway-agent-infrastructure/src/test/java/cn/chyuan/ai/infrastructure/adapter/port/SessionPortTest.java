@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +76,76 @@ class SessionPortTest {
 
         assertThat(result).isEqualTo("{\"code\":0}");
         assertThat(buffer.readUtf8()).isEqualTo("{\"orderId\":\"OD012026052515030031863\"}");
+    }
+
+    // ========== AUTOLOOP al-08 / 工单 1008：瞬态重试（借鉴 resilience4j） ==========
+
+    @Test
+    void retriesTransientFailureThenSucceeds() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.clone()).thenReturn(call);
+        retrofit2.Response<ResponseBody> badGateway = retrofit2.Response.error(502,
+                ResponseBody.create("bad gateway", MediaType.parse("text/plain")));
+        when(call.execute()).thenReturn(badGateway,
+                retrofit2.Response.success(ResponseBody.create("{\"code\":0}",
+                        MediaType.parse("application/json"))));
+        when(gateway.post(eq("http://example.test/api"), any(Map.class), any(RequestBody.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+        ReflectionTestUtils.setField(port, "retryMaxAttempts", 2);
+        ReflectionTestUtils.setField(port, "retryWaitMs", 1L);
+
+        Object result = port.toolCall(httpConfig("post"), Map.of("k", "v"));
+
+        assertThat(result).isEqualTo("{\"code\":0}");
+        verify(call, times(2)).execute();
+    }
+
+    @Test
+    void exhaustedRetriesConvertToAppException() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.clone()).thenReturn(call);
+        retrofit2.Response<ResponseBody> unavailable = retrofit2.Response.error(503,
+                ResponseBody.create("unavailable", MediaType.parse("text/plain")));
+        when(call.execute()).thenReturn(unavailable);
+        when(gateway.post(eq("http://example.test/api"), any(Map.class), any(RequestBody.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+        ReflectionTestUtils.setField(port, "retryMaxAttempts", 3);
+        ReflectionTestUtils.setField(port, "retryWaitMs", 1L);
+
+        assertThatThrownBy(() -> port.toolCall(httpConfig("post"), Map.of("k", "v")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("HTTP 503");
+        verify(call, times(3)).execute();
+    }
+
+    @Test
+    void nonTransientStatusIsNotRetried() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.clone()).thenReturn(call);
+        retrofit2.Response<ResponseBody> notFound = retrofit2.Response.error(404,
+                ResponseBody.create("not found", MediaType.parse("text/plain")));
+        when(call.execute()).thenReturn(notFound);
+        when(gateway.post(eq("http://example.test/api"), any(Map.class), any(RequestBody.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+        ReflectionTestUtils.setField(port, "retryMaxAttempts", 3);
+        ReflectionTestUtils.setField(port, "retryWaitMs", 1L);
+
+        assertThatThrownBy(() -> port.toolCall(httpConfig("post"), Map.of("k", "v")))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("HTTP 404");
+        verify(call, times(1)).execute();
     }
 
     private McpToolProtocolConfigVO.HTTPConfig httpConfig(String method) {

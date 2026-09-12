@@ -1,0 +1,21 @@
+# AUTOLOOP al-09 / 工单 1009：功能请求表单（借鉴 kubernetes issue-forms）
+name: 功能请求
+description: 提出新能力或改进建议
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望的方案
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的备选方案

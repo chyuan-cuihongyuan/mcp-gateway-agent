@@ -1,0 +1,6 @@
+# AUTOLOOP al-09 / 工单 1009：issue 联系链
+contact_links:
+  - name: 安全漏洞上报
+    url: https://github.com/chyuan-cuihongyuan/ai-agent-platform/blob/online-main/.github/SECURITY.md
+    about: 安全问题请走 SECURITY.md 的私密通道，勿开公开 issue
+blank_issues_enabled: false

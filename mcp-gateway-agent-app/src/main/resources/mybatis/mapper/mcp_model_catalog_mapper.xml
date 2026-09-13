@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IModelCatalogDao">
+
+    <resultMap id="CatalogMap" type="cn.chyuan.ai.infrastructure.dao.po.McpModelCatalogPO">
+        <id column="id" property="id"/>
+        <result column="model" property="model"/>
+        <result column="context_limit" property="contextLimit"/>
+        <result column="modalities" property="modalities"/>
+        <result column="pricing_entry_id" property="pricingEntryId"/>
+        <result column="status" property="status"/>
+        <result column="note" property="note"/>
+        <result column="operator" property="operator"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, model, context_limit, modalities, pricing_entry_id, status, note, operator,
+        create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_model_catalog
+            (model, context_limit, modalities, pricing_entry_id, status, note, operator, update_time)
+        VALUES
+            (#{model}, #{contextLimit}, #{modalities}, #{pricingEntryId}, #{status}, #{note},
+             #{operator}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 应用层维护 update_time（双方言公共子集） -->
+    <update id="update">
+        UPDATE mcp_model_catalog
+        SET context_limit = #{contextLimit}, modalities = #{modalities},
+            pricing_entry_id = #{pricingEntryId}, status = #{status}, note = #{note},
+            operator = #{operator}, update_time = CURRENT_TIMESTAMP
+        WHERE model = #{model}
+    </update>
+
+    <select id="queryByModel" resultMap="CatalogMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_model_catalog
+        WHERE model = #{model}
+    </select>
+
+    <select id="queryAll" resultMap="CatalogMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_model_catalog
+        ORDER BY model
+    </select>
+</mapper>

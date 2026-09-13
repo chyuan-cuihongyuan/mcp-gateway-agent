@@ -173,7 +173,7 @@ public class PolicyController {
 
     /** AH4：缓存统计 */
     @GetMapping("/cache-stats")
-    public Response<PolicyEngine.PolicyDecisionCacheStats> cacheStats() {
+    public Response<PolicyDecisionCache.PolicyDecisionCacheStats> cacheStats() {
         return Response.success(engine.cacheStats());
     }
 

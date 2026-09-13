@@ -11,6 +11,7 @@ import cn.chyuan.ai.domain.usage.service.IUsageLedgerService;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
 import cn.chyuan.ai.types.exception.AppException;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -147,6 +148,10 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.policy.service.PolicyEnforceService> policyEnforceProvider;
 
+    /** 前缀缓存挂点（六期 AJ 簇 0277-0284）：确定性前缀链命中直返，默认关 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmcache.service.PrefixCacheInterceptor> prefixCacheProvider;
+
     /** 策略引擎鉴权（六期 AH 簇 0267，默认关=零行为变化）：vk 校验后挂声明式策略，DENY 即 -32027 */
     private void assertPolicyAllowed(GovernancePrincipal principal, String model) {
         cn.chyuan.ai.domain.policy.service.PolicyEnforceService policyEnforce =
@@ -161,6 +166,64 @@ public class LlmChatService {
             throw new AppException(result.errorCode(),
                     "策略拒绝访问模型: " + model + " hits=" + result.decision().hitStatementNames());
         }
+    }
+
+    /** 前缀缓存读辅助（六期 AJ 簇）：messages 解析失败静默跳过（缓存尽力而为） */
+    private String prefixCacheLookup(cn.chyuan.ai.domain.llmcache.service.PrefixCacheInterceptor cache,
+            GovernancePrincipal principal, String model, JSONObject request) {
+        try {
+            List<ChatMessageLite> messages = parseMessagesLite(request);
+            if (messages.isEmpty()) {
+                return null;
+            }
+            cn.chyuan.ai.domain.llmcache.service.PrefixCacheInterceptor.PrefixHit hit =
+                    cache.lookup(principal == null ? null : principal.getTenantId(), model,
+                            messages.stream()
+                                    .map(message -> new cn.chyuan.ai.domain.llmcache.service.PrefixKeyCalculator.ChatMessage(
+                                            message.role(), message.content()))
+                                    .toList(),
+                            Boolean.TRUE.equals(request.getBoolean("stream")));
+            return hit == null ? null : hit.response();
+        } catch (Exception e) {
+            log.debug("前缀缓存读跳过: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 前缀缓存写辅助（六期 AJ 簇，取得最终响应后调用） */
+    private void prefixCacheStore(cn.chyuan.ai.domain.llmcache.service.PrefixCacheInterceptor cache,
+            GovernancePrincipal principal, String model, JSONObject request, String response) {
+        try {
+            List<ChatMessageLite> messages = parseMessagesLite(request);
+            cache.store(principal == null ? null : principal.getTenantId(), model,
+                    messages.stream()
+                            .map(message -> new cn.chyuan.ai.domain.llmcache.service.PrefixKeyCalculator.ChatMessage(
+                                    message.role(), message.content()))
+                            .toList(),
+                    response);
+        } catch (Exception e) {
+            log.debug("前缀缓存写跳过: {}", e.getMessage());
+        }
+    }
+
+    /** messages 数组最小解析（role/content） */
+    private List<ChatMessageLite> parseMessagesLite(JSONObject request) {
+        JSONArray messages = request.getJSONArray("messages");
+        List<ChatMessageLite> out = new ArrayList<>();
+        if (messages == null) {
+            return out;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            JSONObject message = messages.getJSONObject(i);
+            if (message != null) {
+                out.add(new ChatMessageLite(message.getString("role"), message.getString("content")));
+            }
+        }
+        return out;
+    }
+
+    /** messages 最小载体 */
+    private record ChatMessageLite(String role, String content) {
     }
 
     /**
@@ -210,6 +273,18 @@ public class LlmChatService {
             recordCacheHit(principal, model, cached);
             LAST_CACHE_HIT.set(Boolean.TRUE);
             return cached;
+        }
+
+        // 前缀缓存读（六期 AJ 簇，默认关=零行为变化）：确定性前缀链全深度命中直接返回
+        cn.chyuan.ai.domain.llmcache.service.PrefixCacheInterceptor prefixCache =
+                prefixCacheProvider == null ? null : prefixCacheProvider.getIfAvailable();
+        if (prefixCache != null) {
+            String prefixCached = prefixCacheLookup(prefixCache, principal, model, request);
+            if (prefixCached != null) {
+                recordCacheHit(principal, model, prefixCached);
+                LAST_CACHE_HIT.set(Boolean.TRUE);
+                return prefixCached;
+            }
         }
 
         LAST_ROUTE_GROUP.remove();
@@ -294,6 +369,10 @@ public class LlmChatService {
                         countCacheMiss(model);
                         if (cacheKey != null) {
                             cachePut(cacheKey, response);
+                            // 前缀缓存写（六期 AJ 簇，默认关）：响应入前缀链快照
+                            if (prefixCache != null) {
+                                prefixCacheStore(prefixCache, principal, model, request, response);
+                            }
                         }
                         if (attempt > 0) {
                             countRetry(channel.getName(), true);

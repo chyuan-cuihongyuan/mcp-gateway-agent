@@ -58,3 +58,18 @@ CREATE TABLE IF NOT EXISTS mcp_policy_decision_log (
   KEY idx_policy_decision_log_at (at_ms),
   KEY idx_policy_decision_log_decision (decision)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='策略决策日志表（工单 0265）';
+
+-- ── 工单 0281 AJ5：模型目录 ──
+CREATE TABLE IF NOT EXISTS mcp_model_catalog (
+  id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+  model            VARCHAR(128) NOT NULL COMMENT '模型名（唯一）',
+  context_limit    INT          NOT NULL DEFAULT 0 COMMENT 'context 上限（token）',
+  modalities       VARCHAR(128) NOT NULL DEFAULT 'text' COMMENT '模态集合（逗号拼接）',
+  pricing_entry_id BIGINT       NULL COMMENT '归属计价条目 id',
+  status           VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/DEPRECATED',
+  note             VARCHAR(256) NULL COMMENT '备注',
+  operator         VARCHAR(64)  NOT NULL DEFAULT 'unknown' COMMENT '操作人',
+  create_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_model_catalog_model (model)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型目录（工单 0281；能力矩阵与计价联动）';

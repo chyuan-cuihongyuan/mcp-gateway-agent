@@ -37,6 +37,9 @@ public class ToolsCallHandler implements IRequestHandler {
     @Resource
     private ConsentPolicy consentPolicy;
 
+    @Resource
+    private ToolResultGuard toolResultGuard;
+
     @Override
     public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
         long startMs = System.currentTimeMillis();
@@ -78,8 +81,9 @@ public class ToolsCallHandler implements IRequestHandler {
                 }
             }
 
-            // 3. 调用接口
-            Object result = port.toolCall(mcpToolProtocolConfigVO.getHttpConfig(), argumentsObj);
+            // 3. 调用接口（b-19：返回体积护栏，防异常上游撑爆 LLM 上下文）
+            Object result = toolResultGuard.guard(
+                    port.toolCall(mcpToolProtocolConfigVO.getHttpConfig(), argumentsObj), toolName);
 
             auditLogger.audit(gatewayId, toolName, argumentsObj, true,
                     System.currentTimeMillis() - startMs, null,

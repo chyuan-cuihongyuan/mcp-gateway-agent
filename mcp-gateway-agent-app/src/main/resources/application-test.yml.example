@@ -89,6 +89,9 @@ mcp:
   # 标签进入 TOOL_AUDIT 审计行 tags= 字段，供采集侧按业务域过滤
   tool-tags:
     entries: ${MCP_TOOL_TAGS:}
+  # b-19（工单 1134）：工具返回体积护栏（buzhou spill 思想；0=关闭）
+  tool-result:
+    max-chars: 30000
 
 # 日志
 logging:

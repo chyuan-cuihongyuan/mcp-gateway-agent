@@ -7,6 +7,10 @@ help: ## 列出全部目标
 .PHONY: test
 test: ## domain+infrastructure 模块测试（同主仓口径）
 	mvn -B -ntp -pl mcp-gateway-agent-domain,mcp-gateway-agent-infrastructure test
+.PHONY: audit-permissions
+audit-permissions: ## workflow 最小权限审计（AUTOLOOP al-49）
+	python3 tools/audit_workflow_permissions.py
+
 .PHONY: changelog
 changelog: ## 重新生成 CHANGELOG.md
 	python3 scripts/gen_changelog.py

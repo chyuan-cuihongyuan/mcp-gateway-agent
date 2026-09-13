@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IConfigSnapshotDao">
+
+    <resultMap id="SnapshotMap" type="cn.chyuan.ai.infrastructure.dao.po.McpConfigSnapshotPO">
+        <id column="id" property="id"/>
+        <result column="namespace" property="namespace"/>
+        <result column="config_key" property="configKey"/>
+        <result column="version" property="version"/>
+        <result column="content" property="content"/>
+        <result column="content_md5" property="contentMd5"/>
+        <result column="sensitive" property="sensitive"/>
+        <result column="publisher" property="publisher"/>
+        <result column="note" property="note"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, namespace, config_key, version, content, content_md5, sensitive, publisher, note, status, create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_config_snapshot
+            (namespace, config_key, version, content, content_md5, sensitive, publisher, note, status, update_time)
+        VALUES
+            (#{namespace}, #{configKey}, #{version}, #{content}, #{contentMd5}, #{sensitive},
+             #{publisher}, #{note}, #{status}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 应用层维护 update_time（双方言公共子集） -->
+    <update id="update">
+        UPDATE mcp_config_snapshot
+        SET content = #{content}, content_md5 = #{contentMd5}, sensitive = #{sensitive},
+            publisher = #{publisher}, note = #{note}, status = #{status}, update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <select id="query" resultMap="SnapshotMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_config_snapshot
+        WHERE namespace = #{namespace} AND config_key = #{configKey} AND version = #{version}
+    </select>
+
+    <select id="queryMaxVersion" resultType="java.lang.Integer">
+        SELECT MAX(version)
+        FROM mcp_config_snapshot
+        WHERE namespace = #{namespace} AND config_key = #{configKey}
+    </select>
+
+    <select id="queryByKey" resultMap="SnapshotMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_config_snapshot
+        WHERE namespace = #{namespace} AND config_key = #{configKey}
+        ORDER BY version
+    </select>
+
+    <select id="queryByNamespace" resultMap="SnapshotMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_config_snapshot
+        WHERE namespace = #{namespace}
+        ORDER BY config_key, version
+    </select>
+
+    <select id="queryAll" resultMap="SnapshotMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_config_snapshot
+        ORDER BY namespace, config_key, version
+    </select>
+</mapper>

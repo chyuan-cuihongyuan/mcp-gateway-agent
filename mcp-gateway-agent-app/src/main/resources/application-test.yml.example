@@ -85,6 +85,10 @@ mcp:
     pool:
       max-idle-connections: 20
       keep-alive-minutes: 5
+  # b-12（工单 1120）：工具元数据标签（条目 CSV：工具名=标签|标签）
+  # 标签进入 TOOL_AUDIT 审计行 tags= 字段，供采集侧按业务域过滤
+  tool-tags:
+    entries: ${MCP_TOOL_TAGS:}
 
 # 日志
 logging:

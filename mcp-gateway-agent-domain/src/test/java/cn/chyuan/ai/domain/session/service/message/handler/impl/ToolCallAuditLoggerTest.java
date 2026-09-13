@@ -29,7 +29,7 @@ class ToolCallAuditLoggerTest {
 
     @BeforeEach
     void setUp() {
-        auditLogger = new ToolCallAuditLogger();
+        auditLogger = new ToolCallAuditLogger(new ToolTagCatalog(""));
         toolAuditLogger = (Logger) LoggerFactory.getLogger(ToolCallAuditLogger.LOGGER_NAME);
         appender = new ListAppender<>();
         appender.start();

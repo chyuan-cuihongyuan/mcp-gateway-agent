@@ -20,6 +20,12 @@ public class ToolCallAuditLogger {
 
     private final Logger auditLog = LoggerFactory.getLogger(LOGGER_NAME);
 
+    private final ToolTagCatalog tagCatalog;
+
+    public ToolCallAuditLogger(ToolTagCatalog tagCatalog) {
+        this.tagCatalog = tagCatalog;
+    }
+
     /**
      * 记录一笔工具调用审计事件。
      *
@@ -38,6 +44,7 @@ public class ToolCallAuditLogger {
     /** 带 consent 标记的重载（SELFLOOP2 loop-233：高危工具审计可见化） */
     public void audit(String gatewayId, String toolName, Object arguments,
                       boolean ok, long durationMs, String errCode, boolean consentRequired) {
+        String tags = tagCatalog.auditValue(nz(toolName));
         String line = "event=tool_call"
                 + " gatewayId=" + nz(gatewayId)
                 + " toolName=" + nz(toolName)
@@ -46,6 +53,7 @@ public class ToolCallAuditLogger {
                 + " durationMs=" + durationMs
                 + " errCode=" + (errCode == null ? "-" : errCode)
                 + (consentRequired ? " consent=required" : "")
+                + (tags != null ? " tags=" + tags : "")
                 + " traceId=" + nz(MDC.get("traceId"));
         auditLog.info(line);
     }

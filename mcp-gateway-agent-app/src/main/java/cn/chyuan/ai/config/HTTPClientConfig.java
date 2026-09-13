@@ -29,10 +29,16 @@ public class HTTPClientConfig {
     @Value("${mcp.http.write-timeout-ms}")
     private int writeTimeoutMs;
 
+    @Value("${mcp.http.pool.max-idle-connections:20}")
+    private int poolMaxIdleConnections;
+
+    @Value("${mcp.http.pool.keep-alive-minutes:5}")
+    private long poolKeepAliveMinutes;
+
     @Bean
     public OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
-                .connectionPool(new ConnectionPool(20, 5, TimeUnit.MINUTES))
+                .connectionPool(new ConnectionPool(poolMaxIdleConnections, poolKeepAliveMinutes, TimeUnit.MINUTES))
                 .retryOnConnectionFailure(true)
                 .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
                 .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)

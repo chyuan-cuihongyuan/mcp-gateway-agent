@@ -81,6 +81,10 @@ mcp:
     connect-timeout-ms: 3000
     read-timeout-ms: 30000
     write-timeout-ms: 30000
+    # b-01：OkHttp 连接池可配（square/okhttp 调优口径；@Value 默认回落 20/5）
+    pool:
+      max-idle-connections: 20
+      keep-alive-minutes: 5
 
 # 日志
 logging:

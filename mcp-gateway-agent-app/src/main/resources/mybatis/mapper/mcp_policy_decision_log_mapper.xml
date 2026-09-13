@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IPolicyDecisionLogDao">
+
+    <resultMap id="DecisionLogMap" type="cn.chyuan.ai.infrastructure.dao.po.McpPolicyDecisionLogPO">
+        <id column="id" property="id"/>
+        <result column="at_ms" property="atMs"/>
+        <result column="subject" property="subject"/>
+        <result column="object" property="object"/>
+        <result column="action" property="action"/>
+        <result column="decision" property="decision"/>
+        <result column="hit_statement_names" property="hitStatementNames"/>
+        <result column="cached" property="cached"/>
+        <result column="cost_ms" property="costMs"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, at_ms, subject, object, action, decision, hit_statement_names, cached, cost_ms,
+        create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_policy_decision_log
+            (at_ms, subject, object, action, decision, hit_statement_names, cached, cost_ms, update_time)
+        VALUES
+            (#{atMs}, #{subject}, #{object}, #{action}, #{decision}, #{hitStatementNames},
+             #{cached}, #{costMs}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 分页 limit 封顶 200 由调用方保证；公共子集 SQL（LIMIT #{limit} OFFSET #{offset} 两库通吃） -->
+    <select id="query" resultMap="DecisionLogMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_policy_decision_log
+        <where>
+            <if test="decision != null and decision != ''">
+                AND decision = #{decision}
+            </if>
+            <if test="fromMs != null">
+                AND at_ms &gt;= #{fromMs}
+            </if>
+            <if test="toMs != null">
+                AND at_ms &lt;= #{toMs}
+            </if>
+        </where>
+        ORDER BY at_ms DESC, id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

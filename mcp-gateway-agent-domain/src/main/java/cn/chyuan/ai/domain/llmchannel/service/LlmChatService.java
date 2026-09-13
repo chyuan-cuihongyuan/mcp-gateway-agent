@@ -143,6 +143,26 @@ public class LlmChatService {
     @Resource
     private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.llmchannel.service.AdmissionGuardService> admissionGuardProvider;
 
+    /** 策略执行挂点（六期 AH 簇 0267）：vk 校验后声明式策略拦截，默认关 */
+    @Resource
+    private org.springframework.beans.factory.ObjectProvider<cn.chyuan.ai.domain.policy.service.PolicyEnforceService> policyEnforceProvider;
+
+    /** 策略引擎鉴权（六期 AH 簇 0267，默认关=零行为变化）：vk 校验后挂声明式策略，DENY 即 -32027 */
+    private void assertPolicyAllowed(GovernancePrincipal principal, String model) {
+        cn.chyuan.ai.domain.policy.service.PolicyEnforceService policyEnforce =
+                policyEnforceProvider == null ? null : policyEnforceProvider.getIfAvailable();
+        if (policyEnforce == null) {
+            return;
+        }
+        cn.chyuan.ai.domain.policy.service.PolicyEnforceService.EnforceResult result =
+                policyEnforce.enforce(String.valueOf(principal.getVirtualKeyId()), model,
+                        "chat/completions", java.util.Map.of());
+        if (!result.allowed()) {
+            throw new AppException(result.errorCode(),
+                    "策略拒绝访问模型: " + model + " hits=" + result.decision().hitStatementNames());
+        }
+    }
+
     /**
      * 非流式 chat/completions：响应体原样透传（OpenAI 契约）。
      *
@@ -165,6 +185,8 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
+        // 策略引擎鉴权（六期 AH 簇 0267，默认关=零行为变化）
+        assertPolicyAllowed(principal, model);
 
         // 生成侧治理（五期 AA 簇，全部默认关=零行为变化）：标注回复短路 → 注入检测 → 进站脱敏
         cn.chyuan.ai.domain.generation.service.GenerationGuardPipeline generationGuard =
@@ -446,6 +468,8 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
+        // 策略引擎鉴权（六期 AH 簇 0267，默认关=零行为变化）
+        assertPolicyAllowed(principal, model);
         LAST_ROUTE_GROUP.remove();
         List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {
@@ -788,6 +812,8 @@ public class LlmChatService {
         }
         // vk 模型白名单（工单 0157）：护栏后、调度前
         assertModelAllowed(principal, model);
+        // 策略引擎鉴权（六期 AH 簇 0267，默认关=零行为变化）
+        assertPolicyAllowed(principal, model);
         LAST_ROUTE_GROUP.remove();
         List<LlmChannelVO> candidates = candidatesFor(principal, model);
         if (candidates.isEmpty()) {

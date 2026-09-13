@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.chyuan.ai.infrastructure.dao.IPolicyDefinitionDao">
+
+    <resultMap id="PolicyMap" type="cn.chyuan.ai.infrastructure.dao.po.McpPolicyDefinitionPO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="sub_pattern" property="subPattern"/>
+        <result column="obj_pattern" property="objPattern"/>
+        <result column="act_pattern" property="actPattern"/>
+        <result column="condition_expr" property="conditionExpr"/>
+        <result column="effect" property="effect"/>
+        <result column="priority" property="priority"/>
+        <result column="enabled" property="enabled"/>
+        <result column="note" property="note"/>
+        <result column="operator" property="operator"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <sql id="cols">
+        id, name, sub_pattern, obj_pattern, act_pattern, condition_expr, effect, priority,
+        enabled, note, operator, create_time, update_time
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO mcp_policy_definition
+            (name, sub_pattern, obj_pattern, act_pattern, condition_expr, effect, priority,
+             enabled, note, operator, update_time)
+        VALUES
+            (#{name}, #{subPattern}, #{objPattern}, #{actPattern}, #{conditionExpr}, #{effect},
+             #{priority}, #{enabled}, #{note}, #{operator}, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 应用层维护 update_time（双方言公共子集） -->
+    <update id="update">
+        UPDATE mcp_policy_definition
+        SET name = #{name}, sub_pattern = #{subPattern}, obj_pattern = #{objPattern},
+            act_pattern = #{actPattern}, condition_expr = #{conditionExpr}, effect = #{effect},
+            priority = #{priority}, enabled = #{enabled}, note = #{note}, operator = #{operator},
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM mcp_policy_definition WHERE id = #{id}
+    </delete>
+
+    <select id="queryById" resultMap="PolicyMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_policy_definition
+        WHERE id = #{id}
+    </select>
+
+    <select id="queryAll" resultMap="PolicyMap">
+        SELECT <include refid="cols"/>
+        FROM mcp_policy_definition
+        ORDER BY priority DESC, id
+    </select>
+</mapper>

@@ -38,6 +38,7 @@ public class HTTPClientConfig {
     @Bean
     public OkHttpClient okHttpClient() {
         return new OkHttpClient.Builder()
+                .eventListenerFactory(HttpEventLogger.FACTORY)
                 .connectionPool(new ConnectionPool(poolMaxIdleConnections, poolKeepAliveMinutes, TimeUnit.MINUTES))
                 .retryOnConnectionFailure(true)
                 .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)

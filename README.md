@@ -186,6 +186,22 @@ curl -X POST http://localhost:8777/api/v1/create_session \
 
 通过 `/admin/*` 接口配置网关、工具、协议映射与认证 Key，或通过 `import_gateway_protocol` 从 OpenAPI JSON 一键导入。
 
+### 服务探针与 API 文档
+
+```bash
+# 存活/就绪探针（Boot probes，D07）
+curl http://localhost:8777/actuator/health
+curl http://localhost:8777/actuator/health/liveness
+curl http://localhost:8777/actuator/health/readiness
+
+# API 文档（springdoc-openapi，dev profile：分组 gateway / agent / admin）
+curl http://localhost:8777/v3/api-docs
+# 浏览器打开 Swagger UI：http://localhost:8777/swagger-ui.html
+```
+
+> 鉴权口径：MCP 会话在协议层以 apiKey 建权，本服务无 HTTP 层统一鉴权
+> （见 `OpenApiConfig`）；运营接口经认证 Key 配置管控。
+
 ## 项目结构
 
 ```

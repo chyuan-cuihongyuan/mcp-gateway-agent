@@ -4,6 +4,8 @@ import cn.chyuan.ai.domain.session.adapter.repository.ISessionMetaRepository;
 import cn.chyuan.ai.domain.session.model.valobj.SessionMetaVO;
 import cn.chyuan.ai.domain.session.model.valobj.SessionConfigVO;
 import cn.chyuan.ai.domain.session.service.ISessionManagementService;
+import cn.chyuan.ai.types.enums.McpErrorCodes;
+import cn.chyuan.ai.types.exception.AppException;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,13 @@ public class SessionManagementService implements ISessionManagementService {
     private long sessionTimeoutMinutes;
 
     /**
+     * 活跃会话并发上限（SELFLOOP3 loop-314，工单 0426/0427）：
+     * 0 = 关闭护栏；达到上限拒绝新建（-32008），防 SSE 连接与内存无界增长
+     */
+    @Value("${mcp.session.max-active:500}")
+    private int maxActiveSessions;
+
+    /**
      * 定时任务调度
      */
     private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -72,6 +81,12 @@ public class SessionManagementService implements ISessionManagementService {
 
     @Override
     public SessionConfigVO createSession(String gatewayId, String apiKey) {
+        if (maxActiveSessions > 0 && activeSessions.size() >= maxActiveSessions) {
+            log.warn("会话数已达上限，拒绝新建: gatewayId:{} active:{} limit:{}",
+                    gatewayId, activeSessions.size(), maxActiveSessions);
+            throw new AppException(McpErrorCodes.SESSION_LIMIT_EXCEEDED,
+                    "会话数已达上限(" + maxActiveSessions + ")，请稍后重试");
+        }
         log.info("创建会话 gatewayId:{}", gatewayId);
 
         String sessionId = UUID.randomUUID().toString();

@@ -75,6 +75,11 @@ public final class McpErrorCodes {
      */
     public static final int UNSUPPORTED_PROTOCOL_VERSION = -32007;
 
+    /**
+     * 会话数达到上限（SELFLOOP3 loop-314）
+     */
+    public static final int SESSION_LIMIT_EXCEEDED = -32008;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

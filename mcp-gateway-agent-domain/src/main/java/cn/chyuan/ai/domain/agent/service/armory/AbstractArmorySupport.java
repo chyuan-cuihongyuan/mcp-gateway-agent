@@ -42,7 +42,7 @@ public abstract class AbstractArmorySupport extends AbstractMultiThreadStrategyR
         BeanDefinition beanDefinition = beanDefinitionBuilder.getRawBeanDefinition();
         beanDefinition.setScope(BeanDefinition.SCOPE_SINGLETON);
 
-        // 如果Bean已存在，先移�?
+        // 如果Bean已存在，先移除
         if (beanFactory.containsBeanDefinition(beanName)) {
             beanFactory.removeBeanDefinition(beanName);
         }

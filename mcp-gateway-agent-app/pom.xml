@@ -193,6 +193,14 @@
                     <mainClass>cn.chyuan.ai.Application</mainClass>
                     <layout>JAR</layout>
                 </configuration>
+                <executions>
+                    <!-- 构建元数据（SELFLOOP3 loop-317，工单 0432/0433）：/actuator/info 自动展示版本与构建时间 -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

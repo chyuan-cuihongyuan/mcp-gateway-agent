@@ -19,6 +19,7 @@ public enum SessionMessageHandlerMethodEnum {
     TOOLS_LIST("tools/list", "toolsListHandler", "工具列表请求"),
     TOOLS_CALL("tools/call", "toolsCallHandler", "工具调用请求"),
     RESOURCES_LIST("resources/list", "resourcesListHandler", "资源列表请求"),
+    PING("ping", "pingHandler", "保活探活请求（b-49，spec lifecycle ping utility）"),
 
     ;
 

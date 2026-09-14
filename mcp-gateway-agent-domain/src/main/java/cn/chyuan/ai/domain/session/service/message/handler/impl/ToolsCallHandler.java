@@ -5,6 +5,7 @@ import cn.chyuan.ai.domain.session.adapter.repository.ISessionRepository;
 import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import cn.chyuan.ai.domain.session.service.message.handler.IRequestHandler;
+import cn.chyuan.ai.domain.session.service.message.handler.support.ErrorSanitizer;
 import cn.chyuan.ai.types.enums.McpErrorCodes;
 import cn.chyuan.ai.types.enums.ResponseCode;
 import cn.chyuan.ai.types.exception.AppException;
@@ -39,6 +40,9 @@ public class ToolsCallHandler implements IRequestHandler {
 
     @Resource
     private ToolResultGuard toolResultGuard;
+
+    @Resource
+    private ErrorSanitizer errorSanitizer;
 
     @Override
     public McpSchemaVO.JSONRPCResponse handle(String gatewayId, McpSchemaVO.JSONRPCRequest message) {
@@ -99,13 +103,14 @@ public class ToolsCallHandler implements IRequestHandler {
                     "isError", false), null);
 
         } catch (AppException e) {
-            // 业务异常返回标准 MCP 错误
+            // 业务异常返回标准 MCP 错误（info 为业务文案，getMessage 恒 null——loop-305 修复）
             auditLogger.audit(gatewayId, toolName, argumentsObj, false,
                     System.currentTimeMillis() - startMs, String.valueOf(e.getCode()));
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,
-                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INVALID_PARAMS, e.getMessage(), null));
+                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INVALID_PARAMS,
+                            errorSanitizer.clientMessage(e), null));
         } catch (Exception e) {
             log.error("工具调用异常: gatewayId={}", gatewayId, e);
             auditLogger.audit(gatewayId, toolName, argumentsObj, false,
@@ -113,7 +118,8 @@ public class ToolsCallHandler implements IRequestHandler {
             return new McpSchemaVO.JSONRPCResponse(McpSchemaVO.JSONRPC_VERSION,
                     message.id(),
                     null,
-                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INTERNAL_ERROR, "内部错误: " + e.getMessage(), null));
+                    new McpSchemaVO.JSONRPCResponse.JSONRPCError(McpErrorCodes.INTERNAL_ERROR,
+                            errorSanitizer.clientMessage(e), null));
         }
     }
 

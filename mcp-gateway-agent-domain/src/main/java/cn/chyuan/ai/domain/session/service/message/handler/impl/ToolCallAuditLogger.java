@@ -22,8 +22,15 @@ public class ToolCallAuditLogger {
 
     private final ToolTagCatalog tagCatalog;
 
+    private final ToolAnnotationsCatalog annotationsCatalog;
+
     public ToolCallAuditLogger(ToolTagCatalog tagCatalog) {
+        this(tagCatalog, new ToolAnnotationsCatalog(""));
+    }
+
+    public ToolCallAuditLogger(ToolTagCatalog tagCatalog, ToolAnnotationsCatalog annotationsCatalog) {
         this.tagCatalog = tagCatalog;
+        this.annotationsCatalog = annotationsCatalog;
     }
 
     /**
@@ -45,6 +52,7 @@ public class ToolCallAuditLogger {
     public void audit(String gatewayId, String toolName, Object arguments,
                       boolean ok, long durationMs, String errCode, boolean consentRequired) {
         String tags = tagCatalog.auditValue(nz(toolName));
+        String annotations = annotationsCatalog.auditValue(nz(toolName));
         String line = "event=tool_call"
                 + " gatewayId=" + nz(gatewayId)
                 + " toolName=" + nz(toolName)
@@ -54,6 +62,7 @@ public class ToolCallAuditLogger {
                 + " errCode=" + (errCode == null ? "-" : errCode)
                 + (consentRequired ? " consent=required" : "")
                 + (tags != null ? " tags=" + tags : "")
+                + (annotations != null ? " annotations=" + annotations : "")
                 + " traceId=" + nz(MDC.get("traceId"));
         auditLog.info(line);
     }

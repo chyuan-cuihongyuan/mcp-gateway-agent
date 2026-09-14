@@ -26,6 +26,19 @@ class InitializeHandlerTest {
     }
 
     @Test
+    void instructionsCarriesGatewayDescForLLMContext() {
+        // b-48：MCP lifecycle spec 的 instructions 字段契约——服务器用法说明
+        // 直接来自网关描述，供 LLM 获得工具使用上下文（modelcontextprotocol.io
+        // /specification/2025-03-26/basic/lifecycle）
+        InitializeHandler handler = initializeHandler(List.of("2024-11-05", "2025-03-26"), "2024-11-05");
+
+        McpSchemaVO.JSONRPCResponse response = handler.handle("gateway_001", initializeRequest("2025-03-26"));
+
+        McpSchemaVO.InitializeResult result = (McpSchemaVO.InitializeResult) response.result();
+        assertThat(result.instructions()).isEqualTo("desc");
+    }
+
+    @Test
     void unsupportedClientProtocolVersionFallsBackToDefault() {
         InitializeHandler handler = initializeHandler(List.of("2024-11-05"), "2024-11-05");
 

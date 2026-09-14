@@ -32,6 +32,16 @@ GUARD_ESCAPE_MARK = '逃逸出工作区'
 GUARD_ABSOLUTE_MARK = '拒绝绝对路径'
 
 
+def _open_workspace_write(filename, mode='w', **kwargs):
+    """测试辅助统一写入口：先校验目标位于当前工作目录内再打开，防辅助写越界。"""
+    target = os.path.abspath(filename)
+    workdir = os.path.abspath(os.getcwd())
+    if os.path.commonpath([target, workdir]) != workdir:
+        raise ValueError('write outside workspace: %s' % filename)
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    return os.fdopen(fd, mode, **kwargs)
+
+
 def _make_fillable_form_pdf(path, field_name='name', width=300, height=300):
     """用 pypdf 对象级配方生成含单个文本域（page 1）的可填写表单 PDF。"""
     writer = PdfWriter()
@@ -51,14 +61,14 @@ def _make_fillable_form_pdf(path, field_name='name', width=300, height=300):
     acroform.update({NameObject('/Fields'): ArrayObject([field_obj])})
     writer._root_object[NameObject('/AcroForm')] = acroform
     writer._root_object[NameObject('/NeedAppearances')] = BooleanObject(True)
-    with open(path, 'wb') as f:
+    with _open_workspace_write(path, 'wb') as f:
         writer.write(f)
 
 
 def _make_blank_pdf(path, width=300, height=300):
     writer = PdfWriter()
     writer.add_blank_page(width=width, height=height)
-    with open(path, 'wb') as f:
+    with _open_workspace_write(path, 'wb') as f:
         writer.write(f)
 
 
@@ -67,7 +77,8 @@ class TestPathGuardUnit(unittest.TestCase):
 
     def setUp(self):
         self._old_cwd = os.getcwd()
-        self._workdir = tempfile.mkdtemp(prefix='path_guard_ws_')
+        # realpath 对齐 macOS /var -> /private/var 符号链接，保证断言前缀一致
+        self._workdir = os.path.realpath(tempfile.mkdtemp(prefix='path_guard_ws_'))
         os.chdir(self._workdir)
 
     def tearDown(self):
@@ -145,7 +156,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
         self._old_cwd = os.getcwd()
         self._workdir = tempfile.mkdtemp(prefix='pdf_guard_ws_')
         os.chdir(self._workdir)
-        with open('fields.json', 'w') as f:
+        with _open_workspace_write('fields.json') as f:
             json.dump(self.SAMPLE_FIELDS, f)
 
     def tearDown(self):
@@ -173,7 +184,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
     @unittest.skipUnless(PdfWriter is not None, 'pypdf 未安装')
     def test_fill_fillable_fields_success_in_workspace(self):
         _make_fillable_form_pdf('form.pdf')
-        with open('values.json', 'w', encoding='utf-8') as f:
+        with _open_workspace_write('values.json', encoding='utf-8') as f:
             json.dump([{'field_id': 'name', 'page': 1, 'value': 'Alice'}], f)
         code, out = _run_script('fill_fillable_fields.py',
                                 ['form.pdf', 'values.json', 'filled.pdf'],
@@ -199,7 +210,7 @@ class TestPdfScriptsPathGuard(unittest.TestCase):
                 'image_height': 100,
             }],
         }
-        with open('annot.json', 'w', encoding='utf-8') as f:
+        with _open_workspace_write('annot.json', encoding='utf-8') as f:
             json.dump(payload, f)
         code, out = _run_script('fill_pdf_form_with_annotations.py',
                                 ['blank.pdf', 'annot.json', 'annot_out.pdf'],

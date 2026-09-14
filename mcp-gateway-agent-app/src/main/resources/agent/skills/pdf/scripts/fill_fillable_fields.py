@@ -4,7 +4,7 @@ import sys
 
 import json
 from extract_form_field_info import get_field_info
-from path_guard import guard_path
+from path_guard import ensure_in_workspace, guard_path, open_workspace
 from pypdf import PdfReader, PdfWriter
 
 # Fills fillable form fields in a PDF. See forms.md.
@@ -58,7 +58,11 @@ def fill_pdf_fields(input_pdf_path: str, fields_json_path: str,
     # It may cause the viewer to show a "save changes" dialog even if the user doesn't make any changes.
     writer.set_need_appearances_writer(True)
 
-    with open(output_pdf_path, 'wb') as f:
+    # 入口边界防护（工单 1150）：写盘前对全部路径做二次工作区校验
+    input_pdf_path = ensure_in_workspace(input_pdf_path, '输入 PDF')
+    fields_json_path = ensure_in_workspace(fields_json_path, '字段值 JSON')
+    output_pdf_path = ensure_in_workspace(output_pdf_path, '输出 PDF')
+    with open_workspace(output_pdf_path, 'wb') as f:
         writer.write(f)
 
 

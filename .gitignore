@@ -65,3 +65,6 @@ application-test.yml
 
 # AUTOLOOP al-13：变更日志入库
 !CHANGELOG.md
+
+# Mimosa 钩子运行状态（工具内部文件，不入库）
+.mimosa/

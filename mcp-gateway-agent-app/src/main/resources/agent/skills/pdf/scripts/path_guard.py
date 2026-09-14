@@ -45,3 +45,29 @@ def guard_path(path, purpose='文件'):
         sys.exit(1)
 
     return resolved
+
+
+def ensure_in_workspace(path, purpose='文件'):
+    """业务函数入口的二次边界校验：接受已解析的路径（不拒绝对路径），只拒绝逃逸。"""
+    if not path:
+        print(f"错误: {purpose}路径为空，拒绝执行")
+        sys.exit(1)
+    workspace_root = os.path.abspath(os.getcwd())
+    resolved = os.path.abspath(path)
+    if os.path.normcase(os.path.commonpath([workspace_root, resolved])) != os.path.normcase(workspace_root):
+        print(f"错误: {purpose}路径逃逸出工作区目录: {path}")
+        sys.exit(1)
+    return resolved
+
+
+def open_workspace(path, mode='rb', **kwargs):
+    """guard_path 校验后的统一文件打开入口。
+
+    写场景以 os.open + fdopen 落盘（路径已由 guard_path 保证位于工作区内），
+    避免脚本内散落裸 open() 语义，统一读写边界。
+    """
+    if any(flag in mode for flag in ('w', 'a', 'x', '+')):
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    else:
+        fd = os.open(path, os.O_RDONLY)
+    return os.fdopen(fd, mode, **kwargs)

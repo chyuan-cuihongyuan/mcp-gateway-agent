@@ -8,6 +8,7 @@ import cn.chyuan.ai.domain.auth.service.IAuthRateLimitService;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -62,7 +63,8 @@ public class AuthRateLimitService implements IAuthRateLimitService {
             // 2. 尝试获取令牌
             return !rateLimiter.tryAcquire();
 
-        } catch (ExecutionException e) {
+        } catch (ExecutionException | UncheckedExecutionException e) {
+            // Cache.get 对受检异常包装为 ExecutionException，未受检异常包装为 UncheckedExecutionException
             Throwable cause = e.getCause();
             // 如果是无配置，按原逻辑返回 false (不限流)
             if (cause instanceof IllegalStateException) {

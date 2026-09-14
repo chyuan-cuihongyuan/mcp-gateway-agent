@@ -3,7 +3,7 @@
 import sys
 
 import json
-from path_guard import guard_path
+from path_guard import ensure_in_workspace, guard_path, open_workspace
 from pypdf import PdfReader
 
 # Extracts data for the fillable form fields in a PDF and outputs JSON that
@@ -147,9 +147,12 @@ def get_field_info(reader: PdfReader):
 
 
 def write_field_info(pdf_path: str, json_output_path: str):
+    # 入口边界防护（工单 1150）：写操作前对全部路径做二次工作区校验
+    pdf_path = ensure_in_workspace(pdf_path, '输入 PDF')
+    json_output_path = ensure_in_workspace(json_output_path, '输出 JSON')
     reader = PdfReader(pdf_path)
     field_info = get_field_info(reader)
-    with open(json_output_path, 'w') as f:
+    with open_workspace(json_output_path, 'w') as f:
         json.dump(field_info, f, indent=2)
     print(f'Wrote {len(field_info)} fields to {json_output_path}')
 

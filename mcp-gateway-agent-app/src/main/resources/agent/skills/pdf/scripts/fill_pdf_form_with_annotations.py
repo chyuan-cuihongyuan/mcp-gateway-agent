@@ -3,7 +3,7 @@
 import sys
 
 import json
-from path_guard import guard_path
+from path_guard import ensure_in_workspace, guard_path, open_workspace
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import FreeText
 
@@ -91,8 +91,12 @@ def fill_pdf_form(input_pdf_path, fields_json_path, output_pdf_path):
         # page_number is 0-based for pypdf
         writer.add_annotation(page_number=page_num - 1, annotation=annotation)
 
+    # 入口边界防护（工单 1150）：写盘前对全部路径做二次工作区校验
+    input_pdf_path = ensure_in_workspace(input_pdf_path, '输入 PDF')
+    fields_json_path = ensure_in_workspace(fields_json_path, '字段 JSON')
+    output_pdf_path = ensure_in_workspace(output_pdf_path, '输出 PDF')
     # Save the filled PDF
-    with open(output_pdf_path, 'wb') as output:
+    with open_workspace(output_pdf_path, 'wb') as output:
         writer.write(output)
 
     print(f'Successfully filled PDF form and saved to {output_pdf_path}')

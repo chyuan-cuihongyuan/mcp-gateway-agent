@@ -58,6 +58,16 @@ public class SessionMessageService implements ISessionMessageService {
 
         if (message instanceof McpSchemaVO.JSONRPCNotification notification) {
             log.info("收到即将处理的通知 {} {}", notification.method(), JSON.toJSONString(notification.params()));
+            // 协议级取消（SELFLOOP3 loop-342，工单 0482/0483）：规范 notifications/cancelled。
+            // 同步调用模型下无法真正中断在途工具调用（SSE 断连取消已覆盖主场景）；
+            // 此处显式识别 + warn 留痕，供调用方排查「为何结果仍返回」。
+            if ("notifications/cancelled".equals(notification.method())) {
+                java.util.Map<?, ?> params = notification.params() instanceof java.util.Map<?, ?> m ? m : null;
+                log.warn("客户端请求取消在途调用: gatewayId={} requestId={} reason={}",
+                        gatewayId,
+                        params != null ? params.get("requestId") : null,
+                        params != null ? params.get("reason") : null);
+            }
         }
 
         return null;

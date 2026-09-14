@@ -5,8 +5,11 @@ import cn.chyuan.ai.domain.session.model.valobj.McpSchemaVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolConfigVO;
 import cn.chyuan.ai.domain.session.model.valobj.gateway.McpToolProtocolConfigVO;
 import cn.chyuan.ai.domain.session.service.message.handler.IRequestHandler;
+import cn.chyuan.ai.types.enums.McpErrorCodes;
+import cn.chyuan.ai.types.exception.AppException;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,6 +31,10 @@ import java.util.Set;
 @Service("toolsListHandler")
 public class ToolsListHandler implements IRequestHandler {
 
+    /** tools/list 分页大小（SELFLOOP3 loop-326，工单 0450/0451；MCP 规范 cursor 语义，默认 50=单页全量） */
+    @Value("${mcp.tools.list-page-size:50}")
+    private int listPageSize;
+
     @Resource
     private ISessionRepository repository;
 
@@ -40,8 +47,52 @@ public class ToolsListHandler implements IRequestHandler {
         // 2. 构建工具列表
         List<McpSchemaVO.Tool> tools = buildTools(mcpToolConfigVOS);
 
-        return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), Map.of(
-                "tools", tools), null);
+        // 3. cursor 分页（MCP 规范：params.cursor opaque 游标，nextCursor 存在即还有下一页）
+        ToolPage toolPage = pageTools(tools, extractCursor(message.params()));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("tools", toolPage.items());
+        if (toolPage.hasNext()) {
+            result.put("nextCursor", toolPage.items().get(toolPage.items().size() - 1).name());
+        }
+
+        return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), result, null);
+    }
+
+    /** 分页结果（start=页起始下标，total=全集大小；线程安全：全部不可变） */
+    private record ToolPage(int start, List<McpSchemaVO.Tool> items, int total) {
+        boolean hasNext() {
+            return start + items.size() < total;
+        }
+    }
+
+    /** 按游标分页：cursor=null 从头；cursor=上次 nextCursor（某工具名）从其后继续；无效 cursor 报 INVALID_PARAMS */
+    private ToolPage pageTools(List<McpSchemaVO.Tool> tools, String cursor) {
+        int pageSize = Math.max(1, listPageSize);
+        int start = 0;
+        if (cursor != null && !cursor.isBlank()) {
+            int idx = -1;
+            for (int i = 0; i < tools.size(); i++) {
+                if (cursor.equals(tools.get(i).name())) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx < 0) {
+                throw new AppException(McpErrorCodes.INVALID_PARAMS, "无效的 tools/list 游标: " + cursor);
+            }
+            start = idx + 1;
+        }
+        int end = Math.min(start + pageSize, tools.size());
+        return new ToolPage(start, tools.subList(start, end), tools.size());
+    }
+
+    /** params 里的 cursor 键（params 为 Map 时读取，兼容 null/其他形态） */
+    @SuppressWarnings("unchecked")
+    private String extractCursor(Object params) {
+        if (params instanceof Map<?, ?> map && map.get("cursor") instanceof String cursor) {
+            return cursor;
+        }
+        return null;
     }
 
     private List<McpSchemaVO.Tool> buildTools(List<McpToolConfigVO> toolConfigs) {
@@ -49,6 +100,11 @@ public class ToolsListHandler implements IRequestHandler {
 
         for (McpToolConfigVO toolConfigVO : toolConfigs) {
             McpToolProtocolConfigVO mcpToolProtocolConfigVO = toolConfigVO.getMcpToolProtocolConfigVO();
+            // 协议配置缺失的工具跳过并告警（loop-326：单个坏配置不应拖垮整个列表接口）
+            if (mcpToolProtocolConfigVO == null) {
+                log.warn("工具协议配置缺失，跳过该工具: gatewayTool={}", toolConfigVO.getToolName());
+                continue;
+            }
             List<McpToolProtocolConfigVO.ProtocolMapping> configs = normalizeRequestMappings(mcpToolProtocolConfigVO
                     .getRequestProtocolMappings());
 

@@ -92,12 +92,14 @@ public class InitializeHandler implements IRequestHandler {
         // 3. 组装信息
         McpSchemaVO.InitializeResult initializeResult = new McpSchemaVO.InitializeResult(
                 protocolVersion,
+                // b-54 能力诚实性：listChanged 是"会发变更通知"的承诺，网关 DB
+                // 驱动无推送链路 → 一律 false（spec compliance，见 CapabilityHonestyTest）
                 new McpSchemaVO.ServerCapabilities(new McpSchemaVO.ServerCapabilities.CompletionCapabilities(),
                         new HashMap<>(),
                         new McpSchemaVO.ServerCapabilities.LoggingCapabilities(),
-                        new McpSchemaVO.ServerCapabilities.PromptCapabilities(true),
-                        new McpSchemaVO.ServerCapabilities.ResourceCapabilities(false, true),
-                        new McpSchemaVO.ServerCapabilities.ToolCapabilities(true)),
+                        null, // b-54 能力诚实性：无 prompts/list handler，不声明 prompts 能力（NON_ABSENT 序列化省略）
+                        new McpSchemaVO.ServerCapabilities.ResourceCapabilities(false, false),
+                        new McpSchemaVO.ServerCapabilities.ToolCapabilities(false)),
                 new McpSchemaVO.Implementation(mcpGatewayConfigVO.getGatewayName(), mcpGatewayConfigVO.getVersion()),
                 mcpGatewayConfigVO.getGatewayDesc());
 

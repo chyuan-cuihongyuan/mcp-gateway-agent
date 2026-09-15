@@ -57,13 +57,8 @@
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>3.1.1</version>
       </dependency>
-      <!-- 依赖收敛 pin（SELFLOOP2 loop-228，enforcer requireUpperBoundDeps 发现）：取传递链上界，
-           消除 ADK 1.7 链与 guava/checker-qual 的多版本共存 -->
-      <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>33.5.0-jre</version>
-      </dependency>
+      <!-- guava 33.5.0-jre：loop-228 上界收敛决策由 platform-bom 统一管理（loop-624 收编，
+           本地 pin 删除以消除双源；checker-qual pin 保留——上界来自其它传递链） -->
       <dependency>
         <groupId>org.checkerframework</groupId>
         <artifactId>checker-qual</artifactId>

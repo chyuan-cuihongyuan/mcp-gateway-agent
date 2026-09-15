@@ -47,7 +47,7 @@
       <dependency>
         <groupId>cn.chyuan.ai</groupId>
         <artifactId>platform-bom</artifactId>
-        <version>1.0</version>
+        <version>1.0</version><!-- 1.2 的 protobuf 4.33.5 管理与 ADK 1.7 链冲突（G53），待解后升级 -->
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -57,19 +57,25 @@
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>3.1.1</version>
       </dependency>
-      <!-- guava 33.5.0-jre：loop-228 上界收敛决策由 platform-bom 统一管理（loop-624 收编，
-           本地 pin 删除以消除双源；checker-qual pin 保留——上界来自其它传递链） -->
+      <!-- 依赖收敛 pin（SELFLOOP2 loop-228，enforcer requireUpperBoundDeps）：取传递链上界。
+           loop-625：BOM 1.2 已补 retrofit 管理，但 1.2 的 protobuf 4.33.5 与 ADK 链冲突（G53），
+           故 import 暂留 1.0、本地 pin 恢复；G53 解除后切 BOM 1.2 并删本地 pin -->
       <dependency>
-        <groupId>org.checkerframework</groupId>
-        <artifactId>checker-qual</artifactId>
-        <version>3.49.0</version>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.5.0-jre</version>
       </dependency>
-      <!-- Retrofit2（网关协议映射 HTTP 客户端） -->
       <dependency>
         <groupId>com.squareup.retrofit2</groupId>
         <artifactId>retrofit</artifactId>
         <version>2.9.0</version>
       </dependency>
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>3.49.0</version>
+      </dependency>
+      <!-- Retrofit2 2.9.0：loop-625 批一收编由 platform-bom 统一管理 -->
       <!-- 设计模式框架 -->
       <dependency>
         <groupId>cn.bugstack.wrench</groupId>

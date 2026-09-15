@@ -26,6 +26,9 @@ public class RequiredConfigurationValidator implements InitializingBean {
             "spring.ai.openai.api-key", "your-api-key-here",
             "observability.http.auth-key", "observability-gateway-key");
 
+    /** prod 必填关键配置（loop-680）：缺失即阻断启动（管理面 fail-closed 的启动期前置） */
+    private static final List<String> PROD_REQUIRED_KEYS = List.of("admin.auth-token");
+
     private final Environment environment;
 
     public RequiredConfigurationValidator(Environment environment) {
@@ -54,6 +57,13 @@ public class RequiredConfigurationValidator implements InitializingBean {
                 problems.add(key + " 使用弱默认值 \"" + weakValue + "\"");
             }
         });
+        // prod 必填键（loop-680）：admin.auth-token 缺失即阻断（管理面 fail-closed 启动期前置）
+        for (String key : PROD_REQUIRED_KEYS) {
+            String value = environment.getProperty(key);
+            if (value == null || value.isBlank()) {
+                problems.add(key + " 未配置（生产必填）");
+            }
+        }
         return problems;
     }
 

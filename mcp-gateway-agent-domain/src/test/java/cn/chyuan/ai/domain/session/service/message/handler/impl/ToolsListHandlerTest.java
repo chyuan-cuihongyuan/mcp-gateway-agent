@@ -138,4 +138,23 @@ class ToolsListHandlerTest {
         assertThat(tool.inputSchema().properties()).containsKey("sessionId");
         assertThat(tool.inputSchema().required()).containsExactly("sessionId");
     }
+
+    @Test
+    void toolListVersionStableAcrossOrderAndSensitiveToChanges() {
+        var a = new McpSchemaVO.Tool("tool_a", "描述A", "{}");
+        var b = new McpSchemaVO.Tool("tool_b", "描述B", "{}");
+
+        String v1 = ToolsListHandler.computeToolListVersion(List.of(a, b));
+        String v2 = ToolsListHandler.computeToolListVersion(List.of(b, a));
+        // 顺序无关：同清单恒同值（ETag 语义）
+        org.junit.jupiter.api.Assertions.assertEquals(v1, v2);
+        org.junit.jupiter.api.Assertions.assertEquals(8, v1.length());
+
+        // 内容变化 → 版本变化；description 为 null 不 NPE
+        var bChanged = new McpSchemaVO.Tool("tool_b", "新描述", "{}");
+        String v3 = ToolsListHandler.computeToolListVersion(List.of(a, bChanged));
+        org.junit.jupiter.api.Assertions.assertNotEquals(v1, v3);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> ToolsListHandler.computeToolListVersion(List.of(new McpSchemaVO.Tool("t", null, "{}"))));
+    }
 }

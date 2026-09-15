@@ -12,8 +12,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,8 +59,30 @@ public class ToolsListHandler implements IRequestHandler {
         if (toolPage.hasNext()) {
             result.put("nextCursor", toolPage.items().get(toolPage.items().size() - 1).name());
         }
+        // 清单版本号（SELFLOOP4 loop-420，工单 0638/0639；ETag 思想）：
+        // 全集内容 hash（与分页无关）放 MCP 规范 _meta 扩展位，客户端可比对探测变更
+        result.put("_meta", Map.of("toolListVersion", computeToolListVersion(tools)));
 
         return new McpSchemaVO.JSONRPCResponse("2.0", message.id(), result, null);
+    }
+
+    /**
+     * 工具清单内容版本（8 位 hex 短码）：对全集工具按名排序后拼 name|description 求 SHA-256，
+     * 与分页窗口无关——同清单恒同值，增删改任意工具即变化。
+     */
+    static String computeToolListVersion(List<McpSchemaVO.Tool> tools) {
+        StringBuilder canonical = new StringBuilder();
+        tools.stream()
+                .sorted(Comparator.comparing(McpSchemaVO.Tool::name, Comparator.nullsLast(Comparator.naturalOrder())))
+                .forEach(t -> canonical.append(t.name()).append('|')
+                        .append(t.description() == null ? "" : t.description()).append('\n'));
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.toString().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest, 0, 4);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm unavailable", e);
+        }
     }
 
     /** 分页结果（start=页起始下标，total=全集大小；线程安全：全部不可变） */

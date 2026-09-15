@@ -1,9 +1,11 @@
 package cn.chyuan.ai.config;
 
+import cn.chyuan.ai.trigger.config.AdminAuthInterceptor;
 import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.concurrent.ThreadPoolExecutor;
@@ -13,6 +15,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Resource
     private ThreadPoolExecutor threadPoolExecutor;
+
+    @Resource
+    private AdminAuthInterceptor adminAuthInterceptor;
+
+    /** 管理面鉴权（loop-669）：/admin/** 全拦截，fail-closed（token 未配置即拒绝） */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(adminAuthInterceptor).addPathPatterns("/admin/**");
+    }
 
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {

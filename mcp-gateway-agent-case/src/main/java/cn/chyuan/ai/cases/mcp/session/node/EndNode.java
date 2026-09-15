@@ -35,10 +35,14 @@ public class EndNode extends AbstractMcpSessionSupport {
 
         // 发送MCP协议要求的endpoint事件，告诉客户端后续消息发送地址
         String endpoint = "/api-gateway/" + requestParameter + "/mcp/sse?sessionId=" + sessionId;
-        sink.tryEmitNext(ServerSentEvent.<String>builder()
+        var emitResult = sink.tryEmitNext(ServerSentEvent.<String>builder()
                 .event("endpoint")
                 .data(endpoint)
                 .build());
+        if (emitResult.isFailure()) {
+            // 下游已取消/溢出时 endpoint 事件丢失，客户端将无法得知消息地址——显式告警留痕
+            log.warn("endpoint 事件发送失败（result={}）, sessionId={}", emitResult, sessionId);
+        }
         log.info("发送MCP endpoint事件: {}", endpoint);
 
         return sink.asFlux()

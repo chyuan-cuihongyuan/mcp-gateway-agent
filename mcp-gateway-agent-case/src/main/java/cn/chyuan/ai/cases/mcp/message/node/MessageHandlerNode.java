@@ -38,10 +38,14 @@ public class MessageHandlerNode extends AbstractMcpMessageServiceSupport {
             String responseJson = objectMapper.writeValueAsString(jsonrpcResponse);
 
             SessionConfigVO sessionConfigVO = dynamicContext.getSessionConfigVO();
-            sessionConfigVO.getSink().tryEmitNext(ServerSentEvent.<String>builder()
+            // tryEmitResult 失败时 warn 留痕（loop-702）：下游取消导致结果静默丢失的排障可见性
+            var emitResult = sessionConfigVO.getSink().tryEmitNext(ServerSentEvent.<String>builder()
                     .event("message")
                     .data(responseJson)
                     .build());
+            if (emitResult.isFailure()) {
+                log.warn("message 事件发送失败（result={}）, gatewayId={}", emitResult, requestParameter.getGatewayId());
+            }
         }
 
         return ResponseEntity.accepted().build();

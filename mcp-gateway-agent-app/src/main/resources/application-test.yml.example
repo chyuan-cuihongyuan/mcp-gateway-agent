@@ -73,6 +73,8 @@ observability:
 mcp:
   session:
     timeout-minutes: 30
+    # 过期清理扫描周期（分钟），loop-409 外置
+    cleanup-interval-minutes: 5
   cache:
     tool-config:
       enabled: true

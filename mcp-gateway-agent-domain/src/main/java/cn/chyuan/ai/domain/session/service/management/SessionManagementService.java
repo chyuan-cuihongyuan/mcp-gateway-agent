@@ -50,6 +50,13 @@ public class SessionManagementService implements ISessionManagementService {
     private int maxActiveSessions;
 
     /**
+     * 过期清理扫描周期（分钟，SELFLOOP4 loop-409 外置；默认 5 与历史硬编码一致）。
+     * 调度移入 @PostConstruct：构造器先于 @Value 注入执行，读取字段会得 0。
+     */
+    @Value("${mcp.session.cleanup-interval-minutes:5}")
+    private long cleanupIntervalMinutes;
+
+    /**
      * 定时任务调度
      */
     private final ScheduledExecutorService cleanupScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -74,9 +81,16 @@ public class SessionManagementService implements ISessionManagementService {
         return sessionMetrics != null ? sessionMetrics : SessionMetrics.noOp();
     }
 
-    public SessionManagementService() {
-        cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, 5, 5, TimeUnit.MINUTES);
-        log.info("会话管理服务已启动");
+    @jakarta.annotation.PostConstruct
+    public void startCleanupScheduler() {
+        long interval = resolveInterval(cleanupIntervalMinutes);
+        cleanupScheduler.scheduleAtFixedRate(this::cleanupExpiredSessions, interval, interval, TimeUnit.MINUTES);
+        log.info("会话管理服务已启动，清理周期: {} 分钟", interval);
+    }
+
+    /** 清理周期下限钳位（≤0 视为配置误用，钳为 1 分钟） */
+    static long resolveInterval(long configured) {
+        return Math.max(1, configured);
     }
 
     @Override

@@ -36,6 +36,19 @@ class SessionManagementServiceTest {
     }
 
     @Test
+    void cleanupIntervalClampedToOneMinuteMinimum() {
+        assertThat(SessionManagementService.resolveInterval(0)).isEqualTo(1);
+        assertThat(SessionManagementService.resolveInterval(-3)).isEqualTo(1);
+        assertThat(SessionManagementService.resolveInterval(5)).isEqualTo(5);
+    }
+
+    @Test
+    void startCleanupSchedulerIsIdempotentSafeAfterInjection() {
+        ReflectionTestUtils.setField(service, "cleanupIntervalMinutes", 5L);
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(service::startCleanupScheduler);
+    }
+
+    @Test
     void createSessionPersistsRedisMetadata() throws Exception {
         SessionConfigVO session = service.createSession("gateway_001", "secret-key");
 

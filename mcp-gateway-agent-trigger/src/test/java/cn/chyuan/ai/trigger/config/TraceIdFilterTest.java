@@ -49,6 +49,34 @@ class TraceIdFilterTest {
     }
 
     @Test
+    void acceptsXRequestIdAsAliasSourceAndEchoesBothHeaders() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/chat");
+        request.addHeader(TraceIdFilter.HEADER_REQUEST_ID, "req-alias-77");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicReference<String> ctxInside = new AtomicReference<>();
+
+        filter.doFilter(request, response, (req, res) -> ctxInside.set(TraceContext.getTraceId()));
+
+        // 别名来源生效 + 双回写（X-Trace-Id / X-Request-Id 同值，调用方零适配）
+        assertThat(ctxInside.get()).isEqualTo("req-alias-77");
+        assertThat(response.getHeader(TraceIdFilter.HEADER_TRACE_ID)).isEqualTo("req-alias-77");
+        assertThat(response.getHeader(TraceIdFilter.HEADER_REQUEST_ID)).isEqualTo("req-alias-77");
+    }
+
+    @Test
+    void xTraceIdTakesPriorityOverXRequestId() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/chat");
+        request.addHeader(TraceIdFilter.HEADER_TRACE_ID, "trace-priority-1");
+        request.addHeader(TraceIdFilter.HEADER_REQUEST_ID, "req-should-lose");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> { });
+
+        assertThat(response.getHeader(TraceIdFilter.HEADER_TRACE_ID)).isEqualTo("trace-priority-1");
+        assertThat(response.getHeader(TraceIdFilter.HEADER_REQUEST_ID)).isEqualTo("trace-priority-1");
+    }
+
+    @Test
     void rejectsMalformedHeaderAndDualCleanupEvenWhenChainThrows() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api-gateway/sse");
         request.addHeader(TraceIdFilter.HEADER_TRACE_ID, "evil\ninjection");

@@ -32,6 +32,8 @@ import java.util.UUID;
 public class TraceIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER_TRACE_ID = "X-Trace-Id";
+    /** 生态惯例别名来源（SELFLOOP4 loop-408）：X-Trace-Id 缺席时接受 X-Request-Id */
+    public static final String HEADER_REQUEST_ID = "X-Request-Id";
     public static final String MDC_TRACE_ID = "trace-id";
     private static final int MAX_TRACE_ID_LEN = 64;
 
@@ -40,11 +42,15 @@ public class TraceIdFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String traceId = sanitize(request.getHeader(HEADER_TRACE_ID));
         if (traceId == null) {
+            traceId = sanitize(request.getHeader(HEADER_REQUEST_ID));
+        }
+        if (traceId == null) {
             traceId = UUID.randomUUID().toString().replace("-", "");
         }
         MDC.put(MDC_TRACE_ID, traceId);
         TraceContext.setTraceId(traceId);
         response.setHeader(HEADER_TRACE_ID, traceId);
+        response.setHeader(HEADER_REQUEST_ID, traceId);
         try {
             filterChain.doFilter(request, response);
         } finally {

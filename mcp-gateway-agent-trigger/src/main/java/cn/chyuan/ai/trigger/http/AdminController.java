@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @RestController
 @CrossOrigin(origins = { "${cors.allowed-origins:http://localhost:3000}" }, allowedHeaders = "*", methods = {
                 RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS })
-@RequestMapping("/admin/")
+@RequestMapping("/admin")
 public class AdminController implements IAdminService {
 
         @Resource

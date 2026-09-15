@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/")
+@RequestMapping("/api/v1") // 尾斜杠规范（loop-503/T43）
 @CrossOrigin(origins = {
         "${cors.allowed-origins:http://localhost:3000}" }, allowCredentials = "true", allowedHeaders = "*")
 public class AgentServiceController implements IAgentService {

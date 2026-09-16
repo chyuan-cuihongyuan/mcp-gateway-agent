@@ -44,7 +44,11 @@ build/
 
 ### 文档清理：不提交到 GitHub ###
 doc/
-docs/
+# docs/ → docs/*（SELFLOOP5 loop-518）：目录级忽略会剪枝子文件无法白名单；
+# 语义不变（仍忽略 docs 下全部），仅打开 schema 资产子目录的入库通道
+docs/*
+!docs/dev-ops/
+!docs/dev-ops/mysql/
 claude.md
 CLAUDE.md
 *.md

@@ -30,21 +30,40 @@ public class GatewayToolConfigService implements IGatewayToolConfigService {
             ToolDescriptionGuard.check(commandEntity.getGatewayToolConfigVO().getToolDescription());
         }
         repository.saveGatewayToolConfig(commandEntity);
+        audit("TOOL_CONFIG_SAVE", commandEntity);
     }
 
     @Override
     public void updateGatewayToolProtocol(GatewayToolConfigCommandEntity commandEntity) {
         repository.updateGatewayToolProtocol(commandEntity);
+        audit("TOOL_CONFIG_UPDATE_PROTOCOL", commandEntity);
     }
 
     @Override
     public void deleteGatewayToolConfig(Long toolId) {
         repository.deleteGatewayToolConfig(toolId);
+        // SELFLOOP7 loop-814：配置变更审计行（日志即事件流，Loki 可溯；不落描述全文）
+        log.info("audit: action=TOOL_CONFIG_DELETE resourceId={} resourceType=mcp_gateway_tool", toolId);
     }
 
     @Override
     public List<GatewayToolConfigVO> queryGatewayToolConfigList(String gatewayId) {
         return repository.queryGatewayToolConfigList(gatewayId);
+    }
+
+    /**
+     * SELFLOOP7 loop-814：配置变更审计行——结构化 key=value（HttpEventLogger 同构），
+     * 记 action/resourceId/描述长度/guard 通过情况；描述全文不落日志（大字段纪律）。
+     */
+    private void audit(String action, GatewayToolConfigCommandEntity commandEntity) {
+        GatewayToolConfigVO vo = commandEntity.getGatewayToolConfigVO();
+        if (vo == null) {
+            log.info("audit: action={} resourceType=mcp_gateway_tool", action);
+            return;
+        }
+        int descLength = vo.getToolDescription() == null ? 0 : vo.getToolDescription().length();
+        log.info("audit: action={} resourceId={} resourceType=mcp_gateway_tool gatewayId={} toolName={} descLength={}",
+                action, vo.getToolId(), vo.getGatewayId(), vo.getToolName(), descLength);
     }
 
 }

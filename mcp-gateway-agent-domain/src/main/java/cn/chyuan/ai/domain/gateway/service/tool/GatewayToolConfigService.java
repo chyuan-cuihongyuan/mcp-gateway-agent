@@ -25,6 +25,10 @@ public class GatewayToolConfigService implements IGatewayToolConfigService {
 
     @Override
     public void saveGatewayToolConfig(GatewayToolConfigCommandEntity commandEntity) {
+        // SELFLOOP7 loop-812（OWASP MCP03）：描述进入 LLM 上下文前做投毒内容闸（fail-closed）
+        if (commandEntity.getGatewayToolConfigVO() != null) {
+            ToolDescriptionGuard.check(commandEntity.getGatewayToolConfigVO().getToolDescription());
+        }
         repository.saveGatewayToolConfig(commandEntity);
     }
 

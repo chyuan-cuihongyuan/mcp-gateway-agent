@@ -193,7 +193,8 @@ CREATE TABLE `mcp_protocol_mapping` (
   KEY `idx_mapping_type` (`mapping_type`),
   KEY `idx_parent_path` (`parent_path`),
   KEY `idx_mcp_path` (`mcp_path`),
-  KEY `idx_sort_order` (`sort_order`)
+  KEY `idx_sort_order` (`sort_order`),
+  KEY `idx_protocol_id` (`protocol_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='MCP映射配置表';
 
 LOCK TABLES `mcp_protocol_mapping` WRITE;

@@ -82,4 +82,47 @@ class ToolResultGuardTest {
         assertNotEquals(result, text);
         org.junit.jupiter.api.Assertions.assertTrue(text.contains("[spilled"));
     }
+
+    // ========== SELFLOOP7 loop-818（OWASP MCP06 / 工单 3035/3036）：delimiter 包裹 ==========
+
+    private ToolResultGuard guardWith(int maxChars, boolean delimit) {
+        ToolResultGuard guard = guardWith(maxChars);
+        ReflectionTestUtils.setField(guard, "delimit", delimit);
+        return guard;
+    }
+
+    @Test
+    @DisplayName("delimit 默认关：未超限原样透传（同一实例）")
+    void delimitDisabledByDefault() {
+        ToolResultGuard guard = guardWith(100, false);
+        Object result = Map.of("station", "站点A");
+
+        assertSame(result, guard.guard(result, "oil_query"));
+    }
+
+    @Test
+    @DisplayName("delimit 开启：返回体包裹 tool_data 边界（数据/指令边界显式化）")
+    void delimitWrapsResult() {
+        ToolResultGuard guard = guardWith(1000, true);
+
+        Object guarded = guard.guard("{\"price\":7.5}", "oil_query");
+        String text = String.valueOf(guarded);
+
+        org.junit.jupiter.api.Assertions.assertTrue(text.startsWith("<tool_data tool=\"oil_query\">\n"));
+        org.junit.jupiter.api.Assertions.assertTrue(text.endsWith("\n</tool_data>"));
+        org.junit.jupiter.api.Assertions.assertTrue(text.contains("{\"price\":7.5}"));
+    }
+
+    @Test
+    @DisplayName("delimit×超限交互：先包裹后截断，开放边界标记存活")
+    void delimitWithTruncationKeepsOpenBoundary() {
+        ToolResultGuard guard = guardWith(40, true);
+        String big = "x".repeat(100);
+
+        String text = String.valueOf(guard.guard(big, "dump"));
+
+        // 开放边界在截断窗口内必须存活（LLM 知道后续是数据）；关闭边界被截属预期
+        org.junit.jupiter.api.Assertions.assertTrue(text.startsWith("<tool_data tool=\"dump\">"));
+        org.junit.jupiter.api.Assertions.assertTrue(text.contains("[spilled"));
+    }
 }

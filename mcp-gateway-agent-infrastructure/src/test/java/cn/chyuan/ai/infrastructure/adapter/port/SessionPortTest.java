@@ -148,6 +148,55 @@ class SessionPortTest {
         verify(call, times(1)).execute();
     }
 
+    // ========== SELFLOOP7 loop-811（MCP05）：GET 路径参数必须 URL 编码 ==========
+
+    @Test
+    void getEncodesPathParamSpecialCharacters() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.execute()).thenReturn(retrofit2.Response.success(ResponseBody.create("{\"code\":0}",
+                MediaType.parse("application/json"))));
+        when(gateway.get(any(String.class), any(Map.class), any(Map.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+
+        McpToolProtocolConfigVO.HTTPConfig config = httpConfig("get");
+        config.setHttpUrl("http://example.test/api/orders/{orderId}");
+
+        port.toolCall(config, Map.of("orderId", "../admin?a=1#frag"));
+
+        ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(gateway).get(urlCaptor.capture(), any(Map.class), any(Map.class));
+        // 结构破坏字符必须被百分号编码：路径分隔 / 与查询 ?、片段 # 均不可裸出现，
+        // 参数值无法改写路径结构或注入查询参数（. 与 = 是 path segment 合法字符，保留）
+        String captured = urlCaptor.getValue();
+        assertThat(captured).isEqualTo("http://example.test/api/orders/..%2Fadmin%3Fa=1%23frag");
+        assertThat(captured.substring("http://example.test/api/orders/".length()))
+                .doesNotContain("/", "?", "#");
+    }
+
+    @Test
+    void getKeepsPlainPathParamUnchanged() throws Exception {
+        GenericHttpGateway gateway = mock(GenericHttpGateway.class);
+        Call<ResponseBody> call = mock(Call.class);
+        when(call.timeout()).thenReturn(new Timeout());
+        when(call.execute()).thenReturn(retrofit2.Response.success(ResponseBody.create("{\"code\":0}",
+                MediaType.parse("application/json"))));
+        when(gateway.get(any(String.class), any(Map.class), any(Map.class))).thenReturn(call);
+
+        SessionPort port = new SessionPort();
+        ReflectionTestUtils.setField(port, "gateway", gateway);
+
+        McpToolProtocolConfigVO.HTTPConfig config = httpConfig("get");
+        config.setHttpUrl("http://example.test/api/orders/{orderId}");
+
+        port.toolCall(config, Map.of("orderId", "OD012026052515030031863"));
+
+        verify(gateway).get(eq("http://example.test/api/orders/OD012026052515030031863"), any(Map.class), eq(Map.of()));
+    }
+
     private McpToolProtocolConfigVO.HTTPConfig httpConfig(String method) {
         McpToolProtocolConfigVO.HTTPConfig config = new McpToolProtocolConfigVO.HTTPConfig();
         config.setHttpMethod(method);

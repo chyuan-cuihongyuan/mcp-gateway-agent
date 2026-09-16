@@ -19,11 +19,13 @@ import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriUtils;
 import retrofit2.Call;
 import retrofit2.Response;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -139,7 +141,10 @@ public class SessionPort implements ISessionPort {
         while (matcher.find()) {
             String name = matcher.group(1);
             if (queryParams.containsKey(name)) {
-                url = url.replace("{" + name + "}", String.valueOf(queryParams.get(name)));
+                // SELFLOOP7 loop-811（MCP05）：路径参数必须编码——LLM 生成的参数值
+                // 可能含 / ? # & % 等字符，原样替换会注入 URL 结构（路径穿越/查询注入）
+                String encoded = UriUtils.encodePathSegment(String.valueOf(queryParams.get(name)), StandardCharsets.UTF_8);
+                url = url.replace("{" + name + "}", encoded);
                 queryParams.remove(name);
             }
         }

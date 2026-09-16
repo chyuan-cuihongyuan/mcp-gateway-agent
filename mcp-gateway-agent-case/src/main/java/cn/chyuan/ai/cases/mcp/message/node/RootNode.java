@@ -47,7 +47,8 @@ public class RootNode extends AbstractMcpMessageServiceSupport {
                     boolean isHit = authRateLimitService.rateLimit(new RateLimitCommandEntity(requestParameter.getGatewayId(), requestParameter.getApiKey()));
                     if (isHit) {
                         log.warn("消息处理 mcp message RootNode - 命中限流{} {}", requestParameter.getGatewayId(), requestParameter.getApiKey());
-                        throw new AppException(McpErrorCodes.INSUFFICIENT_PERMISSIONS, "fail to auth apikey rateLimiter");
+                        // SELFLOOP7 loop-804：限流≠权限不足——独立错误码让客户端降速重试而非弃用 key
+                        throw new AppException(McpErrorCodes.RATE_LIMITED, "rate limit exceeded, retry later");
                     }
                 }
             }

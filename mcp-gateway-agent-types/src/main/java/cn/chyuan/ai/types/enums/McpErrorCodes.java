@@ -80,6 +80,12 @@ public final class McpErrorCodes {
      */
     public static final int SESSION_LIMIT_EXCEEDED = -32008;
 
+    /**
+     * 请求速率超限（SELFLOOP7 loop-804）：客户端应降速重试，与权限不足(-32006)区分处置。
+     * 借鉴 GitHub API 限流可编程识别思想，按 JSON-RPC 自定义错误码段落地。
+     */
+    public static final int RATE_LIMITED = -32009;
+
     private McpErrorCodes() {
         // 工具类，禁止实例化
     }

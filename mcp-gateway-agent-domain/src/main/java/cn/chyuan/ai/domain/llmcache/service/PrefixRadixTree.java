@@ -89,9 +89,8 @@ public class PrefixRadixTree {
         List<String> expiredTailKeys();
     }
 
-    /** 按末端键剪除分支（祖先仍被其他分支共享则保留） */
+    /** 按末端键剪除分支（返回直接移除的末端节点数；断链的孤儿中间节点一并回收） */
     public synchronized int pruneTail(String tailKey) {
-        // 定位路径：单链哈希无反向指针，借助父层扫描
         int removed = 0;
         Deque<Node> stack = new ArrayDeque<>();
         stack.push(root);
@@ -104,6 +103,26 @@ public class PrefixRadixTree {
                 removed++;
             }
             stack.addAll(node.children.values());
+        }
+        // 断链回收：孩子清空且非末端的中间节点随分支一并剪除（root 除外，不计入返回数）
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            Deque<Node> sweep = new ArrayDeque<>();
+            sweep.push(root);
+            while (!sweep.isEmpty()) {
+                Node node = sweep.pop();
+                for (java.util.Iterator<Node> it = node.children.values().iterator(); it.hasNext(); ) {
+                    Node candidate = it.next();
+                    if (candidate.children.isEmpty() && !candidate.terminal) {
+                        it.remove();
+                        nodeCount--;
+                        changed = true;
+                    } else {
+                        sweep.push(candidate);
+                    }
+                }
+            }
         }
         return removed;
     }

@@ -317,9 +317,11 @@ public final class ExprKernel {
             }
         }
 
-        private boolean match(String punct) {
+        private boolean match(String text) {
             Token token = peek();
-            if ("PUNCT".equals(token.kind()) && punct.equals(token.text())) {
+            String kind = token.kind();
+            // 逻辑连接符（&&/||/!）与 in/matches 词法为 OP，括号点逗为 PUNCT，两者都可能参与匹配
+            if (("PUNCT".equals(kind) || "OP".equals(kind)) && text.equals(token.text())) {
                 advance();
                 return true;
             }

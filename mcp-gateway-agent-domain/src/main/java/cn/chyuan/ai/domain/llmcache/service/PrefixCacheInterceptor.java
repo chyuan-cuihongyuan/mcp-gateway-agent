@@ -35,7 +35,7 @@ public class PrefixCacheInterceptor {
     private String tenantWhitelist;
 
     @Value("${prefix.cache.ttl-ms:600000}")
-    private long ttlMs;
+    private long ttlMs = 600_000L;
 
     /** 命中标记（chat 响应链路可读；0=无，>0=命中深度） */
     private static final ThreadLocal<Integer> LAST_PREFIX_DEPTH = new ThreadLocal<>();

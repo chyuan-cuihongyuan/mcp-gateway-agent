@@ -63,20 +63,30 @@ public class PrefixCacheStore {
         };
     }
 
-    /** 写入（容量满按 LRU 淘汰；租户配额满时拒绝写入返回 false） */
+    /** 写入（容量满先按 LRU 腾位再验配额；租户配额满时拒绝写入返回 false） */
     public boolean put(String key, String tenant, String response, long ttlMs) {
         lock.lock();
         try {
             long now = clock.nowMs();
             evictExpired(now);
-            int tenantQuota = Math.max(1, capacity * tenantQuotaPercent / 100);
-            if (tenantCounts.getOrDefault(tenant, 0) >= tenantQuota
-                    && !entries.containsKey(key)) {
-                return false;
-            }
             CacheEntry previous = entries.remove(key);
             if (previous != null) {
                 tenantCounts.merge(tenant, -1, Integer::sum);
+            }
+            // 先腾位（满容淘汰最久未用）再验配额：同租户旧条目被淘汰后即可写入（0279 LRU+配额口径）
+            if (previous == null && entries.size() >= capacity) {
+                java.util.Iterator<Map.Entry<String, CacheEntry>> eldest = entries.entrySet().iterator();
+                if (eldest.hasNext()) {
+                    CacheEntry evicted = eldest.next().getValue();
+                    eldest.remove();
+                    tenantCounts.merge(evicted.tenant(), -1, Integer::sum);
+                    evictions++;
+                }
+            }
+            // 租户配额按占比向上取整（容量 3×50% → 2），至少 1
+            int tenantQuota = Math.max(1, (int) Math.ceil(capacity * tenantQuotaPercent / 100.0));
+            if (tenantCounts.getOrDefault(tenant, 0) >= tenantQuota) {
+                return false;
             }
             entries.put(key, new CacheEntry(response, now + ttlMs, tenant));
             tenantCounts.merge(tenant, 1, Integer::sum);

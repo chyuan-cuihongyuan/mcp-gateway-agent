@@ -24,18 +24,19 @@ class PrefixRadixTreeTest {
         assertEquals(3, tree.longestMatch(keys("k1", "k2", "k3")));
         assertEquals(2, tree.longestMatch(keys("k1", "k2", "zz")));
         assertEquals(0, tree.longestMatch(keys("zz", "k2")));
-        // 分支插入后另一分支匹配
+        // 分支插入后另一分支整链匹配（k1→x 为已插入末端）
         assertTrue(tree.insert(keys("k1", "x")));
-        assertEquals(1, tree.longestMatch(keys("k1", "x")));
-        // 收益累计（3 块 × 100 token/块）
-        assertEquals(3L * 100, tree.savedTokens());
+        assertEquals(2, tree.longestMatch(keys("k1", "x")));
+        // 收益逐次累计：3+2+0+2 块 × 100 token/块
+        assertEquals(7L * 100, tree.savedTokens());
     }
 
     @Test
     void 深度与节点数上限() {
         PrefixRadixTree depthLimited = new PrefixRadixTree(2, 1024, 10);
         assertFalse(depthLimited.insert(keys("a", "b", "c")));
-        PrefixRadixTree nodeLimited = new PrefixRadixTree(64, 3, 10);
+        // 节点数上限（root 计 1）：上限 5 时 [a,b] 后（3 节点）[c,d,e] 需 6 节点拒绝、[c,f] 恰好 5 节点可入
+        PrefixRadixTree nodeLimited = new PrefixRadixTree(64, 5, 10);
         assertTrue(nodeLimited.insert(keys("a", "b")));
         assertFalse(nodeLimited.insert(keys("c", "d", "e")));
         // 剪除分支

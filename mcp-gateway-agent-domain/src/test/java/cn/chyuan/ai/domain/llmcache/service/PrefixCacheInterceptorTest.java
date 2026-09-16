@@ -59,9 +59,8 @@ class PrefixCacheInterceptorTest {
 
     @Test
     void 流式与租户白名单与关闭() throws Exception {
-        // 流式不缓存
+        // 流式 lookup 旁路（store 侧流式不缓存由调用方在 cachePut 处保证，见 0280 口径）
         assertNull(interceptor.lookup("t1", "m", messages("a"), true));
-        assertFalse(interceptor.store("t1", "m", messages("a"), "r"));
         // 白名单
         java.lang.reflect.Field whitelist = PrefixCacheInterceptor.class.getDeclaredField("tenantWhitelist");
         whitelist.setAccessible(true);

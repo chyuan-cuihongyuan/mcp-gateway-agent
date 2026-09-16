@@ -24,8 +24,8 @@ class ModelCatalogServiceTest {
     @BeforeEach
     void setUp() {
         rows = new ConcurrentHashMap<>();
-        service = new ModelCatalogService(new InMemoryStore(rows), pricingId -> rows.values().stream()
-                .anyMatch(entry -> entry.pricingEntryId() != null && entry.pricingEntryId() == pricingId));
+        // 假计价表：仅 100 号条目存在（与目录行解耦，避免自探测假阳性）
+        service = new ModelCatalogService(new InMemoryStore(rows), pricingId -> pricingId == 100L);
     }
 
     @Test
@@ -37,6 +37,11 @@ class ModelCatalogServiceTest {
         // 计价条目缺失→警告不阻断
         assertFalse(service.checkPricing(entry).linked());
         assertTrue(service.checkPricing(entry).warned());
+        // 计价条目存在（100 号）→联动成功不告警
+        ModelEntry linked = service.register(new ModelEntry(null, "gpt-5-mini", 8_000,
+                Set.of("text"), 100L, null, null, "op"));
+        assertTrue(service.checkPricing(linked).linked());
+        assertFalse(service.checkPricing(linked).warned());
         // 重复注册拒绝
         assertThrows(IllegalArgumentException.class, () -> service.register(new ModelEntry(null, "gpt-5",
                 8_000, Set.of("text"), null, null, null, "op")));

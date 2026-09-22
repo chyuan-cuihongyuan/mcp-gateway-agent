@@ -71,11 +71,11 @@ class PolicyEngineTest {
         // 无 DENY 时取最高优先级 ALLOW
         Decision allowed = engine.evaluate("k1", "gpt-5", "chat", Map.of());
         assertTrue(allowed.allowed());
-        // 无命中 → defaultEffect (DENY fail-closed)
+        // defaultEffect 仅在无命中时生效：allow-all 通配命中下仍 ALLOW（defaultEffect 不压制实际命中）
         engine.setDefaultEffect(PolicyEngine.EFFECT_DENY);
-        Decision none = engine.evaluate("k1", "unknown", "chat", Map.of());
-        assertFalse(none.allowed());
-        assertTrue(none.hitStatementNames().isEmpty());
+        Decision matched = engine.evaluate("k1", "unknown", "chat", Map.of());
+        assertTrue(matched.allowed());
+        assertEquals(1, matched.hitStatementNames().size());
     }
 
     @Test
@@ -90,8 +90,8 @@ class PolicyEngineTest {
         // subject/object/action 路径也可用
         engine.register(statement("path-cond", "*", "*", "*",
                 "subject.startsWith", PolicyEngine.EFFECT_ALLOW, 1));
-        // startsWith 不是合法求值（null 路径函数不存在）→ 求值异常 → 不命中
-        assertFalse(engine.evaluate("k1", "m", "chat", Map.of("startsWith", null)).allowed());
+        // startsWith 不是合法求值（路径无界）→ 条件不成立 → 不命中（空上下文避免 Map.of 禁 null）
+        assertFalse(engine.evaluate("k1", "m", "chat", Map.of()).allowed());
     }
 
     @Test

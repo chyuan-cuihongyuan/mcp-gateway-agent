@@ -81,9 +81,17 @@ public final class ExprKernel {
         return b;
     }
 
-    /** 语法预检（不求值） */
+    /** 语法预检（不求值：词法+语法结构合法性，语义比较在求值期 fail-closed） */
     public static void validate(String expression) {
-        evaluate(expression, Map.of());
+        if (expression == null || expression.isBlank()) {
+            throw new ExprException("表达式不能为空");
+        }
+        if (expression.length() > MAX_LENGTH) {
+            throw new ExprException("表达式超长（>" + MAX_LENGTH + "）");
+        }
+        Parser parser = new Parser(new Lexer(expression).tokenize());
+        parser.parseExpression();
+        parser.expectEof();
     }
 
     // ── 词法 ──
@@ -123,12 +131,22 @@ public final class ExprKernel {
                     tokens.add(new Token("PUNCT", String.valueOf(c)));
                     pos++;
                 } else if (c == '!') {
-                    tokens.add(new Token("OP", nextCharEquals('=') ? "!=" : "!"));
+                    if (nextCharEquals('=')) {
+                        tokens.add(new Token("OP", "!="));
+                    } else {
+                        tokens.add(new Token("OP", "!"));
+                        pos++;
+                    }
                 } else if (c == '=') {
                     require(nextCharEquals('='), "非法单 =（相等请用 ==）");
                     tokens.add(new Token("OP", "=="));
                 } else if (c == '<' || c == '>') {
-                    tokens.add(new Token("OP", nextCharEquals('=') ? String.valueOf(c) + "=" : String.valueOf(c)));
+                    if (nextCharEquals('=')) {
+                        tokens.add(new Token("OP", c + "="));
+                    } else {
+                        tokens.add(new Token("OP", String.valueOf(c)));
+                        pos++;
+                    }
                 } else if (c == '&') {
                     require(nextCharEquals('&'), "非法单个 &（逻辑与请用 &&）");
                     tokens.add(new Token("OP", "&&"));
@@ -279,11 +297,15 @@ public final class ExprKernel {
                     }
                     return new Path(List.copyOf(segments));
                 }
-                case "(" -> {
-                    advance();
-                    Node inner = parseOr(depth + 1);
-                    expect(")");
-                    return inner;
+                case "PUNCT" -> {
+                    // 括号词法为 PUNCT（文本 "("），分组走递归 parseOr（0357 复核修正）
+                    if ("(".equals(token.text())) {
+                        advance();
+                        Node inner = parseOr(depth + 1);
+                        expect(")");
+                        return inner;
+                    }
+                    throw new ExprException("意外的记号: " + token.text());
                 }
                 default -> throw new ExprException("意外的记号: " + token.text());
             }
